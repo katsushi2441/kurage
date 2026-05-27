@@ -363,6 +363,21 @@ var curPage = 0;
 
 var X_SVG = '<svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor;vertical-align:middle;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>';
 
+function primeThumbVideos(root) {
+    (root || document).querySelectorAll('video.thumb-video').forEach(function(v) {
+        if (v.dataset.thumbReady) return;
+        v.dataset.thumbReady = '1';
+        v.muted = true;
+        v.addEventListener('loadedmetadata', function() {
+            try {
+                var t = Math.min(1, Math.max(0, (v.duration || 2) - 0.1));
+                if (isFinite(t)) v.currentTime = t;
+            } catch (e) {}
+        }, { once: true });
+        v.addEventListener('seeked', function() { v.pause(); }, { once: true });
+    });
+}
+
 function esc(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -396,7 +411,7 @@ function renderCards(from, to) {
         var html = '<div class="post-card">'
             + '<div style="display:flex;gap:12px;align-items:flex-start;">'
             + '<div class="card-video-wrap" data-jid="' + esc(jid) + '">'
-            + '<video src="' + videoSrc + '" playsinline muted preload="none" loop></video>'
+            + '<video class="thumb-video" src="' + videoSrc + '" playsinline muted preload="metadata" loop></video>'
             + '<div class="card-video-play">▶</div>'
             + '</div>'
             + '<div class="card-content">'
@@ -418,6 +433,7 @@ function renderCards(from, to) {
         list.insertAdjacentHTML('beforeend', html);
     }
     curPage++;
+    primeThumbVideos(list);
 }
 
 /* イベント委任（コピー・リール・カード動画再生） */
