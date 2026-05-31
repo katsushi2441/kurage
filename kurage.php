@@ -116,9 +116,11 @@ if ($is_admin) {
 *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
 body { background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif; min-height:100vh; font-size:14px; }
 header { background:rgba(255,255,255,.95); border-bottom:1px solid var(--border); padding:.85rem 1.5rem; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:10; backdrop-filter:blur(8px); box-shadow:0 1px 4px rgba(19,35,41,.06); }
-.logo { font-size:1.15rem; font-weight:800; letter-spacing:-.03em; color:var(--text); }
-.logo span { color:var(--accent); }
-.logo-sub { font-size:10px; font-weight:500; color:var(--muted); margin-left:8px; vertical-align:middle; }
+.brand { display:flex; align-items:center; gap:.65rem; }
+.brand-icon { width:44px; height:44px; border-radius:50%; object-fit:cover; box-shadow:0 2px 8px rgba(0,127,150,.18); }
+.brand-logo { font-weight:900; font-size:1.08rem; text-decoration:none; color:var(--text); display:block; line-height:1.15; }
+.brand-logo span { color:var(--accent); }
+.brand-sub { display:block; font-size:.72rem; color:var(--muted); margin-top:.18rem; }
 .userbar { display:flex; align-items:center; gap:.75rem; font-size:.8rem; color:var(--muted); }
 .userbar strong { color:var(--green); }
 .btn-sm { background:none; border:1px solid var(--border2); color:var(--muted); padding:.2rem .7rem; border-radius:4px; font-size:.75rem; cursor:pointer; text-decoration:none; }
@@ -177,9 +179,12 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
 </head>
 <body>
 <header>
-  <div>
-    <a href="kurage.php" class="logo" style="text-decoration:none;">🪼 <span>Kurage</span></a>
-    <span class="logo-sub">AI Short Video Generator</span>
+  <div class="brand">
+    <img class="brand-icon" src="images/kurage-icon.png" alt="Kurage">
+    <a class="brand-logo" href="kurage.php">
+      <span>Kurageプロジェクト</span>
+      <span class="brand-sub">AI Short Video Generator</span>
+    </a>
   </div>
   <div class="userbar">
     <span class="api-status <?php echo $api_ok ? 'api-ok' : 'api-err'; ?>">
@@ -221,10 +226,14 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
           <span class="spinner"></span>
         </button>
       </div>
-      <div class="hint">
+      <div class="hint" style="margin-bottom:.5rem;">
         面白い・バズっているXの投稿URLを貼り付けてください。<br>
         <span id="hint-pipeline">読込中...</span>
       </div>
+      <label style="display:inline-flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer;user-select:none;">
+        <input type="checkbox" id="use-wan" style="width:15px;height:15px;cursor:pointer;">
+        Wan2.1 AI動画モード
+      </label>
     </div>
   </div>
 
@@ -298,10 +307,11 @@ function startGenerate() {
     btn.disabled = true;
     btn.classList.add('loading');
 
+    var useWan = document.getElementById('use-wan') && document.getElementById('use-wan').checked;
     fetch(PROXY + '?proxy=generate', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({tweet_url: url}),
+        body: JSON.stringify({tweet_url: url, mode: useWan ? 'wan' : 'hyperframes'}),
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {

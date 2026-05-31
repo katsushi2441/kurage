@@ -7,9 +7,10 @@ from pathlib import Path
 
 from config import JOBS_DIR
 from tweet_fetch import fetch_tweet
-from script_gen import generate_script
+from script_gen import generate_script, generate_news_script
 from image_gen import generate_scene_images, generate_image
 from video_gen import generate_video
+import wan_gen
 
 
 def job_path(job_id: str) -> Path:
@@ -34,7 +35,57 @@ def update_job(job_id: str, **kwargs):
     p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def run_pipeline(job_id: str, tweet_url: str):
+def run_pipeline_from_news(job_id: str, news: dict):
+    """Run pipeline from multiple news articles (skip tweet fetch)."""
+    job_dir = JOBS_DIR / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        news_items = news.get("news_items") or []
+        first = news_items[0] if news_items else {}
+        tweet_text = "、".join(i.get("title", "") for i in news_items[:3])[:120]
+
+        update_job(job_id, status="scripting", progress=25, source="horizon",
+                   tweet_url=first.get("url", ""),
+                   tweet_text=tweet_text,
+                   tweet_author="Horizon",
+                   tweet_author_name=news.get("title", tweet_text[:50]))
+        print(f"[{job_id}] news: {len(news_items)}件 {tweet_text[:60]}", flush=True)
+
+        NEWS_EXPECTED_SCENES = 12
+        script = generate_news_script(news_items)
+        update_job(job_id, script=script, title=script.get("title"))
+        print(f"[{job_id}] script: {script.get('title')} ({len(script.get('scenes', []))} scenes)", flush=True)
+
+        scenes = script.get("scenes") or []
+        assets_dir = job_dir / "assets"
+        assets_dir.mkdir(parents=True, exist_ok=True)
+
+        update_job(job_id, status="imaging", progress=40)
+        image_paths = []
+        for scene in scenes:
+            idx = scene.get("index", len(image_paths))
+            out = assets_dir / f"scene_{idx:02d}.png"
+            prompt = scene.get("image_prompt", "cinematic vertical shot, news broadcast style")
+            print(f"  [image] scene {idx}: {prompt[:60]}...", flush=True)
+            if idx > 0:
+                time.sleep(3)
+            path = generate_image(prompt, out)
+            image_paths.append(path)
+        update_job(job_id, image_count=len(image_paths))
+
+        update_job(job_id, status="rendering", progress=75)
+        video_path = generate_video(script, image_paths, job_dir)
+        update_job(job_id, status="done", progress=100, video_file=str(video_path))
+        print(f"[{job_id}] done: {video_path}", flush=True)
+
+    except Exception as exc:
+        tb = traceback.format_exc()
+        print(f"[{job_id}] ERROR: {exc}\n{tb}", flush=True)
+        update_job(job_id, status="error", error=str(exc), traceback=tb)
+
+
+def run_pipeline(job_id: str, tweet_url: str, mode: str = "hyperframes"):
     """Run the full pipeline. Resumes from last successful step if data exists."""
     job_dir = JOBS_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -80,52 +131,77 @@ def run_pipeline(job_id: str, tweet_url: str):
                 _shutil.rmtree(assets_dir_old)
                 print(f"[{job_id}] cleared old image cache", flush=True)
 
-        # Step 3: Generate images（シーンごとに既存ファイルがあればスキップ）
         scenes = script.get("scenes") or []
-        assets_dir = job_dir / "assets"
-        assets_dir.mkdir(parents=True, exist_ok=True)
 
-        image_paths = []
-        needs_new_image = False
-        for scene in scenes:
-            idx = scene.get("index", len(image_paths))
-            out = assets_dir / f"scene_{idx:02d}.png"
-            if out.exists() and out.stat().st_size > 0:
-                image_paths.append(out)
-            else:
-                needs_new_image = True
-                break
+        if mode == "wan":
+            # Step 3 (Wan): TTS narration
+            from tts_gen import generate_scene_narration_audio
+            print(f"[{job_id}] generating TTS narration...", flush=True)
+            update_job(job_id, status="imaging", progress=35)
+            narration_path = job_dir / "narration.mp3"
+            generate_scene_narration_audio(scenes, job_dir)
 
-        if not needs_new_image and len(image_paths) == len(scenes):
-            print(f"[{job_id}] images: reusing {len(image_paths)} cached files", flush=True)
-        else:
-            print(f"[{job_id}] generating images ({len(image_paths)}/{len(scenes)} cached)...", flush=True)
+            # Step 4 (Wan): Wan2.1 AI video generation
+            print(f"[{job_id}] generating Wan2.1 videos ({len(scenes)} scenes)...", flush=True)
             update_job(job_id, status="imaging", progress=40)
+            video_urls = wan_gen.generate_wan_videos(scenes)
+            update_job(job_id, image_count=len(video_urls), wan_video_urls=video_urls)
+            print(f"[{job_id}] wan videos: {len(video_urls)} urls", flush=True)
+
+            # Step 5 (Wan): ffmpeg concat + audio
+            print(f"[{job_id}] ffmpeg concat...", flush=True)
+            update_job(job_id, status="rendering", progress=75)
+            output_path = job_dir / "output.mp4"
+            wan_gen.concat_with_audio(video_urls, narration_path, output_path, script)
+
+            update_job(job_id, status="done", progress=100, video_file=str(output_path))
+            print(f"[{job_id}] done (wan): {output_path}", flush=True)
+
+        else:
+            # Step 3: Generate images（シーンごとに既存ファイルがあればスキップ）
+            assets_dir = job_dir / "assets"
+            assets_dir.mkdir(parents=True, exist_ok=True)
+
             image_paths = []
+            needs_new_image = False
             for scene in scenes:
                 idx = scene.get("index", len(image_paths))
                 out = assets_dir / f"scene_{idx:02d}.png"
                 if out.exists() and out.stat().st_size > 0:
-                    print(f"  [image] scene {idx}: reusing cached", flush=True)
                     image_paths.append(out)
                 else:
-                    prompt = scene.get("image_prompt", "cinematic vertical shot, beautiful scene")
-                    print(f"  [image] scene {idx}: {prompt[:60]}...", flush=True)
-                    if idx > 0:
-                        time.sleep(3)
-                    path = generate_image(prompt, out)
-                    image_paths.append(path)
-            update_job(job_id, image_count=len(image_paths))
-            print(f"[{job_id}] images: {len(image_paths)} files", flush=True)
+                    needs_new_image = True
+                    break
 
-        # Step 4: Render video
-        print(f"[{job_id}] rendering video...", flush=True)
-        update_job(job_id, status="rendering", progress=75)
-        video_path = generate_video(script, image_paths, job_dir)
+            if not needs_new_image and len(image_paths) == len(scenes):
+                print(f"[{job_id}] images: reusing {len(image_paths)} cached files", flush=True)
+            else:
+                print(f"[{job_id}] generating images ({len(image_paths)}/{len(scenes)} cached)...", flush=True)
+                update_job(job_id, status="imaging", progress=40)
+                image_paths = []
+                for scene in scenes:
+                    idx = scene.get("index", len(image_paths))
+                    out = assets_dir / f"scene_{idx:02d}.png"
+                    if out.exists() and out.stat().st_size > 0:
+                        print(f"  [image] scene {idx}: reusing cached", flush=True)
+                        image_paths.append(out)
+                    else:
+                        prompt = scene.get("image_prompt", "cinematic vertical shot, beautiful scene")
+                        print(f"  [image] scene {idx}: {prompt[:60]}...", flush=True)
+                        if idx > 0:
+                            time.sleep(3)
+                        path = generate_image(prompt, out)
+                        image_paths.append(path)
+                update_job(job_id, image_count=len(image_paths))
+                print(f"[{job_id}] images: {len(image_paths)} files", flush=True)
 
-        # Done
-        update_job(job_id, status="done", progress=100, video_file=str(video_path))
-        print(f"[{job_id}] done: {video_path}", flush=True)
+            # Step 4: Render video
+            print(f"[{job_id}] rendering video...", flush=True)
+            update_job(job_id, status="rendering", progress=75)
+            video_path = generate_video(script, image_paths, job_dir)
+
+            update_job(job_id, status="done", progress=100, video_file=str(video_path))
+            print(f"[{job_id}] done: {video_path}", flush=True)
 
     except Exception as exc:
         tb = traceback.format_exc()

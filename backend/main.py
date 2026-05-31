@@ -12,7 +12,8 @@ from pydantic import BaseModel
 
 from config import JOBS_DIR, PORT, ERNIE_URL, NVM_NODE, HYPERFRAMES_VERSION, OLLAMA_URL, OLLAMA_MODEL
 from tts_gen import TTS_VOICE, TTS_RATE, TTS_PITCH
-from pipeline import run_pipeline, load_job, update_job
+from pipeline import run_pipeline, run_pipeline_from_news, load_job, update_job
+from typing import Any
 
 app = FastAPI(title="Kurage API", version="1.0.0")
 
@@ -26,6 +27,16 @@ app.add_middleware(
 
 class GenerateRequest(BaseModel):
     tweet_url: str
+    mode: str = "hyperframes"  # "hyperframes" or "wan"
+
+
+class NewsRequest(BaseModel):
+    news_items: list[Any]    # [{"title": str, "content": str, "url": str, "source_name": str}, ...]
+    title: str = ""          # 動画全体タイトル（省略時はLLMが生成）
+
+
+class UrlRequest(BaseModel):
+    url: str
 
 
 @app.get("/health")
@@ -97,9 +108,56 @@ def generate(req: GenerateRequest):
                    created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
 
     # Run pipeline in background thread
-    t = threading.Thread(target=run_pipeline, args=(job_id, tweet_url), daemon=True)
+    mode = req.mode if req.mode in ("hyperframes", "wan") else "hyperframes"
+    update_job(job_id, mode=mode)
+    t = threading.Thread(target=run_pipeline, args=(job_id, tweet_url, mode), daemon=True)
     t.start()
 
+    return {"ok": True, "job_id": job_id}
+
+
+@app.post("/generate_from_news")
+def generate_from_news(req: NewsRequest):
+    """Start a video generation job from multiple news articles."""
+    if not req.news_items:
+        raise HTTPException(status_code=400, detail="news_items is required")
+    job_id = str(uuid.uuid4()).replace("-", "")[:16]
+    JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    first = req.news_items[0] if req.news_items else {}
+    tweet_text = "、".join(i.get("title", "") for i in req.news_items[:3])[:120]
+    update_job(job_id, status="queued", progress=0, source="horizon",
+               tweet_url=first.get("url", ""),
+               tweet_text=tweet_text,
+               tweet_author="Horizon",
+               tweet_author_name=req.title or tweet_text[:50],
+               created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
+    t = threading.Thread(target=run_pipeline_from_news, args=(job_id, req.dict()), daemon=True)
+    t.start()
+    return {"ok": True, "job_id": job_id}
+
+
+@app.post("/generate_from_url")
+def generate_from_url(req: UrlRequest):
+    """Start a video generation job from a blog/news article URL."""
+    from url_fetch import fetch_article
+    url = req.url.strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="url is required")
+    try:
+        article = fetch_article(url)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"URL取得失敗: {e}")
+    job_id = str(uuid.uuid4()).replace("-", "")[:16]
+    JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    update_job(job_id, status="queued", progress=0, source="horizon",
+               tweet_url=article["url"],
+               tweet_text=article["content"][:120],
+               tweet_author=article["source_name"],
+               tweet_author_name=article["title"],
+               created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
+    news = {"news_items": [article], "title": article["title"]}
+    t = threading.Thread(target=run_pipeline_from_news, args=(job_id, news), daemon=True)
+    t.start()
     return {"ok": True, "job_id": job_id}
 
 
@@ -133,6 +191,22 @@ def status(job_id: str):
     return resp
 
 
+@app.delete("/jobs/{job_id}")
+def delete_job(job_id: str):
+    """Delete a job and its associated files."""
+    import shutil
+    job = load_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job_dir = JOBS_DIR / job_id
+    if job_dir.exists():
+        shutil.rmtree(job_dir)
+    job_path = JOBS_DIR / f"{job_id}.json"
+    if job_path.exists():
+        job_path.unlink()
+    return {"ok": True, "job_id": job_id}
+
+
 @app.get("/video/{job_id}")
 def video(job_id: str):
     """Download the generated MP4 video."""
@@ -155,8 +229,8 @@ def video(job_id: str):
 
 
 @app.get("/jobs")
-def list_jobs(limit: int = 20):
-    """List recent jobs."""
+def list_jobs(limit: int = 20, source: str | None = None):
+    """List recent jobs. ?source=horizon filters by source."""
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     files = list(JOBS_DIR.glob("*.json"))
     jobs = []
@@ -164,6 +238,9 @@ def list_jobs(limit: int = 20):
         try:
             import json
             d = json.loads(f.read_text(encoding="utf-8"))
+            job_source = d.get("source") or "tweet"
+            if source and job_source != source:
+                continue
             tweet_text_full = d.get("tweet_text") or ""
             jobs.append({
                 "job_id": f.stem,
@@ -172,12 +249,13 @@ def list_jobs(limit: int = 20):
                 "tweet_url": d.get("tweet_url"),
                 "tweet_text": tweet_text_full[:120] if tweet_text_full else "",
                 "tweet_author": d.get("tweet_author"),
+                "tweet_author_name": d.get("tweet_author_name"),
+                "source": job_source,
                 "created_at": d.get("created_at"),
                 "has_video": d.get("status") == "done",
             })
         except Exception:
             pass
-    # created_at 降順（新しい順）
     jobs.sort(key=lambda j: j.get("created_at") or "", reverse=True)
     return {"ok": True, "jobs": jobs[:limit]}
 
