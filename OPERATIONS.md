@@ -8,7 +8,8 @@
 - API: `POST /generate`
 - 入力: X投稿URL
 - 生成内容: X投稿向けの短編動画
-- 標準尺: 約30秒
+- 標準尺: 約40秒
+- 標準構成: 8画像・8シーン・各5秒
 - 標準方式: `ERNIE静止画 + HyperFrames`
 - 実験方式: `Wan2.1 AI動画生成`
 
@@ -25,7 +26,7 @@
 
 「Kurageで生成して」と言われた時に、記事URLだからといって勝手に `generate_from_url` を使わない。
 
-記事URLをKurage 30秒動画にしたい場合は、X投稿URL向けの `POST /generate` では扱えないため、先にユーザーへ確認するか、Kurage用の30秒記事変換ルートを別途実装してから使う。
+記事URLをKurage 40秒動画にしたい場合は、X投稿URL向けの `POST /generate` ではそのまま扱えないため、先にユーザーへ確認するか、Kurage用の40秒記事変換ルートを別途実装してから使う。
 
 今回の誤り:
 
@@ -33,4 +34,3 @@
 - 実行したAPI: `POST /generate_from_url`
 - 結果: Horizon系の約2分動画を生成した
 - 次回からは「Kurage」は `kurage.php` / `POST /generate` を優先する。
-

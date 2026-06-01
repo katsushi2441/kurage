@@ -6,18 +6,18 @@ import requests
 from config import OLLAMA_URL, OLLAMA_MODEL
 
 
-SYSTEM_PROMPT = """You are a short vertical video scriptwriter. Based on an X (Twitter) post, generate a 6-scene short drama script with image prompts.
+SYSTEM_PROMPT = """You are a short vertical video scriptwriter. Based on an X (Twitter) post, generate an 8-scene short drama script with image prompts.
 
 Return ONLY a JSON object. No markdown, no code blocks, no explanation. Start your response with { and end with }.
 
 Required format:
-{"title":"動画タイトル(30字以内)","scenes":[{"index":0,"narration":"ナレーション日本語(30字以内)","image_prompt":"English cinematic vertical 9:16 scene description under 80 chars","duration":5},{"index":1,"narration":"ナレーション","image_prompt":"English prompt","duration":5},{"index":2,"narration":"ナレーション","image_prompt":"English prompt","duration":5},{"index":3,"narration":"ナレーション","image_prompt":"English prompt","duration":5},{"index":4,"narration":"ナレーション","image_prompt":"English prompt","duration":5},{"index":5,"narration":"ナレーション","image_prompt":"English prompt","duration":5}]}
+{"title":"動画タイトル(30字以内)","scenes":[{"index":0,"narration":"ナレーション日本語(30字以内)","image_prompt":"English cinematic vertical 9:16 scene description under 80 chars","duration":5},{"index":1,"narration":"ナレーション","image_prompt":"English prompt","duration":5},{"index":2,"narration":"ナレーション","image_prompt":"English prompt","duration":5},{"index":3,"narration":"ナレーション","image_prompt":"English prompt","duration":5},{"index":4,"narration":"ナレーション","image_prompt":"English prompt","duration":5},{"index":5,"narration":"ナレーション","image_prompt":"English prompt","duration":5},{"index":6,"narration":"ナレーション","image_prompt":"English prompt","duration":5},{"index":7,"narration":"ナレーション","image_prompt":"English prompt","duration":5}]}
 
 Rules:
-- Exactly 6 scenes
-- duration: 5 seconds each (total ~30 seconds)
+- Exactly 8 scenes
+- duration: 5 seconds each (total ~40 seconds)
 - image_prompt: English only, specify "vertical 9:16 composition", keep under 80 characters
-- Tell a dramatic story arc across 6 scenes (setup → development → climax → resolution)
+- Tell a dramatic story arc across 8 scenes (setup → development → turning point → climax → resolution)
 - narration: Japanese, engaging storytelling tone, max 30 characters per scene
 - IMPORTANT: Preserve proper nouns from the tweet (place names, event names, brand names, etc. like 武道館・東京ドーム・etc.) in the narration. Only person names can be omitted or replaced.
 - Do NOT use double quotes inside string values. Use 「」for Japanese quotes.
@@ -111,7 +111,89 @@ JSONのみ返してください。"""
 
     for i, scene in enumerate(script["scenes"]):
         scene.setdefault("index", i)
-        scene.setdefault("duration", 6)
+        scene["index"] = i
+        scene.setdefault("duration", 5)
+
+    return script
+
+
+NEWS_SYSTEM_PROMPT = """You are a news video scriptwriter. Based on multiple news articles, generate a 12-scene news broadcast script with image prompts.
+
+Return ONLY a JSON object. No markdown, no code blocks, no explanation. Start your response with { and end with }.
+
+Required format:
+{"title":"ニュースタイトル(30字以内)","scenes":[{"index":0,"narration":"ナレーション日本語(50〜60字)","image_prompt":"English cinematic vertical 9:16 scene description under 80 chars","duration":10},...]}
+
+Rules:
+- Exactly 12 scenes, duration: 10 seconds each (total ~120 seconds = 2 minutes)
+- Structure: scene 0 = opening/overview, scenes 1-10 = distribute across news items (2-4 scenes each based on importance), scene 11 = closing summary
+- narration: Japanese, news broadcast tone, 50-60 characters per scene
+- image_prompt: English only, "vertical 9:16 composition", under 80 characters, match the news topic visually
+- Preserve proper nouns (company names, product names, place names) exactly as given
+- Do NOT use double quotes inside string values. Use 「」for Japanese quotes.
+"""
+
+
+def generate_news_script(news_items: list) -> dict:
+    """Generate 12-scene news broadcast script from multiple news articles.
+
+    Args:
+        news_items: [{"title": str, "content": str, "url": str, "source_name": str}, ...]
+
+    Returns:
+        {"title": "...", "scenes": [...]}  (12 scenes)
+    """
+    items_text = ""
+    for i, item in enumerate(news_items, 1):
+        items_text += f"{i}. 【{item.get('source_name', 'News')}】{item['title']}\n"
+        if item.get('content'):
+            items_text += f"   {item['content'][:300]}\n"
+        items_text += "\n"
+
+    user_prompt = f"""以下の{len(news_items)}本のニュース記事をもとに、ニュース番組風の動画脚本を作成してください。
+
+【記事一覧】
+{items_text}
+各記事の重要度・分量に応じてシーンを配分してください（合計12シーン）。
+JSONのみ返してください。"""
+
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": NEWS_SYSTEM_PROMPT + "\n\n" + user_prompt,
+        "stream": False,
+        "options": {
+            "temperature": 0.7,
+            "num_predict": 4096,
+        },
+    }
+
+    resp = requests.post(
+        f"{OLLAMA_URL}/api/generate",
+        json=payload,
+        timeout=300,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    response_text = data.get("response") or ""
+    print(f"  [news_script] Ollama response length: {len(response_text)}", flush=True)
+
+    try:
+        requests.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={"model": OLLAMA_MODEL, "prompt": "", "keep_alive": 0},
+            timeout=10,
+        )
+    except Exception:
+        pass
+
+    script = parse_json_from_response(response_text)
+
+    if "scenes" not in script or not script["scenes"]:
+        raise ValueError("News script missing scenes")
+
+    for i, scene in enumerate(script["scenes"]):
+        scene.setdefault("index", i)
+        scene.setdefault("duration", 10)
 
     return script
 

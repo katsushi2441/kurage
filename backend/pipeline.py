@@ -110,7 +110,7 @@ def run_pipeline(job_id: str, tweet_url: str, mode: str = "hyperframes"):
             print(f"[{job_id}] tweet: {tweet['text'][:80]}", flush=True)
 
         # Step 2: Generate script（保存済みかつシーン数が一致すればスキップ）
-        EXPECTED_SCENES = 6
+        EXPECTED_SCENES = 8
         cached_script = saved.get("script")
         cached_scenes_count = len(cached_script.get("scenes", [])) if cached_script else 0
         if cached_script and cached_scenes_count == EXPECTED_SCENES:

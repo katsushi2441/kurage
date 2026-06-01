@@ -237,7 +237,7 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
       <div class="mode-row">
         <label class="mode-label" for="generate-mode">生成方式</label>
         <select id="generate-mode" class="mode-select">
-          <option value="hyperframes" selected>ERNIE静止画 + HyperFrames（標準）</option>
+          <option value="hyperframes" selected>ERNIE静止画 + HyperFrames（8画像・40秒）</option>
           <option value="wan">Wan2.1 AI動画生成（実験）</option>
         </select>
       </div>
