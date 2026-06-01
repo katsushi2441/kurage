@@ -138,6 +138,15 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
 .btn-primary:hover { background:var(--accent-h); }
 .btn:disabled { opacity:.45; cursor:not-allowed; }
 .hint { font-size:.78rem; color:var(--muted); margin-top:.6rem; line-height:1.75; }
+.mode-grid { display:grid; grid-template-columns:1fr 1fr; gap:.7rem; margin-top:.9rem; }
+.mode-card { position:relative; display:block; cursor:pointer; user-select:none; }
+.mode-card input { position:absolute; opacity:0; pointer-events:none; }
+.mode-inner { min-height:112px; border:1px solid var(--border2); border-radius:10px; padding:.85rem; background:#fff; transition:all .15s; }
+.mode-title { display:flex; align-items:center; justify-content:space-between; gap:.5rem; font-size:.86rem; font-weight:900; color:var(--text); margin-bottom:.45rem; }
+.mode-badge { display:inline-flex; align-items:center; padding:.12rem .45rem; border-radius:999px; background:#eef7fa; color:var(--accent); font-size:.66rem; font-weight:800; white-space:nowrap; }
+.mode-desc { font-size:.76rem; line-height:1.65; color:var(--muted); }
+.mode-card input:checked + .mode-inner { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0,127,150,.12); background:#f7fdff; }
+.mode-card input:checked + .mode-inner .mode-title { color:var(--accent); }
 /* Status */
 #status-box { display:none; }
 .progress-bar { width:100%; height:6px; background:var(--border); border-radius:3px; margin:.75rem 0; overflow:hidden; }
@@ -174,7 +183,7 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
 .hero .emoji { font-size:3rem; line-height:1; margin-bottom:.75rem; }
 .hero h1 { font-size:1.6rem; font-weight:900; margin-bottom:.5rem; letter-spacing:-.02em; }
 .hero p { color:var(--muted); font-size:.88rem; line-height:1.8; }
-@media(max-width:600px) { .input-row { flex-wrap:wrap; } .container { padding:1rem; } }
+@media(max-width:600px) { .input-row { flex-wrap:wrap; } .container { padding:1rem; } .mode-grid { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
@@ -226,14 +235,26 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
           <span class="spinner"></span>
         </button>
       </div>
-      <div class="hint" style="margin-bottom:.5rem;">
+      <div class="hint">
         面白い・バズっているXの投稿URLを貼り付けてください。<br>
         <span id="hint-pipeline">読込中...</span>
       </div>
-      <label style="display:inline-flex;align-items:center;gap:.4rem;font-size:.82rem;cursor:pointer;user-select:none;">
-        <input type="checkbox" id="use-wan" style="width:15px;height:15px;cursor:pointer;">
-        Wan2.1 AI動画モード
-      </label>
+      <div class="mode-grid" id="mode-grid">
+        <label class="mode-card">
+          <input type="radio" name="generate-mode" value="hyperframes" checked>
+          <span class="mode-inner">
+            <span class="mode-title">ERNIE静止画 + HyperFrames <span class="mode-badge">標準</span></span>
+            <span class="mode-desc">シーンごとに静止画を生成し、字幕・音声つきショート動画へ合成します。安定して速い生成方式です。</span>
+          </span>
+        </label>
+        <label class="mode-card">
+          <input type="radio" name="generate-mode" value="wan">
+          <span class="mode-inner">
+            <span class="mode-title">Wan2.1 AI動画生成 <span class="mode-badge">実験</span></span>
+            <span class="mode-desc">シーンごとにAI動画を生成し、音声と字幕を合成します。動きのある映像を作りたい時に使います。</span>
+          </span>
+        </label>
+      </div>
     </div>
   </div>
 
@@ -298,6 +319,36 @@ var PROXY = '<?php echo h($THIS_FILE); ?>';
 var KURAGE_API = <?php echo json_encode($KURAGE_API); ?>;
 var currentJobId = null;
 var pollTimer = null;
+var serviceConfig = {};
+
+function selectedMode() {
+    var el = document.querySelector('input[name="generate-mode"]:checked');
+    return el ? el.value : 'hyperframes';
+}
+
+function updateModeText() {
+    var mode = selectedMode();
+    var cfg = serviceConfig || {};
+    var sl = cfg.script && cfg.script.label || 'AI';
+    var il = cfg.image && cfg.image.label || 'ERNIE-Image-Turbo';
+    var vl = cfg.video && cfg.video.label || 'HyperFrames';
+    var wl = cfg.wan && cfg.wan.label || 'Wan2.1 AI Video';
+    var pipeline, hint;
+    if (mode === 'wan') {
+        pipeline = sl + ' が脚本を書き、' + wl + ' がシーン動画を生成し、音声・字幕を合成します。';
+        hint = sl + ' が脚本を作成 → ' + wl + ' がAI動画生成 → ffmpegで音声・字幕を合成します。';
+        STATUS_LABELS.imaging = wl + ' でシーン動画を生成中...';
+        STATUS_LABELS.rendering = 'Wan2.1動画を音声・字幕つきで合成中...';
+    } else {
+        pipeline = sl + ' が脚本を書き、' + il + ' が画像を生成し、' + vl + ' が動画を合成します。';
+        hint = sl + ' が脚本を作成 → ' + il + ' が画像生成 → ' + vl + ' が動画合成します。';
+        STATUS_LABELS.imaging = il + ' で画像生成中...';
+        STATUS_LABELS.rendering = vl + ' で動画レンダリング中...';
+    }
+    STATUS_LABELS.scripting = sl + ' で脚本・プロンプトを生成中...';
+    if (document.getElementById('hero-pipeline')) document.getElementById('hero-pipeline').textContent = pipeline;
+    if (document.getElementById('hint-pipeline')) document.getElementById('hint-pipeline').textContent = hint;
+}
 
 function startGenerate() {
     var url = document.getElementById('tweet-url').value.trim();
@@ -307,11 +358,11 @@ function startGenerate() {
     btn.disabled = true;
     btn.classList.add('loading');
 
-    var useWan = document.getElementById('use-wan') && document.getElementById('use-wan').checked;
+    var mode = selectedMode();
     fetch(PROXY + '?proxy=generate', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({tweet_url: url, mode: useWan ? 'wan' : 'hyperframes'}),
+        body: JSON.stringify({tweet_url: url, mode: mode}),
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -453,25 +504,22 @@ document.addEventListener('DOMContentLoaded', function() {
                       + '<th style="text-align:left;padding:.35rem .5rem;color:#666;font-weight:600;">サービス</th>'
                       + '<th style="text-align:left;padding:.35rem .5rem;color:#666;font-weight:600;">エンドポイント</th>'
                       + '</tr>';
-                // 動的テキスト更新
-                var sl = cfg.script && cfg.script.label || 'AI';
-                var il = cfg.image  && cfg.image.label  || '画像生成AI';
-                var vl = cfg.video  && cfg.video.label  || 'HyperFrames';
-                var pipeline = sl + ' が脚本を書き、' + il + ' が画像を生成し、' + vl + ' が動画を合成します。';
-                var hint     = sl + ' が脚本を作成 → ' + il + ' が画像生成 → ' + vl + ' が動画合成します。';
-                if (document.getElementById('hero-pipeline')) document.getElementById('hero-pipeline').textContent = pipeline;
-                if (document.getElementById('hint-pipeline')) document.getElementById('hint-pipeline').textContent = hint;
+                serviceConfig = cfg || {};
+                updateModeText();
                 function maskUrl(url) {
                     return url ? url.replace(/https?:\/\/[^\/]+/, 'http://localhost') : '-';
                 }
+                var sl = cfg.script && cfg.script.label || 'AI';
+                var il = cfg.image  && cfg.image.label  || '画像生成AI';
+                var vl = cfg.video  && cfg.video.label  || 'HyperFrames';
+                var wl = cfg.wan    && cfg.wan.label    || 'Wan2.1 AI Video';
+                var wa = cfg.wan    && cfg.wan.api      || '';
                 var tl2 = cfg.tts && cfg.tts.label || 'edge-tts';
                 var ta  = cfg.tts && cfg.tts.api   || '';
-                STATUS_LABELS.scripting = sl  + ' で脚本・プロンプトを生成中...';
-                STATUS_LABELS.imaging   = il  + ' で画像生成中...';
-                STATUS_LABELS.rendering = vl  + ' で動画レンダリング中...';
                 var rows = [
                     ['📝 脚本生成', sl,  maskUrl(cfg.script && cfg.script.api)],
-                    ['🖼️ 画像生成', il,  maskUrl(cfg.image  && cfg.image.api)],
+                    ['🖼️ 静止画生成', il,  maskUrl(cfg.image  && cfg.image.api)],
+                    ['🎞️ AI動画生成', wl,  maskUrl(wa)],
                     ['🔊 音声合成', tl2, ta],
                     ['🎬 動画合成', vl,  cfg.video && cfg.video.api],
                 ];
@@ -489,6 +537,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('config-body').innerHTML = '<div style="color:#aaa;font-size:.8rem;">設定情報を取得できませんでした</div>';
             });
     }
+    document.querySelectorAll('input[name="generate-mode"]').forEach(function(el) {
+        el.addEventListener('change', updateModeText);
+    });
+    updateModeText();
 });
 </script>
 </body>

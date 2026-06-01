@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
-from config import JOBS_DIR, PORT, ERNIE_URL, NVM_NODE, HYPERFRAMES_VERSION, OLLAMA_URL, OLLAMA_MODEL
+from config import JOBS_DIR, PORT, ERNIE_URL, NVM_NODE, HYPERFRAMES_VERSION, OLLAMA_URL, OLLAMA_MODEL, WAN_API, WAN_TEST_MODE
 from tts_gen import TTS_VOICE, TTS_RATE, TTS_PITCH
 from pipeline import run_pipeline, run_pipeline_from_news, load_job, update_job
 from typing import Any
@@ -69,6 +69,11 @@ def config():
         "video": {
             "label": f"HyperFrames v{HYPERFRAMES_VERSION}",
             "api": "CLI (npx hyperframes render)",
+        },
+        "wan": {
+            "label": "Wan2.1 AI Video",
+            "api": _mask_url(f"{WAN_API}/api/test/story" if WAN_TEST_MODE == "1" else f"{WAN_API}/api/story"),
+            "mode": "test" if WAN_TEST_MODE == "1" else "production",
         },
     }
 
