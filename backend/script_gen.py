@@ -32,25 +32,39 @@ def parse_json_from_response(text: str) -> dict:
     text = re.sub(r'```\s*$', '', text, flags=re.MULTILINE)
     text = text.strip()
 
+    def repair_json_drift(value: str) -> str:
+        # Local LLMs sometimes replace the comma between title and scenes with
+        # Japanese quote marks, e.g. {"title":"...」「scenes":[...]}.
+        value = re.sub(r'("title"\s*:\s*"[^"]+")[「」]\s*("scenes"\s*:)', r'\1,\2', value)
+        value = re.sub(r'("[^"]+")[「」]\s*("scenes"\s*:)', r'\1,\2', value)
+        return value
+
+    candidates = [text, repair_json_drift(text)]
+
     # Try direct parse
-    try:
-        return json.loads(text)
-    except Exception:
-        pass
+    for candidate in candidates:
+        try:
+            return json.loads(candidate)
+        except Exception:
+            pass
 
     # Extract the outermost JSON object
-    start = text.find('{')
-    if start != -1:
-        depth = 0
-        for i, c in enumerate(text[start:], start):
-            if c == '{':
-                depth += 1
-            elif c == '}':
-                depth -= 1
-                if depth == 0:
-                    try:
-                        return json.loads(text[start:i+1])
-                    except Exception:
+    for candidate in candidates:
+        start = candidate.find('{')
+        if start != -1:
+            depth = 0
+            for i, c in enumerate(candidate[start:], start):
+                if c == '{':
+                    depth += 1
+                elif c == '}':
+                    depth -= 1
+                    if depth == 0:
+                        fragment = candidate[start:i+1]
+                        for repaired in [fragment, repair_json_drift(fragment)]:
+                            try:
+                                return json.loads(repaired)
+                            except Exception:
+                                pass
                         break
 
     raise ValueError(f"Could not parse JSON from response: {text[:300]}")
@@ -162,7 +176,7 @@ JSONのみ返してください。"""
         "prompt": NEWS_SYSTEM_PROMPT + "\n\n" + user_prompt,
         "stream": False,
         "options": {
-            "temperature": 0.7,
+            "temperature": 0.2,
             "num_predict": 4096,
         },
     }
