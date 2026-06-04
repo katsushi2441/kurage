@@ -102,11 +102,29 @@ function kurage_get($path, $timeout = 15) {
     return json_decode($res, true);
 }
 
+function kurage_post($path, $timeout = 15) {
+    global $KURAGE_API;
+    $ch = curl_init($KURAGE_API . $path);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Accept: application/json']);
+    $res  = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if (!$res || $code >= 400) return null;
+    return json_decode($res, true);
+}
+
 /* ── 詳細ページ (?id=JOB_ID) ─────────────────────────── */
 $detail_id  = isset($_GET['id']) ? preg_replace('/[^a-zA-Z0-9]/', '', $_GET['id']) : '';
 $detail_job = null;
 if ($detail_id) {
     $detail_job = kurage_get('/status/' . $detail_id);
+    $view_res = kurage_post('/view/' . $detail_id);
+    if ($detail_job && !empty($view_res['views'])) {
+        $detail_job['views'] = $view_res['views'];
+    }
 }
 
 /* ── 一覧データ（詳細以外） ──────────────────────────── */
@@ -124,6 +142,21 @@ if (!$detail_id) {
         $seen[$key] = true;
         $videos[] = $j;
     }
+}
+
+$sort = isset($_GET['sort']) ? (string)$_GET['sort'] : 'created';
+if (!in_array($sort, ['created', 'views'], true)) { $sort = 'created'; }
+if (!$detail_id && $videos) {
+    usort($videos, function($a, $b) use ($sort) {
+        if ($sort === 'views') {
+            $av = (int)($a['views'] ?? 9999);
+            $bv = (int)($b['views'] ?? 9999);
+            if ($bv !== $av) return $bv <=> $av;
+        }
+        $ad = (string)($a['created_at'] ?? $a['updated_at'] ?? '');
+        $bd = (string)($b['created_at'] ?? $b['updated_at'] ?? '');
+        return strcmp($bd, $ad);
+    });
 }
 
 /* ── SEO ─────────────────────────────────────────────── */
@@ -217,7 +250,11 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 
 /* ── コンテナ ── */
 .container{max-width:640px;margin:0 auto;padding:0 0 80px;}
-.count-bar{padding:10px 20px;font-size:13px;color:#888;border-bottom:1px solid #f0f0f0;}
+.count-bar{padding:10px 20px;font-size:13px;color:#888;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.sorts{display:flex;gap:6px;align-items:center;}
+.sort-link{border:1px solid #d6e3e8;border-radius:999px;padding:5px 10px;color:#53636b;text-decoration:none;font-size:12px;font-weight:800;background:#fff;}
+.sort-link.active{background:#007f96;border-color:#007f96;color:#fff;}
+.views{display:inline-flex;align-items:center;gap:4px;color:#007f96;font-weight:900;}
 
 /* ── カード ── */
 .post-card{border-bottom:1px solid #f0f0f0;padding:20px;transition:background .15s;}
@@ -315,7 +352,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
   <div class="detail-header">
     <div class="detail-meta">
       <span><?php echo h($detail_job['created_at'] ?? ''); ?></span>
-      <span><?php echo h($detail_job['created_at'] ?? ''); ?></span>
+      <span class="views">表示<?php echo h((string)($detail_job['views'] ?? 9999)); ?></span>
     </div>
     <?php if (!empty($detail_job['tweet_url'])): ?>
     <div class="detail-url-box">
@@ -386,7 +423,13 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 <?php else: ?>
 <!-- ============ 一覧ページ ============ -->
 <div class="container">
-  <div class="count-bar"><?php echo count($videos); ?> 件の動画</div>
+  <div class="count-bar">
+    <span><?php echo count($videos); ?> 件の動画</span>
+    <span class="sorts">
+      <a class="sort-link <?php echo $sort === 'created' ? 'active' : ''; ?>" href="<?php echo h($THIS_FILE . '?sort=created'); ?>">作成日順</a>
+      <a class="sort-link <?php echo $sort === 'views' ? 'active' : ''; ?>" href="<?php echo h($THIS_FILE . '?sort=views'); ?>">表示回数順</a>
+    </span>
+  </div>
   <div id="post-list"></div>
   <div id="load-sentinel" style="height:1px;"></div>
   <div id="load-indicator" style="display:none;text-align:center;padding:16px;font-size:13px;color:#888;">読み込み中…</div>
@@ -473,6 +516,7 @@ function renderCards(from, to) {
         var tweet  = v.tweet_text || '';
         var turl   = v.tweet_url  || '';
         var date   = v.created_at || '';
+        var views  = v.views || 9999;
         var av     = author ? author.replace(/^@/, '').charAt(0).toUpperCase() : '🪼';
 
         var shareUrl  = '<?php echo $BASE_URL . '/' . $THIS_FILE; ?>?id=' + encodeURIComponent(jid);
@@ -499,7 +543,7 @@ function renderCards(from, to) {
             + '<div class="card-content">'
             + '<div class="post-meta" style="margin-bottom:6px;">'
             + '<div class="post-title">' + esc(title) + '</div>'
-            + '<div class="post-time">' + esc(date) + '</div>'
+            + '<div class="post-time">' + esc(date) + '<br><span class="views">表示' + esc(views) + '</span></div>'
             + '</div>'
             + tweetHtml
             + '<div class="card-links">'

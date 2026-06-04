@@ -1,5 +1,6 @@
 """Kurage FastAPI backend — port 8025."""
 from __future__ import annotations
+import json
 import threading
 import time
 import uuid
@@ -93,6 +94,13 @@ def _find_resumable_job(tweet_url: str) -> str | None:
     return None
 
 
+def _job_views(job: dict) -> int:
+    try:
+        return int(job.get("views", 9999))
+    except Exception:
+        return 9999
+
+
 @app.post("/generate")
 def generate(req: GenerateRequest):
     """Start a new video generation job from an X URL."""
@@ -184,6 +192,7 @@ def status(job_id: str):
         "image_count": job.get("image_count"),
         "created_at": job.get("created_at"),
         "updated_at": job.get("updated_at"),
+        "views": _job_views(job),
         "script": job.get("script"),
     }
 
@@ -196,6 +205,21 @@ def status(job_id: str):
         resp["error"] = job.get("error")
 
     return resp
+
+
+@app.post("/view/{job_id}")
+def record_view(job_id: str):
+    """Increment a public detail-page view count."""
+    path = JOBS_DIR / f"{job_id}.json"
+    job = load_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job["views"] = _job_views(job) + 1
+    job["viewed_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(path)
+    return {"ok": True, "job_id": job_id, "views": job["views"]}
 
 
 @app.delete("/jobs/{job_id}")
@@ -278,6 +302,7 @@ def list_jobs(limit: int = 20, source: str | None = None):
                 "source": job_source,
                 "created_at": d.get("created_at"),
                 "updated_at": d.get("updated_at"),
+                "views": _job_views(d),
                 "has_video": d.get("status") == "done",
                 "has_thumbnail": (JOBS_DIR / f.stem / "thumbnail.jpg").exists(),
             })
