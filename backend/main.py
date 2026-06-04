@@ -277,6 +277,7 @@ def list_jobs(limit: int = 20, source: str | None = None):
                 "tweet_author_name": d.get("tweet_author_name"),
                 "source": job_source,
                 "created_at": d.get("created_at"),
+                "updated_at": d.get("updated_at"),
                 "has_video": d.get("status") == "done",
                 "has_thumbnail": (JOBS_DIR / f.stem / "thumbnail.jpg").exists(),
             })

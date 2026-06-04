@@ -245,7 +245,7 @@ def render_video(project_dir: Path, output_path: Path) -> Path:
     return output_path
 
 
-def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 1.0) -> Path:
+def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0) -> Path:
     """Extract a stable poster frame from a generated video."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     cmd = [

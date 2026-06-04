@@ -128,7 +128,8 @@ if ($detail_job) {
     $page_title = ($detail_job['title'] ?? 'Horizonvニュース動画') . ' | ' . $SITE_NAME;
     $page_desc  = mb_substr(str_replace("\n", ' ', $detail_job['tweet_text'] ?? ''), 0, 160);
     $page_url   = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($detail_id);
-    $page_image = $BASE_URL . '/' . $THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($detail_id);
+    $thumb_ver  = urlencode($detail_job['updated_at'] ?? $detail_job['created_at'] ?? '1');
+    $page_image = $BASE_URL . '/' . $THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($detail_id) . '&v=' . $thumb_ver;
 } else {
     $page_title = $SITE_NAME;
     $page_desc  = 'Horizonが収集したニュースをAIが縦型ショート動画に自動生成。毎日更新。';
@@ -319,7 +320,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 
     <div class="video-wrap">
       <video src="<?php echo h($THIS_FILE . '?proxy=video&job_id=' . urlencode($detail_id)); ?>"
-             poster="<?php echo h($THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($detail_id)); ?>"
+             poster="<?php echo h($THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($detail_id) . '&v=' . urlencode($detail_job['updated_at'] ?? $detail_job['created_at'] ?? '1')); ?>"
              controls playsinline preload="metadata"></video>
     </div>
 
@@ -388,7 +389,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
     <?php foreach ($videos as $ri => $v): ?>
     <?php
       $r_vid    = h($THIS_FILE . '?proxy=video&job_id=' . urlencode($v['job_id']));
-      $r_thumb  = h($THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($v['job_id']));
+      $r_thumb  = h($THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($v['job_id']) . '&v=' . urlencode($v['updated_at'] ?? $v['created_at'] ?? '1'));
       $r_title  = h($v['title'] ?? $v['tweet_author_name'] ?? '(無題)');
       $r_source = h($v['tweet_author'] ?? '');
       $r_share  = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($v['job_id']);
@@ -471,7 +472,8 @@ function renderCards(from, to) {
             : '';
 
         var videoSrc = 'horizonv.php?proxy=video&job_id=' + encodeURIComponent(jid);
-        var thumbSrc = 'horizonv.php?proxy=thumbnail&job_id=' + encodeURIComponent(jid);
+        var thumbVer = encodeURIComponent(v.updated_at || v.created_at || '1');
+        var thumbSrc = 'horizonv.php?proxy=thumbnail&job_id=' + encodeURIComponent(jid) + '&v=' + thumbVer;
         var html = '<div class="post-card">'
             + '<div style="display:flex;gap:12px;align-items:flex-start;">'
             + '<div class="card-video-wrap" data-jid="' + esc(jid) + '">'
