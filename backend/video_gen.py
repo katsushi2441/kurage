@@ -245,7 +245,88 @@ def render_video(project_dir: Path, output_path: Path) -> Path:
     return output_path
 
 
-def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0) -> Path:
+def _find_japanese_font() -> str:
+    candidates = [
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    ]
+    for path in candidates:
+        if Path(path).exists():
+            return path
+    return "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+
+
+def _wrap_text(draw, text: str, font, max_width: int) -> list[str]:
+    chars = list((text or "Kurage Video").strip())
+    lines: list[str] = []
+    cur = ""
+    for ch in chars:
+        trial = cur + ch
+        if draw.textbbox((0, 0), trial, font=font)[2] <= max_width or not cur:
+            cur = trial
+        else:
+            lines.append(cur)
+            cur = ch
+    if cur:
+        lines.append(cur)
+    return lines[:3]
+
+
+def _overlay_thumbnail_title(image_path: Path, title: str | None) -> None:
+    from PIL import Image, ImageDraw, ImageFont, ImageFilter
+
+    img = Image.open(image_path).convert("RGB")
+    w, h = img.size
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+
+    od.rectangle((0, int(h * 0.58), w, h), fill=(0, 0, 0, 115))
+    od.rectangle((0, 0, w, int(h * 0.15)), fill=(0, 0, 0, 75))
+    overlay = overlay.filter(ImageFilter.GaussianBlur(radius=1.5))
+    img = Image.alpha_composite(img.convert("RGBA"), overlay)
+    draw = ImageDraw.Draw(img)
+
+    font_path = _find_japanese_font()
+    main_font = ImageFont.truetype(font_path, max(40, int(w * 0.115)))
+    sub_font = ImageFont.truetype(font_path, max(18, int(w * 0.045)))
+    badge_font = ImageFont.truetype(font_path, max(16, int(w * 0.04)))
+
+    badge = "Kurage AI Video"
+    bx, by = int(w * 0.06), int(h * 0.055)
+    bb = draw.textbbox((0, 0), badge, font=badge_font)
+    draw.rounded_rectangle(
+        (bx - 12, by - 8, bx + (bb[2] - bb[0]) + 12, by + (bb[3] - bb[1]) + 10),
+        radius=10,
+        fill=(0, 127, 150, 230),
+    )
+    draw.text((bx, by), badge, font=badge_font, fill=(255, 255, 255, 255), stroke_width=1, stroke_fill=(0, 0, 0, 180))
+
+    text = (title or "Kurage Video").replace(" | ", " ").replace("｜", " ")
+    text = text.split("\n", 1)[0][:34]
+    lines = _wrap_text(draw, text, main_font, int(w * 0.88))
+    line_h = int(main_font.size * 1.22)
+    total_h = line_h * len(lines)
+    y = int(h * 0.70) - total_h // 2
+
+    for i, line in enumerate(lines):
+        tb = draw.textbbox((0, 0), line, font=main_font, stroke_width=4)
+        x = (w - (tb[2] - tb[0])) // 2
+        fill = (255, 230, 48, 255) if i == 0 else (255, 255, 255, 255)
+        draw.text((x, y + i * line_h), line, font=main_font, fill=fill, stroke_width=5, stroke_fill=(0, 0, 0, 235))
+
+    sub = "AIが動画化"
+    sb = draw.textbbox((0, 0), sub, font=sub_font)
+    sx = (w - (sb[2] - sb[0])) // 2
+    sy = min(h - int(h * 0.105), y + total_h + int(h * 0.025))
+    draw.rounded_rectangle((sx - 18, sy - 8, sx + (sb[2] - sb[0]) + 18, sy + (sb[3] - sb[1]) + 10), radius=12, fill=(255, 255, 255, 220))
+    draw.text((sx, sy), sub, font=sub_font, fill=(18, 24, 32, 255))
+
+    img.convert("RGB").save(image_path, "JPEG", quality=92, optimize=True)
+
+
+def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0, title: str | None = None) -> Path:
     """Extract a stable poster frame from a generated video."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
@@ -268,6 +349,7 @@ def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0) -
             f"stdout: {result.stdout[-1000:]}\n"
             f"stderr: {result.stderr[-1000:]}"
         )
+    _overlay_thumbnail_title(output_path, title)
     return output_path
 
 
@@ -282,6 +364,6 @@ def generate_video(script: dict, image_paths: list[Path], job_dir: Path) -> Path
     print(f"  [video] HyperFrames project: {project_dir}", flush=True)
     render_video(project_dir, output_path)
     print(f"  [video] Rendered: {output_path} ({output_path.stat().st_size} bytes)", flush=True)
-    thumb_path = generate_thumbnail(output_path, job_dir / "thumbnail.jpg")
+    thumb_path = generate_thumbnail(output_path, job_dir / "thumbnail.jpg", title=script.get("title"))
     print(f"  [video] Thumbnail: {thumb_path} ({thumb_path.stat().st_size} bytes)", flush=True)
     return output_path

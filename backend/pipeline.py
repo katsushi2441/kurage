@@ -158,7 +158,7 @@ def run_pipeline(job_id: str, tweet_url: str, mode: str = "hyperframes"):
 
             thumb_path = job_dir / "thumbnail.jpg"
             try:
-                generate_thumbnail(output_path, thumb_path)
+                generate_thumbnail(output_path, thumb_path, title=script.get("title"))
             except Exception as exc:
                 print(f"[{job_id}] thumbnail skipped: {exc}", flush=True)
             update_job(job_id, status="done", progress=100, video_file=str(output_path),
