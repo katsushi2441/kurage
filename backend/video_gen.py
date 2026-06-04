@@ -245,6 +245,32 @@ def render_video(project_dir: Path, output_path: Path) -> Path:
     return output_path
 
 
+def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 1.0) -> Path:
+    """Extract a stable poster frame from a generated video."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-ss",
+        f"{seek:.2f}",
+        "-i",
+        str(video_path),
+        "-frames:v",
+        "1",
+        "-q:v",
+        "3",
+        str(output_path),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    if result.returncode != 0 or not output_path.exists() or output_path.stat().st_size <= 0:
+        raise RuntimeError(
+            f"thumbnail generation failed (rc={result.returncode})\n"
+            f"stdout: {result.stdout[-1000:]}\n"
+            f"stderr: {result.stderr[-1000:]}"
+        )
+    return output_path
+
+
 def generate_video(script: dict, image_paths: list[Path], job_dir: Path) -> Path:
     """Full video generation pipeline: project setup + render.
 
@@ -256,4 +282,6 @@ def generate_video(script: dict, image_paths: list[Path], job_dir: Path) -> Path
     print(f"  [video] HyperFrames project: {project_dir}", flush=True)
     render_video(project_dir, output_path)
     print(f"  [video] Rendered: {output_path} ({output_path.stat().st_size} bytes)", flush=True)
+    thumb_path = generate_thumbnail(output_path, job_dir / "thumbnail.jpg")
+    print(f"  [video] Thumbnail: {thumb_path} ({thumb_path.stat().st_size} bytes)", flush=True)
     return output_path

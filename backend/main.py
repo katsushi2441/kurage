@@ -189,6 +189,8 @@ def status(job_id: str):
 
     if job.get("status") == "done":
         resp["video_url"] = f"/video/{job_id}"
+        if (JOBS_DIR / job_id / "thumbnail.jpg").exists():
+            resp["thumbnail_url"] = f"/thumbnail/{job_id}"
 
     if job.get("status") == "error":
         resp["error"] = job.get("error")
@@ -233,6 +235,24 @@ def video(job_id: str):
     )
 
 
+@app.get("/thumbnail/{job_id}")
+def thumbnail(job_id: str):
+    """Return the generated poster thumbnail."""
+    job = load_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    path = JOBS_DIR / job_id / "thumbnail.jpg"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Thumbnail not found")
+
+    return FileResponse(
+        path=str(path),
+        media_type="image/jpeg",
+        filename=f"kurage_{job_id}_thumbnail.jpg",
+    )
+
+
 @app.get("/jobs")
 def list_jobs(limit: int = 20, source: str | None = None):
     """List recent jobs. ?source=horizon filters by source."""
@@ -258,6 +278,7 @@ def list_jobs(limit: int = 20, source: str | None = None):
                 "source": job_source,
                 "created_at": d.get("created_at"),
                 "has_video": d.get("status") == "done",
+                "has_thumbnail": (JOBS_DIR / f.stem / "thumbnail.jpg").exists(),
             })
         except Exception:
             pass

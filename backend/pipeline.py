@@ -9,7 +9,7 @@ from config import JOBS_DIR
 from tweet_fetch import fetch_tweet
 from script_gen import generate_script, generate_news_script
 from image_gen import generate_scene_images, generate_image
-from video_gen import generate_video
+from video_gen import generate_video, generate_thumbnail
 import wan_gen
 
 
@@ -76,7 +76,9 @@ def run_pipeline_from_news(job_id: str, news: dict):
 
         update_job(job_id, status="rendering", progress=75)
         video_path = generate_video(script, image_paths, job_dir)
-        update_job(job_id, status="done", progress=100, video_file=str(video_path))
+        thumb_path = job_dir / "thumbnail.jpg"
+        update_job(job_id, status="done", progress=100, video_file=str(video_path),
+                   thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
         print(f"[{job_id}] done: {video_path}", flush=True)
 
     except Exception as exc:
@@ -154,7 +156,13 @@ def run_pipeline(job_id: str, tweet_url: str, mode: str = "hyperframes"):
             output_path = job_dir / "output.mp4"
             wan_gen.concat_with_audio(video_urls, narration_path, output_path, script)
 
-            update_job(job_id, status="done", progress=100, video_file=str(output_path))
+            thumb_path = job_dir / "thumbnail.jpg"
+            try:
+                generate_thumbnail(output_path, thumb_path)
+            except Exception as exc:
+                print(f"[{job_id}] thumbnail skipped: {exc}", flush=True)
+            update_job(job_id, status="done", progress=100, video_file=str(output_path),
+                       thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
             print(f"[{job_id}] done (wan): {output_path}", flush=True)
 
         else:
@@ -199,8 +207,10 @@ def run_pipeline(job_id: str, tweet_url: str, mode: str = "hyperframes"):
             print(f"[{job_id}] rendering video...", flush=True)
             update_job(job_id, status="rendering", progress=75)
             video_path = generate_video(script, image_paths, job_dir)
+            thumb_path = job_dir / "thumbnail.jpg"
 
-            update_job(job_id, status="done", progress=100, video_file=str(video_path))
+            update_job(job_id, status="done", progress=100, video_file=str(video_path),
+                       thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
             print(f"[{job_id}] done: {video_path}", flush=True)
 
     except Exception as exc:

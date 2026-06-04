@@ -35,6 +35,26 @@ if (isset($_POST['delete_job']) && $is_admin) {
 function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 /* ── 動画プロキシ（Range リクエスト対応） ────────────── */
+if (isset($_GET['proxy']) && $_GET['proxy'] === 'thumbnail' && !empty($_GET['job_id'])) {
+    $jid = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['job_id']);
+    $ch = curl_init($KURAGE_API . '/thumbnail/' . $jid);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HEADER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    $response = curl_exec($ch);
+    $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    $data = substr((string)$response, $header_size);
+    http_response_code($code ?: 404);
+    header('Content-Type: image/jpeg');
+    header('Cache-Control: public, max-age=86400');
+    if ($code >= 200 && $code < 300) {
+        echo $data;
+    }
+    exit;
+}
+
 if (isset($_GET['proxy']) && $_GET['proxy'] === 'video' && !empty($_GET['job_id'])) {
     $jid = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['job_id']);
     $ch = curl_init($KURAGE_API . '/video/' . $jid);
@@ -108,10 +128,12 @@ if ($detail_job) {
     $page_title = ($detail_job['title'] ?? 'Horizonvニュース動画') . ' | ' . $SITE_NAME;
     $page_desc  = mb_substr(str_replace("\n", ' ', $detail_job['tweet_text'] ?? ''), 0, 160);
     $page_url   = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($detail_id);
+    $page_image = $BASE_URL . '/' . $THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($detail_id);
 } else {
     $page_title = $SITE_NAME;
     $page_desc  = 'Horizonが収集したニュースをAIが縦型ショート動画に自動生成。毎日更新。';
     $page_url   = $BASE_URL . '/' . $THIS_FILE;
+    $page_image = $BASE_URL . '/images/kurage.png';
 }
 ?><!DOCTYPE html>
 <html lang="ja">
@@ -129,7 +151,7 @@ if ($detail_job) {
 <meta property="og:url" content="<?php echo h($page_url); ?>">
 <meta property="og:site_name" content="<?php echo h($SITE_NAME); ?>">
 <meta property="og:locale" content="ja_JP">
-<meta property="og:image" content="<?php echo $BASE_URL; ?>/images/kurage.png">
+<meta property="og:image" content="<?php echo h($page_image); ?>">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Horizonv — AIが作るニュースショート動画">
@@ -137,7 +159,7 @@ if ($detail_job) {
 <meta name="twitter:site" content="@xb_bittensor">
 <meta name="twitter:title" content="<?php echo h($page_title); ?>">
 <meta name="twitter:description" content="<?php echo h($page_desc); ?>">
-<meta name="twitter:image" content="<?php echo $BASE_URL; ?>/images/kurage.png">
+<meta name="twitter:image" content="<?php echo h($page_image); ?>">
 <script type="application/ld+json">
 <?php
 $jsonld = [
@@ -149,7 +171,7 @@ $jsonld = [
     'publisher'   => ['@type' => 'Organization', 'name' => '株式会社エクスブリッジ', 'url' => 'https://exbridge.jp/'],
 ];
 if ($detail_job && !empty($detail_job['created_at'])) {
-    $jsonld['thumbnailUrl'] = $BASE_URL . '/images/kurage.png';
+    $jsonld['thumbnailUrl'] = $page_image;
     $jsonld['uploadDate']   = $detail_job['created_at'];
 }
 echo json_encode($jsonld, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
@@ -297,6 +319,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 
     <div class="video-wrap">
       <video src="<?php echo h($THIS_FILE . '?proxy=video&job_id=' . urlencode($detail_id)); ?>"
+             poster="<?php echo h($THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($detail_id)); ?>"
              controls playsinline preload="metadata"></video>
     </div>
 
@@ -365,6 +388,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
     <?php foreach ($videos as $ri => $v): ?>
     <?php
       $r_vid    = h($THIS_FILE . '?proxy=video&job_id=' . urlencode($v['job_id']));
+      $r_thumb  = h($THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($v['job_id']));
       $r_title  = h($v['title'] ?? $v['tweet_author_name'] ?? '(無題)');
       $r_source = h($v['tweet_author'] ?? '');
       $r_share  = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($v['job_id']);
@@ -373,6 +397,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
     ?>
     <div class="reel-slide" data-job="<?php echo h($v['job_id']); ?>">
       <video src="<?php echo $r_vid; ?>"
+             poster="<?php echo $r_thumb; ?>"
              playsinline muted loop preload="<?php echo $ri === 0 ? 'metadata' : 'none'; ?>"></video>
       <div class="reel-grad"></div>
       <div class="reel-info">
@@ -446,10 +471,11 @@ function renderCards(from, to) {
             : '';
 
         var videoSrc = 'horizonv.php?proxy=video&job_id=' + encodeURIComponent(jid);
+        var thumbSrc = 'horizonv.php?proxy=thumbnail&job_id=' + encodeURIComponent(jid);
         var html = '<div class="post-card">'
             + '<div style="display:flex;gap:12px;align-items:flex-start;">'
             + '<div class="card-video-wrap" data-jid="' + esc(jid) + '">'
-            + '<video class="thumb-video" src="' + videoSrc + '" playsinline muted preload="metadata" loop></video>'
+            + '<video class="thumb-video" src="' + videoSrc + '" poster="' + thumbSrc + '" playsinline muted preload="metadata" loop></video>'
             + '<div class="card-video-play">▶</div>'
             + '</div>'
             + '<div class="card-content">'
