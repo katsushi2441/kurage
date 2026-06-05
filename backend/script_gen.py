@@ -231,7 +231,7 @@ BLOG_SYSTEM_PROMPT = """You are a thoughtful Japanese video essay scriptwriter. 
 Return ONLY a JSON object. No markdown, no code blocks, no explanation. Start your response with { and end with }.
 
 Required format:
-{"title":"ブログ記事タイトルを元にした動画タイトル(60字以内)","scenes":[{"index":0,"narration":"ナレーション日本語(50〜65字)","image_prompt":"English cinematic vertical 9:16 scene description under 90 chars","duration":10},...]}
+{"title":"ブログ記事タイトルを元にした動画タイトル(60字以内)","scenes":[{"index":0,"narration":"ナレーション日本語(45〜60字)","image_prompt":"English vertical 9:16 prompt under 60 chars","duration":10},...]}
 
 Rules:
 - Exactly 12 scenes, duration: 10 seconds each (total ~120 seconds = 2 minutes)
@@ -240,8 +240,8 @@ Rules:
 - If the blog title contains a person name, preserve that person name in the video title and narration.
 - The video title must follow the blog title as closely as possible.
 - Structure: scene 0 = introduce the article/person, scenes 1-10 = explain the episode and business/AI lesson, scene 11 = closing insight.
-- narration: Japanese, calm essay tone, 50-65 characters per scene.
-- image_prompt: English only, "vertical 9:16 composition", under 90 characters.
+- narration: Japanese, calm essay tone, 45-60 characters per scene.
+- image_prompt: English only, short visual keywords, include "vertical 9:16", under 60 characters.
 - Preserve proper nouns and the named person exactly.
 - Do NOT make it sound like daily news or breaking news.
 - Do NOT use 「深堀り」「深掘り」「ふかぼり」. Use 「詳しい考察」 or 「掘り下げ」 instead.
@@ -279,7 +279,7 @@ JSONのみ返してください。"""
         "stream": False,
         "options": {
             "temperature": 0.25,
-            "num_predict": 4096,
+            "num_predict": 8192,
         },
     }
     resp = requests.post(
