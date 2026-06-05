@@ -187,7 +187,7 @@ def generate_from_blog_url(req: UrlRequest):
         raise HTTPException(status_code=422, detail=f"URL取得失敗: {e}")
     job_id = str(uuid.uuid4()).replace("-", "")[:16]
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
-    update_job(job_id, status="queued", progress=0, source="blog",
+    update_job(job_id, status="queued", progress=0, source="horizon", content_type="blog",
                tweet_url=article["url"],
                tweet_text=article["content"][:240],
                tweet_author=article["source_name"],
