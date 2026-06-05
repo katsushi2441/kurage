@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from config import JOBS_DIR, PORT, ERNIE_URL, NVM_NODE, HYPERFRAMES_VERSION, OLLAMA_URL, OLLAMA_MODEL, WAN_API, WAN_TEST_MODE
 from tts_gen import TTS_VOICE, TTS_RATE, TTS_PITCH
-from pipeline import run_pipeline, run_pipeline_from_news, load_job, update_job
+from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, load_job, update_job
 from typing import Any
 
 app = FastAPI(title="Kurage API", version="1.0.0")
@@ -170,6 +170,31 @@ def generate_from_url(req: UrlRequest):
                created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
     news = {"news_items": [article], "title": article["title"]}
     t = threading.Thread(target=run_pipeline_from_news, args=(job_id, news), daemon=True)
+    t.start()
+    return {"ok": True, "job_id": job_id}
+
+
+@app.post("/generate_from_blog_url")
+def generate_from_blog_url(req: UrlRequest):
+    """Start a 2-minute commentary video job from a blog article URL."""
+    from url_fetch import fetch_article
+    url = req.url.strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="url is required")
+    try:
+        article = fetch_article(url)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"URL取得失敗: {e}")
+    job_id = str(uuid.uuid4()).replace("-", "")[:16]
+    JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    update_job(job_id, status="queued", progress=0, source="blog",
+               tweet_url=article["url"],
+               tweet_text=article["content"][:240],
+               tweet_author=article["source_name"],
+               tweet_author_name=article["title"],
+               title=article["title"],
+               created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
+    t = threading.Thread(target=run_pipeline_from_blog, args=(job_id, article), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
 

@@ -7,7 +7,7 @@ from pathlib import Path
 
 from config import JOBS_DIR
 from tweet_fetch import fetch_tweet
-from script_gen import generate_script, generate_news_script
+from script_gen import generate_script, generate_news_script, generate_blog_script
 from image_gen import generate_scene_images, generate_image
 from video_gen import generate_video, generate_thumbnail
 import wan_gen
@@ -80,6 +80,57 @@ def run_pipeline_from_news(job_id: str, news: dict):
         update_job(job_id, status="done", progress=100, video_file=str(video_path),
                    thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
         print(f"[{job_id}] done: {video_path}", flush=True)
+
+    except Exception as exc:
+        tb = traceback.format_exc()
+        print(f"[{job_id}] ERROR: {exc}\n{tb}", flush=True)
+        update_job(job_id, status="error", error=str(exc), traceback=tb)
+
+
+def run_pipeline_from_blog(job_id: str, article: dict):
+    """Run 2-minute commentary video pipeline from one blog article."""
+    job_dir = JOBS_DIR / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        article_title = article.get("title") or "ブログ考察動画"
+        article_url = article.get("url") or ""
+        article_text = article.get("content") or ""
+
+        update_job(job_id, status="scripting", progress=25, source="blog",
+                   tweet_url=article_url,
+                   tweet_text=article_text[:240],
+                   tweet_author=article.get("source_name") or "Blog",
+                   tweet_author_name=article_title)
+        print(f"[{job_id}] blog: {article_title[:80]}", flush=True)
+
+        script = generate_blog_script(article)
+        update_job(job_id, script=script, title=script.get("title") or article_title)
+        print(f"[{job_id}] blog script: {script.get('title')} ({len(script.get('scenes', []))} scenes)", flush=True)
+
+        scenes = script.get("scenes") or []
+        assets_dir = job_dir / "assets"
+        assets_dir.mkdir(parents=True, exist_ok=True)
+
+        update_job(job_id, status="imaging", progress=40)
+        image_paths = []
+        for scene in scenes:
+            idx = scene.get("index", len(image_paths))
+            out = assets_dir / f"scene_{idx:02d}.png"
+            prompt = scene.get("image_prompt", "cinematic vertical 9:16 blog commentary scene")
+            print(f"  [blog image] scene {idx}: {prompt[:60]}...", flush=True)
+            if idx > 0:
+                time.sleep(3)
+            path = generate_image(prompt, out)
+            image_paths.append(path)
+        update_job(job_id, image_count=len(image_paths))
+
+        update_job(job_id, status="rendering", progress=75)
+        video_path = generate_video(script, image_paths, job_dir)
+        thumb_path = job_dir / "thumbnail.jpg"
+        update_job(job_id, status="done", progress=100, video_file=str(video_path),
+                   thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
+        print(f"[{job_id}] blog done: {video_path}", flush=True)
 
     except Exception as exc:
         tb = traceback.format_exc()

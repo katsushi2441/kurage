@@ -71,10 +71,17 @@ def run_tts(text: str, output_path: Path) -> float:
     return duration
 
 
+def normalize_tts_text(text: str) -> str:
+    text = text or ""
+    for src in ("深堀り", "深掘り", "深堀", "ふかぼり"):
+        text = text.replace(src, "詳しい考察")
+    return text
+
+
 def generate_scene_narration_audio(scenes: list[dict], project_dir: Path) -> float:
     """全シーンのナレーションを連結して1つのmp3を生成。秒数を返す"""
     narration_text = "　".join(
-        scene.get("narration", "") for scene in scenes if scene.get("narration")
+        normalize_tts_text(scene.get("narration", "")) for scene in scenes if scene.get("narration")
     )
     if not narration_text.strip():
         return 0.0
