@@ -1,5 +1,11 @@
 # Kurage 運用メモ
 
+## YouTube投稿
+
+Kurage/Horizonで生成した動画をYouTubeへ投稿する場合は、`docs/youtube-upload-workflow.md` を読む。
+
+kdeck.phpでスマホから作業するときも同じ。YouTube投稿ツール本体は `airadio-scripted-mv` リポジトリにあり、認証が失効している場合は `youtube_auth_paste.py` のURL貼り付け方式で再認証する。
+
 ## Kurage と Horizon の使い分け
 
 ユーザーが「Kurageで生成して」と言った場合は、`kurage.php` の通常生成ルートを使う。
