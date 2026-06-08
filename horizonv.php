@@ -7,7 +7,7 @@ require_once __DIR__ . '/auth_common.php';
 date_default_timezone_set('Asia/Tokyo');
 
 $KURAGE_API = 'http://exbridge.ddns.net:18200';
-$BASE_URL   = 'https://aiknowledgecms.exbridge.jp';
+$BASE_URL   = 'https://kurage.exbridge.jp';
 $THIS_FILE  = 'horizonv.php';
 $SITE_NAME  = 'Horizon-AI生成ニュース動画';
 
@@ -217,7 +217,7 @@ echo json_encode($jsonld, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNES
 <script>
 (function(){
     var s=document.createElement('script');
-    s.src='https://aiknowledgecms.exbridge.jp/simpletrack.php'
+    s.src='https://kurage.exbridge.jp/simpletrack.php'
         +'?url='+encodeURIComponent(location.href)
         +'&ref='+encodeURIComponent(document.referrer);
     document.head.appendChild(s);

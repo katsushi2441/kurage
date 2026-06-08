@@ -291,7 +291,6 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
 
 <script>
 var PROXY = '<?php echo h($THIS_FILE); ?>';
-var KURAGE_API = <?php echo json_encode($KURAGE_API); ?>;
 var currentJobId = null;
 var pollTimer = null;
 
@@ -414,7 +413,7 @@ function loadJob(jobId) {
     showStatus();
     pollStatus(jobId);
     // If not done/error, start polling
-    fetch(KURAGE_API + '/status/' + jobId)
+    fetch(PROXY + '?proxy=status&job_id=' + encodeURIComponent(jobId))
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.status !== 'done' && data.status !== 'error') {
