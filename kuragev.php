@@ -45,7 +45,20 @@ function share_text_for_job($job, $share_url) {
     $title = trim((string)($job['title'] ?? 'Kurage動画'));
     if ($title === '') { $title = 'Kurage動画'; }
     if (is_voice_pro_job($job)) {
-        return $title . "\n\n翻訳字幕・吹替動画\n" . $share_url . "\nPowered by Kurage Voice-Pro";
+        $translated = trim((string)($job['translated_text'] ?? ''));
+        if ($translated === '' && !empty($job['script']['scenes']) && is_array($job['script']['scenes'])) {
+            $parts = [];
+            foreach ($job['script']['scenes'] as $scene) {
+                $narration = trim((string)($scene['narration'] ?? ''));
+                if ($narration !== '') { $parts[] = $narration; }
+            }
+            $translated = trim(implode("\n", $parts));
+        }
+        $text = $title . "\n\n翻訳字幕・吹替動画\n" . $share_url . "\nPowered by Kurage Voice-Pro";
+        if ($translated !== '') {
+            $text .= "\n\n" . $translated;
+        }
+        return $text;
     }
     return $title . "\n\n" . $share_url . "\n#Kurage #AI動画";
 }
@@ -522,7 +535,17 @@ function isVoiceProJob(v) {
 function shareTextForJob(v, shareUrl) {
     var title = (v.title || 'Kurage動画').trim() || 'Kurage動画';
     if (isVoiceProJob(v)) {
-        return title + '\n\n翻訳字幕・吹替動画\n' + shareUrl + '\nPowered by Kurage Voice-Pro';
+        var translated = (v.translated_text || '').trim();
+        if (!translated && v.script && Array.isArray(v.script.scenes)) {
+            translated = v.script.scenes.map(function(scene) {
+                return (scene && scene.narration ? String(scene.narration).trim() : '');
+            }).filter(Boolean).join('\n').trim();
+        }
+        var text = title + '\n\n翻訳字幕・吹替動画\n' + shareUrl + '\nPowered by Kurage Voice-Pro';
+        if (translated) {
+            text += '\n\n' + translated;
+        }
+        return text;
     }
     return title + '\n\n' + shareUrl + '\n#Kurage #AI動画';
 }
