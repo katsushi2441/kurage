@@ -4,8 +4,14 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/kojima/exdirect/kurage/backend
-ExecStart=/usr/bin/python3 -m uvicorn main:app --host 0.0.0.0 --port 18200
+WorkingDirectory=/home/kojima/work/kurage/backend
+Environment=KURAGE_PORT=18303
+Environment=OLLAMA_URL=http://192.168.0.14:11434
+Environment=OLLAMA_MODEL=gemma4:e4b
+Environment=ERNIE_URL=http://192.168.0.3:8010/image/generate
+Environment=WAN_API=http://192.168.0.14:8091
+Environment=WAN_TEST_MODE=1
+ExecStart=/home/kojima/work/kurage/.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 18303
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1

@@ -1,4 +1,4 @@
-"""Kurage FastAPI backend — port 8025."""
+"""Kurage FastAPI backend."""
 from __future__ import annotations
 import json
 import threading

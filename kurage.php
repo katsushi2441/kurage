@@ -5,7 +5,7 @@ date_default_timezone_set('Asia/Tokyo');
 
 $THIS_FILE    = 'kurage.php';
 $SITE_NAME    = 'Kurage — AI Short Video Generator';
-$KURAGE_API   = rtrim(getenv('KURAGE_API') ?: 'http://exbridge.ddns.net:18200', '/');
+$KURAGE_API   = rtrim(getenv('KURAGE_API') ?: 'http://exbridge.ddns.net:18303', '/');
 
 if (isset($_GET['kurage_logout'])) {
     header('Location: ' . url2ai_auth_logout_url('/' . $THIS_FILE));

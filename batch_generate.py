@@ -14,7 +14,7 @@ import requests
 import xml.etree.ElementTree as ET
 
 USTORY_RSS   = "https://aiknowledgecms.exbridge.jp/ustoryv.php?feed"
-KURAGE_API   = "http://localhost:18200"
+KURAGE_API   = "http://localhost:18303"
 INTERVAL_SEC = 90   # ジョブ投入間隔（秒）
 
 

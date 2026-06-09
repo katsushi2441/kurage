@@ -8,7 +8,7 @@
 require_once __DIR__ . '/auth_common.php';
 date_default_timezone_set('Asia/Tokyo');
 
-$KURAGE_API = 'http://exbridge.ddns.net:18200';
+$KURAGE_API = 'http://exbridge.ddns.net:18303';
 $BASE_URL   = 'https://kurage.exbridge.jp';
 $THIS_FILE  = 'kuragev.php';
 $ADMIN      = 'xb_bittensor';

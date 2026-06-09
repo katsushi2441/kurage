@@ -18,4 +18,4 @@ WAN_TEST_MODE = os.environ.get("WAN_TEST_MODE", "1")
 NVM_NODE = os.environ.get("NVM_NODE", "/home/kojima/.nvm/versions/node/v22.22.3/bin")
 HYPERFRAMES_VERSION = "0.4.44"
 
-PORT = int(os.environ.get("KURAGE_PORT", "8025"))
+PORT = int(os.environ.get("KURAGE_PORT", "18303"))
