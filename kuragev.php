@@ -37,6 +37,26 @@ $SITE_NAME  = 'Kurage';
 
 function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
+function is_voice_pro_job($job) {
+    return (($job['source'] ?? '') === 'kuragevp') || (($job['content_type'] ?? '') === 'voice_pro_translation') || !empty($job['kuragevp_job_id']);
+}
+
+function share_text_for_job($job, $share_url) {
+    $title = trim((string)($job['title'] ?? 'Kurage動画'));
+    if ($title === '') { $title = 'Kurage動画'; }
+    if (is_voice_pro_job($job)) {
+        return $title . "\n\n翻訳字幕・吹替動画\n" . $share_url . "\nPowered by Kurage Voice-Pro";
+    }
+    return $title . "\n\n" . $share_url . "\n#Kurage #AI動画";
+}
+
+function copy_text_for_job($job, $share_url) {
+    if (is_voice_pro_job($job)) {
+        return share_text_for_job($job, $share_url);
+    }
+    return ($job['title'] ?? '') . "\n\n" . ($job['tweet_text'] ?? '') . "\n\n" . $share_url . "\n#Kurage #AI動画";
+}
+
 /* ── 動画プロキシ（Range リクエスト対応） ────────────── */
 if (isset($_GET['proxy']) && $_GET['proxy'] === 'thumbnail' && !empty($_GET['job_id'])) {
     $jid = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['job_id']);
@@ -121,6 +141,15 @@ $detail_id  = isset($_GET['id']) ? preg_replace('/[^a-zA-Z0-9]/', '', $_GET['id'
 $detail_job = null;
 if ($detail_id) {
     $detail_job = kurage_get('/status/' . $detail_id);
+    if ($detail_job && empty($detail_job['source'])) {
+        $detail_jobs_res = kurage_get('/jobs?limit=100');
+        foreach (($detail_jobs_res['jobs'] ?? []) as $meta_job) {
+            if (($meta_job['job_id'] ?? '') === $detail_id) {
+                $detail_job = array_merge($meta_job, $detail_job);
+                break;
+            }
+        }
+    }
     $view_res = kurage_post('/view/' . $detail_id);
     if ($detail_job && !empty($view_res['views'])) {
         $detail_job['views'] = $view_res['views'];
@@ -392,8 +421,8 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 
     <?php
     $share_url_d = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($detail_id);
-    $copy_d      = ($detail_job['title'] ?? '') . "\n\n" . ($detail_job['tweet_text'] ?? '') . "\n\n" . $share_url_d . "\n#Kurage #AI動画";
-    $x_text_d    = urlencode(($detail_job['title'] ?? 'Kurage動画') . "\n\n" . $share_url_d . "\n#Kurage #AI動画");
+    $copy_d      = copy_text_for_job($detail_job, $share_url_d);
+    $x_text_d    = urlencode(share_text_for_job($detail_job, $share_url_d));
     ?>
     <div class="action-row">
       <button id="detail-copy-btn" class="btn-primary"
@@ -447,8 +476,8 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
       $r_title  = h($v['title'] ?? '(無題)');
       $r_author = h($v['tweet_author'] ?? '');
       $r_share  = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($v['job_id']);
-      $r_xtext  = urlencode(($v['title'] ?? 'Kurage動画') . "\n\n" . $r_share . "\n#Kurage #AI動画");
-      $r_copy   = h(($v['title'] ?? '') . "\n\n" . ($v['tweet_text'] ?? '') . "\n\n" . $r_share . "\n#Kurage #AI動画");
+      $r_xtext  = urlencode(share_text_for_job($v, $r_share));
+      $r_copy   = h(copy_text_for_job($v, $r_share));
     ?>
     <div class="reel-slide" data-job="<?php echo h($v['job_id']); ?>">
       <video src="<?php echo $r_vid; ?>"
@@ -486,6 +515,25 @@ var curPage = 0;
 
 var X_SVG = '<svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor;vertical-align:middle;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>';
 
+function isVoiceProJob(v) {
+    return (v.source === 'kuragevp') || (v.content_type === 'voice_pro_translation') || !!v.kuragevp_job_id;
+}
+
+function shareTextForJob(v, shareUrl) {
+    var title = (v.title || 'Kurage動画').trim() || 'Kurage動画';
+    if (isVoiceProJob(v)) {
+        return title + '\n\n翻訳字幕・吹替動画\n' + shareUrl + '\nPowered by Kurage Voice-Pro';
+    }
+    return title + '\n\n' + shareUrl + '\n#Kurage #AI動画';
+}
+
+function copyTextForJob(v, shareUrl) {
+    if (isVoiceProJob(v)) {
+        return shareTextForJob(v, shareUrl);
+    }
+    return (v.title || '') + '\n\n' + (v.tweet_text || '') + '\n\n' + shareUrl + '\n#Kurage #AI動画';
+}
+
 function primeThumbVideos(root) {
     (root || document).querySelectorAll('video.thumb-video').forEach(function(v) {
         if (v.dataset.thumbReady) return;
@@ -520,8 +568,8 @@ function renderCards(from, to) {
         var av     = author ? author.replace(/^@/, '').charAt(0).toUpperCase() : '🪼';
 
         var shareUrl  = '<?php echo $BASE_URL . '/' . $THIS_FILE; ?>?id=' + encodeURIComponent(jid);
-        var copyText  = title + '\n\n' + tweet + '\n\n' + shareUrl + '\n#Kurage #AI動画';
-        var xText     = encodeURIComponent(title + '\n\n' + shareUrl + '\n#Kurage #AI動画');
+        var copyText  = copyTextForJob(v, shareUrl);
+        var xText     = encodeURIComponent(shareTextForJob(v, shareUrl));
 
         var tweetHtml = tweet
             ? '<div class="tweet-block">' + esc(tweet) + '</div>'
