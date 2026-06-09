@@ -184,6 +184,14 @@ if (!$detail_id) {
         $seen[$key] = true;
         $videos[] = $j;
     }
+    foreach ($videos as $idx => $video) {
+        if (is_voice_pro_job($video) && empty($video['translated_text']) && empty($video['script'])) {
+            $full_job = kurage_get('/status/' . urlencode($video['job_id'] ?? ''), 8);
+            if (is_array($full_job)) {
+                $videos[$idx] = array_merge($full_job, $video);
+            }
+        }
+    }
 }
 
 $sort = isset($_GET['sort']) ? (string)$_GET['sort'] : 'created';
