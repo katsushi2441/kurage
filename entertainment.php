@@ -48,8 +48,8 @@ foreach ($articles as $article) {
     }
 }
 
-$page_title = $detail ? (($detail['title'] ?? '芸能ニュース考察') . ' | Kurage Entertainment') : 'Kurage Entertainment | 芸能ニュースAI記事とショート動画';
-$page_desc = $detail ? short_text($detail['summary'] ?? $detail['source_title'] ?? '', 150) : '芸能ニュースを安全なSEO記事、Amazon関連導線、Kurageショート動画へつなげるKurage Entertainment。';
+$page_title = $detail ? (($detail['title'] ?? '芸能ニュース考察') . ' | Kurage Entertainment') : 'Kurage Entertainment | 芸能・有名人ニュース考察';
+$page_desc = $detail ? short_text($detail['summary'] ?? $detail['source_title'] ?? '', 150) : '芸能人・有名人のニュースを、背景や作品情報とあわせて読み解く考察ページです。';
 $canonical = $BASE_URL . '/entertainment.php' . ($detail ? ('?id=' . rawurlencode($detail['slug'])) : '');
 $header_amazon_url = $detail && !empty($detail['amazon_url']) ? $detail['amazon_url'] : ('/go.php?' . http_build_query(array(
     'to' => 'amazon',
@@ -64,7 +64,7 @@ if (isset($_GET['feed'])) {
     echo "<rss version=\"2.0\"><channel>\n";
     echo "<title>Kurage Entertainment</title>\n";
     echo "<link>" . h($BASE_URL . '/entertainment.php') . "</link>\n";
-    echo "<description>芸能ニュースAI記事とKurageショート動画</description>\n";
+    echo "<description>芸能・有名人ニュース考察</description>\n";
     foreach (array_slice($articles, 0, 30) as $a) {
         $url = $BASE_URL . '/entertainment.php?id=' . rawurlencode($a['slug'] ?? '');
         echo "<item><title>" . h($a['title'] ?? '') . "</title><link>" . h($url) . "</link><guid>" . h($url) . "</guid>";
@@ -140,15 +140,13 @@ a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255
 <main class="wrap" style="padding-top:26px">
   <div class="layout">
     <article class="article">
-      <span class="pill">Entertainment SEO x Kurage</span>
+      <span class="pill">芸能・有名人ニュース考察</span>
       <h1><?php echo h($detail['title'] ?? '芸能ニュース考察'); ?></h1>
       <div class="meta"><?php echo h($detail['created_at'] ?? ''); ?> / <?php echo h(implode('、', $detail['celebrity_names'] ?? array())); ?></div>
       <p><?php echo h($detail['summary'] ?? ''); ?></p>
       <?php foreach (($detail['body'] ?? array()) as $p): ?><p><?php echo h($p); ?></p><?php endforeach; ?>
       <div class="cta">
-        <a class="btn amazon" href="<?php echo h($detail['amazon_url'] ?? '#'); ?>" target="_blank" rel="sponsored nofollow noopener">Amazonで関連作品・資料を見る</a>
-        <a class="btn" href="/kuragev.php">Kurageの公開動画を見る</a>
-        <?php if (!empty($detail['video_job_id'])): ?><a class="btn kurage" href="/kuragev.php?id=<?php echo h($detail['video_job_id']); ?>">この話題の30秒動画を見る</a><?php endif; ?>
+        <a class="btn amazon" href="<?php echo h($detail['amazon_url'] ?? '#'); ?>" target="_blank" rel="sponsored nofollow noopener">関連する本・作品をAmazonで見る</a>
         <?php if ($is_admin): ?><a class="btn kurage" href="/kurage.php">管理者: AIショート動画を作る</a><?php endif; ?>
       </div>
       <p class="source"><strong>参考にした元コンテンツ:</strong> <?php echo h($detail['source_title'] ?? ''); ?><br>
@@ -158,29 +156,19 @@ a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255
     </article>
     <aside>
       <div class="sidebox">
-        <h3>30秒Kurage動画台本</h3>
-        <ol class="script-list">
-          <?php foreach (($detail['video_script_30s'] ?? array()) as $line): ?><li><?php echo h($line); ?></li><?php endforeach; ?>
-        </ol>
-        <?php if (!empty($detail['video_job_id'])): ?>
-          <a class="btn kurage" href="/kuragev.php?id=<?php echo h($detail['video_job_id']); ?>">生成済み動画を見る</a>
-        <?php elseif ($is_admin): ?>
-          <a class="btn kurage" href="/horizon.php">管理者: Kurage Blogで動画化する</a>
-        <?php endif; ?>
-      </div>
-      <div class="sidebox">
-        <h3>Kurageへの回遊</h3>
-        <p>芸能ニュースで集まった検索流入を、公開動画、Kurage Project、KDeck、RQDB4AIの認知へつなげます。</p>
-        <a class="btn" href="/">Kurage Projectを見る</a>
+        <h3>この記事のポイント</h3>
+        <p><?php echo h(implode('、', $detail['celebrity_names'] ?? array()) ?: '話題の人物'); ?>について、元ニュースの内容と背景を短く整理しています。</p>
+        <p>関連リンクは、ニュースを理解するための作品・書籍・資料を探す参考リンクです。</p>
+        <?php if ($is_admin): ?><a class="btn kurage" href="/horizon.php">管理者: 動画化する</a><?php endif; ?>
       </div>
     </aside>
   </div>
 </main>
 <?php else: ?>
 <section class="hero">
-  <span class="eyebrow">Entertainment SEO Loop</span>
-  <h1>芸能ニュースをKurageのアクセスと知名度につなげる</h1>
-  <p>芸能ニュースの検索流入を、安全な記事、Amazon関連導線、30秒Kurageショート動画、Kurage本体への回遊に変換する実験ページです。</p>
+  <span class="eyebrow">Entertainment Notes</span>
+  <h1>芸能人・有名人ニュースを、背景まで読み解く</h1>
+  <p>話題になった発言、作品、ニュースをそのまま流さず、なぜ注目されたのか、どんな作品や資料とあわせて見ると理解しやすいのかを整理します。</p>
 </section>
 <main class="wrap">
   <div class="grid">
@@ -199,6 +187,6 @@ a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255
   </div>
 </main>
 <?php endif; ?>
-<footer class="disclosure">Amazonアソシエイトとして適格販売により収入を得ています。Amazonリンクは関連作品・関連資料の検索導線であり、芸能人本人の推奨を示すものではありません。</footer>
+<footer class="disclosure">Amazonアソシエイトとして適格販売により収入を得ています。Amazonリンクは関連作品・関連資料の参考リンクであり、芸能人本人の推奨を示すものではありません。</footer>
 </body>
 </html>

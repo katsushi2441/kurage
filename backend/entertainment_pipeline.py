@@ -1,4 +1,4 @@
-"""Entertainment news SEO article pipeline for Kurage.
+"""Entertainment news article pipeline for Kurage.
 
 Collects public entertainment-news headlines, creates safe original Kurage
 articles, and prepares Amazon + Kurage short-video links.
@@ -226,8 +226,8 @@ def article_angle(source_title: str) -> dict[str, str]:
         return {
             "label": "経営考察",
             "question": "ヒットを作った経営者の発言から、今の市場で再現できる考え方は何か。",
-            "insight": "有名人名で集まる関心を、企業戦略やプロダクト運営の学びへ変換できるのがこのテーマの面白いところです。",
-            "commerce": "関連リンクは、ゲームビジネス、経営戦略、マーケティング関連の本へ寄せています。",
+            "insight": "発言の面白さは、個人の経験談に見えて、実際には市場の見方やプロダクト運営の思想がにじんでいる点にあります。",
+            "commerce": "この話題をさらに理解したい場合は、ゲームビジネス、経営戦略、マーケティング関連の本も参考になります。",
             "headline": "{name}が語る市場戦略：ヒットの裏側を読む",
         }
     if any(word in title for word in ("採用", "人材", "才能", "リクルート")):
@@ -235,7 +235,7 @@ def article_angle(source_title: str) -> dict[str, str]:
             "label": "人材戦略",
             "question": "なぜ優秀な人ほど、報酬だけではなくミッションや裁量に反応するのか。",
             "insight": "この話題の核心は、有名人の発言そのものよりも、組織が人を惹きつける条件が変わっている点にあります。",
-            "commerce": "関連リンクは、採用・経営・リーダーシップの理解を深める書籍や資料につながるようにしています。",
+            "commerce": "採用・経営・リーダーシップの視点で読むと、発言の背景がより立体的に見えてきます。",
             "headline": "{name}の採用論：優秀な人材が動く条件",
         }
     if any(word in title for word in ("AI", "Grok", "OpenAI", "コンピューティング", "バブル", "Google")):
@@ -243,7 +243,7 @@ def article_angle(source_title: str) -> dict[str, str]:
             "label": "AI時代の読み解き",
             "question": "AIの進化は、仕事・健康・ビジネスモデルのどこを先に変えるのか。",
             "insight": "派手な発言だけを追うと消費されて終わりますが、技術の使われ方まで見ると、次の需要や学ぶべきテーマが見えてきます。",
-            "commerce": "関連リンクは、AIビジネス書、経営書、技術入門など、話題を自分の知識に変える商品へ寄せています。",
+            "commerce": "AIビジネス書や技術入門をあわせて読むと、発言のインパクトを一時的なニュースで終わらせず理解できます。",
             "headline": "{name}発言から読むAI時代の次の焦点",
         }
     if any(word in title for word in ("億万長者", "YouTube", "動画", "チャンネル", "散財", "休日")):
@@ -251,22 +251,22 @@ def article_angle(source_title: str) -> dict[str, str]:
             "label": "クリエイター経済",
             "question": "トップクリエイターの言葉から、動画制作や発信者ビジネスの何を学べるのか。",
             "insight": "このニュースは単なるゴシップではなく、個人がメディア化する時代の働き方、投資判断、発信技術を考える材料になります。",
-            "commerce": "関連リンクは、動画編集・撮影機材・YouTube運営の本など、発信を始める人の購入導線へ寄せています。",
+            "commerce": "動画編集、撮影機材、YouTube運営の知識とあわせて見ると、発言者の行動原理も読み解きやすくなります。",
             "headline": "{name}の金銭感覚と動画ビジネスのリアル",
         }
     if any(word in title for word in ("CD", "歌", "歌手", "ベスト", "ライブ", "出演", "ドラマ", "映画")):
         return {
-            "label": "作品回遊",
-            "question": "ニュースで思い出した人物から、どの作品・音源・映像へ回遊できるのか。",
+            "label": "作品考察",
+            "question": "ニュースで名前を見かけたとき、過去の作品や音源をどう見直せるのか。",
             "insight": "芸能ニュースの強みは、名前を見た瞬間に過去作品への再検索が起きることです。記事内で文脈を整理すると、懐かしさが購買行動に変わりやすくなります。",
-            "commerce": "関連リンクは、CD、DVD、写真集、出演作など、実際に商品が見つかりやすいカテゴリへ寄せています。",
+            "commerce": "CD、DVD、写真集、出演作などを見直すと、その人物が長く記憶されている理由も見えてきます。",
             "headline": "{name}再注目：ニュースから作品を見直す入口",
         }
     return {
         "label": "話題の背景",
         "question": "このニュースは、名前の検索だけで終わらせず何を読み取れるのか。",
-        "insight": "一見すると短いニュースでも、人物名、作品名、発言の背景を分けて見ると、検索流入を次の回遊へつなげる余地があります。",
-        "commerce": "関連リンクは、本人の推奨を示すものではなく、話題に近い作品や資料を探しやすくするための導線です。",
+        "insight": "一見すると短いニュースでも、人物名、作品名、発言の背景を分けて見ると、なぜ話題になったのかが見えてきます。",
+        "commerce": "関連する作品や資料を確認すると、ニュースだけでは見えない背景を補いやすくなります。",
         "headline": "{name}発言の背景：話題化した理由を整理",
     }
 
@@ -278,29 +278,21 @@ def article_content(source_title: str, names: list[str], origin: str = "news") -
     angle = article_angle(source_title)
     title = specific_headline(source_title, name) or angle["headline"].format(name=name)
     if origin == "job":
-        lead = f"Kurageに追加された動画「{source_title}」をもとに、{label}の話題を{angle['label']}として整理します。"
+        lead = f"話題になっている「{source_title}」をもとに、{label}について{angle['label']}の視点から整理します。"
     else:
         lead = f"ニュース「{source_title}」をきっかけに、{label}への関心がどこへ広がるのかを整理します。"
     summary = f"{lead}{angle['question']}"
     body = [
         angle["insight"],
-        (
-            "Kurage Entertainmentでは、速報を外部リンクで消費して終わらせず、"
-            "人物名で訪れた読者が背景、関連動画、関連商品へ自然に進めるように記事化します。"
-        ),
         angle["commerce"],
-        (
-            "Amazonリンクは本人の推奨・愛用・広告出演を断定するものではありません。"
-            "ニュースや動画のテーマに近い作品・書籍・資料を探すための関連導線です。"
-        ),
     ]
     video_script = [
         f"今日のテーマは、{name}に関する話題です。",
         short,
         angle["question"],
-        "Kurageでは背景と関連導線を整理します。",
-        "関連作品や資料も探しやすくしました。",
-        "詳しい考察と動画はKurageでチェック。",
+        angle["insight"],
+        "関連する作品や資料もあわせて見ると理解が深まります。",
+        "詳しい考察は記事で確認できます。",
     ]
     return {"title": title, "summary": summary, "body": body, "video_script": video_script}
 
@@ -396,7 +388,7 @@ def make_article(item: dict[str, Any]) -> dict[str, Any]:
         "video_script_30s": content["video_script"],
         "video_job_id": "",
         "status": "published",
-        "safety_note": "本人の推奨・愛用・広告出演を断定せず、関連作品・関連資料への導線として生成。",
+        "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
     }
 
 
@@ -477,7 +469,7 @@ def make_article_from_job(path: Path, job: dict[str, Any], names: list[str]) -> 
         "video_script_30s": content["video_script"],
         "video_job_id": jid,
         "status": "published",
-        "safety_note": "本人の推奨・愛用・広告出演を断定せず、Kurage生成動画から関連作品・関連資料への導線として生成。",
+        "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
     }
 
 
