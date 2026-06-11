@@ -312,7 +312,7 @@ def job_search_text(job: dict[str, Any]) -> str:
     return "\n".join(p for p in parts if p)
 
 
-def load_done_jobs(limit: int = 300) -> list[tuple[Path, dict[str, Any]]]:
+def load_done_jobs(limit: int = 5000) -> list[tuple[Path, dict[str, Any]]]:
     if not JOBS_DIR.exists():
         return []
     files = sorted(JOBS_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
@@ -397,10 +397,15 @@ def published_today_count(articles: list[dict[str, Any]]) -> int:
     return sum(1 for a in articles if str(a.get("created_at", "")).startswith(today))
 
 
-def run_once(target_per_day: int, max_new: int, query: str, dry_run: bool = False) -> dict[str, Any]:
+def run_once(target_per_day: int, max_new: int, query: str, dry_run: bool = False, jobs_only: bool = False) -> dict[str, Any]:
     articles = load_articles()
     existing_slugs = {a.get("slug") for a in articles}
     existing_sources = {a.get("source_url") for a in articles}
+    existing_job_titles = {
+        re.sub(r"\s+", " ", str(a.get("source_title") or "")).strip()
+        for a in articles
+        if a.get("source_name") == "Kurage Video" and a.get("source_title")
+    }
     remaining = max(0, target_per_day - published_today_count(articles))
     limit = min(max_new, remaining)
     result = {"target_per_day": target_per_day, "remaining_today": remaining, "created": 0, "created_from_jobs": 0, "skipped": 0, "articles": []}
@@ -415,11 +420,14 @@ def run_once(target_per_day: int, max_new: int, query: str, dry_run: bool = Fals
         jid = job_id_from_path(path, job)
         source_url = f"{KURAGE_BASE}/{job_view_file(job)}?id={urllib.parse.quote(jid)}"
         slug = slugify("kurage-job:" + jid)
-        if slug in existing_slugs or source_url in existing_sources:
+        source_title = re.sub(r"\s+", " ", str(job.get("title") or job.get("tweet_author_name") or "")).strip()
+        if slug in existing_slugs or source_url in existing_sources or source_title in existing_job_titles:
             result["skipped"] += 1
             continue
-        text = job_search_text(job)
-        if not is_safe_headline(text):
+        safety_text = "\n".join(
+            str(job.get(key) or "") for key in ("title", "tweet_author_name", "tweet_author")
+        )
+        if not is_safe_headline(safety_text):
             result["skipped"] += 1
             continue
         names = extract_job_celebrity_names(job)
@@ -430,13 +438,14 @@ def run_once(target_per_day: int, max_new: int, query: str, dry_run: bool = Fals
         new_articles.append(article)
         existing_slugs.add(article["slug"])
         existing_sources.add(article["source_url"])
+        existing_job_titles.add(source_title)
         result["created_from_jobs"] += 1
         result["articles"].append({"slug": article["slug"], "title": article["title"], "source": "job", "job_id": jid})
         if len(new_articles) >= limit:
             break
 
     remaining_after_jobs = max(0, limit - len(new_articles))
-    if remaining_after_jobs <= 0:
+    if remaining_after_jobs <= 0 or jobs_only:
         result["created"] = len(new_articles)
         if not dry_run and new_articles:
             save_articles(new_articles + articles)
@@ -477,10 +486,11 @@ def main() -> int:
     parser.add_argument("--loop", action="store_true", help="Run forever, sleeping between cycles.")
     parser.add_argument("--interval", type=int, default=300)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--jobs-only", action="store_true", help="Only create articles from completed Kurage video jobs.")
     args = parser.parse_args()
 
     while True:
-        result = run_once(args.target_per_day, args.max_new, args.query, args.dry_run)
+        result = run_once(args.target_per_day, args.max_new, args.query, args.dry_run, args.jobs_only)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         if not args.loop:
             break
