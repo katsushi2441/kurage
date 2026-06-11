@@ -222,6 +222,14 @@ if ($detail_job) {
     $page_url   = $BASE_URL . '/' . $THIS_FILE;
     $page_image = $BASE_URL . '/images/kurage.png';
 }
+$header_amazon_kw = trim((string)($detail_job['title'] ?? '動画編集 撮影機材 YouTube 本'));
+$header_amazon_from = '/' . $THIS_FILE . ($detail_id ? ('?id=' . $detail_id) : '');
+$header_amazon_url = '/go.php?' . http_build_query(array(
+    'to' => 'amazon',
+    'kw' => $header_amazon_kw,
+    'cat' => $detail_job ? 'books' : 'video',
+    'from' => $header_amazon_from,
+));
 ?><!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -288,6 +296,8 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 .brand-logo span{color:#007f96;}
 .brand-sub{display:block;font-size:.72rem;color:#888;margin-top:.18rem;}
 .header-right{display:flex;align-items:center;gap:8px;}
+.amazon-mini{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#ffb84d,#ff9900);border:1px solid #e58a00;color:#1f2933;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;font-weight:1000;font-size:18px;font-family:Georgia,serif;line-height:1;box-shadow:0 8px 18px rgba(255,153,0,.28);transform:rotate(-2deg);transition:transform .15s,box-shadow .15s;}
+.amazon-mini:hover{transform:rotate(2deg) translateY(-1px);box-shadow:0 10px 22px rgba(255,153,0,.38);}
 .back-btn{font-size:13px;color:#007f96;text-decoration:none;padding:5px 12px;border:1px solid #007f96;border-radius:6px;}
 .back-btn:hover{background:#e0f5f8;}
 .reel-btn{background:#007f96;color:#fff;font-size:12px;padding:5px 14px;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;}
@@ -380,6 +390,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
     </a>
   </div>
   <div class="header-right">
+    <a class="amazon-mini" href="<?php echo h($header_amazon_url); ?>" target="_blank" rel="sponsored nofollow noopener" aria-label="Amazonで関連商品を見る" title="Amazonで関連商品を見る">a</a>
     <?php if ($detail_job): ?>
     <a class="back-btn" href="<?php echo h($THIS_FILE); ?>">← 一覧</a>
     <?php else: ?>
