@@ -6,11 +6,16 @@ define('SIMPLETRACK_INTERNAL_KEY', 'kurage-track-v1');
 define('KURAGE_API', 'http://exbridge.ddns.net:18303');
 
 function st_admin_allowed() {
-    if (!file_exists(__DIR__ . '/auth_common.php')) return false;
-    require_once __DIR__ . '/auth_common.php';
-    if (!function_exists('url2ai_auth_bootstrap')) return false;
-    $auth = url2ai_auth_bootstrap();
+    $auth = st_auth_state();
     return !empty($auth['is_admin']);
+}
+
+function st_auth_state() {
+    if (!file_exists(__DIR__ . '/auth_common.php')) return array('logged_in' => false, 'is_admin' => false, 'session_user' => '');
+    require_once __DIR__ . '/auth_common.php';
+    if (!function_exists('url2ai_auth_bootstrap')) return array('logged_in' => false, 'is_admin' => false, 'session_user' => '');
+    $auth = url2ai_auth_bootstrap();
+    return is_array($auth) ? $auth : array('logged_in' => false, 'is_admin' => false, 'session_user' => '');
 }
 
 function st_h($value) {
@@ -201,10 +206,17 @@ function st_track_go_click($url, $ref, &$go_totals, &$go_products, &$go_sources,
 }
 
 if (isset($_GET['dashboard'])) {
-    if (!st_admin_allowed()) {
+    $auth = st_auth_state();
+    if (empty($auth['logged_in'])) {
+        if (function_exists('url2ai_auth_login_url')) {
+            header('Location: ' . url2ai_auth_login_url('/simpletrack.php?dashboard=1'));
+            exit;
+        }
+    }
+    if (empty($auth['is_admin'])) {
         http_response_code(403);
         header('Content-Type: text/html; charset=UTF-8');
-        echo '<!doctype html><meta charset="utf-8"><title>403 Forbidden</title><p>Analytics dashboard is available to administrators only.</p>';
+        echo '<!doctype html><meta charset="utf-8"><title>403 Forbidden</title><p>Analytics dashboard is available to administrators only.</p><p>logged in user: ' . st_h($auth['session_user'] ?? '') . '</p>';
         exit;
     }
     clearstatcache();
