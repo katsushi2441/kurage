@@ -67,6 +67,20 @@ def parse_json_from_response(text: str) -> dict:
                                 pass
                         break
 
+    # Try to recover partial JSON: extract complete scenes via regex
+    title_m = re.search(r'"title"\s*:\s*"([^"]+)"', text)
+    scene_matches = list(re.finditer(
+        r'\{"index"\s*:\s*(\d+)\s*,\s*"narration"\s*:\s*"([^"]+)"\s*,\s*"image_prompt"\s*:\s*"([^"]+)"\s*,\s*"duration"\s*:\s*(\d+)\}',
+        text
+    ))
+    if title_m and scene_matches:
+        scenes = [
+            {"index": int(m.group(1)), "narration": m.group(2),
+             "image_prompt": m.group(3), "duration": int(m.group(4))}
+            for m in scene_matches
+        ]
+        return {"title": title_m.group(1), "scenes": scenes}
+
     raise ValueError(f"Could not parse JSON from response: {text[:300]}")
 
 
