@@ -3,6 +3,7 @@ date_default_timezone_set('Asia/Tokyo');
 
 $logfile = __DIR__ . '/access.log';
 define('SIMPLETRACK_INTERNAL_KEY', 'kurage-track-v1');
+define('KURAGE_API', 'http://exbridge.ddns.net:18303');
 
 function st_h($value) {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
@@ -49,14 +50,102 @@ function st_clean_url_label($url) {
     return $path . $query;
 }
 
-function st_is_kurage_detail_url($url) {
-    $parts = parse_url((string)$url);
-    if (!$parts) return false;
+function st_content_meta_from_url($url) {
+    $parts = parse_url(urldecode((string)$url));
+    if (!$parts) return null;
     $path = isset($parts['path']) ? $parts['path'] : '';
-    if ($path !== '/kuragev.php' && $path !== '/horizonv.php') return false;
     $params = array();
     if (!empty($parts['query'])) parse_str($parts['query'], $params);
-    return !empty($params['id']);
+
+    $id = '';
+    if (!empty($params['id'])) {
+        $id = (string)$params['id'];
+    } elseif (!empty($params['job_id'])) {
+        $id = (string)$params['job_id'];
+    }
+    $id = preg_replace('/[^a-zA-Z0-9]/', '', $id);
+    if ($id === '') return null;
+
+    if (in_array($path, array('/kuragev.php', '/kurage.php'), true)) {
+        return array('id' => $id, 'type' => 'Kurage動画');
+    }
+    if (in_array($path, array('/horizonv.php', '/horizon.php'), true)) {
+        return array('id' => $id, 'type' => 'Horizon動画');
+    }
+    return null;
+}
+
+function st_collect_content_id(&$ids, $url) {
+    $meta = st_content_meta_from_url($url);
+    if ($meta && !empty($meta['id'])) $ids[$meta['id']] = true;
+
+    $parts = parse_url(urldecode((string)$url));
+    if (!$parts) return;
+    $path = isset($parts['path']) ? $parts['path'] : '';
+    if ($path !== '/go.php' || empty($parts['query'])) return;
+    $params = array();
+    parse_str($parts['query'], $params);
+    if (!empty($params['from'])) st_collect_content_id($ids, (string)$params['from']);
+}
+
+function st_fetch_json($url, $timeout = 4) {
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Accept: application/json'));
+        $res = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        if (!$res || $code >= 400) return null;
+        return json_decode($res, true);
+    }
+    $ctx = stream_context_create(array('http' => array('timeout' => $timeout, 'header' => "Accept: application/json\r\n")));
+    $res = @file_get_contents($url, false, $ctx);
+    return $res ? json_decode($res, true) : null;
+}
+
+function st_build_title_map($ids) {
+    $title_map = array();
+    if (empty($ids)) return $title_map;
+
+    $list = st_fetch_json(KURAGE_API . '/jobs?limit=1000', 5);
+    if (is_array($list) && !empty($list['jobs']) && is_array($list['jobs'])) {
+        foreach ($list['jobs'] as $job) {
+            $jid = isset($job['job_id']) ? preg_replace('/[^a-zA-Z0-9]/', '', (string)$job['job_id']) : '';
+            if ($jid === '' || empty($ids[$jid])) continue;
+            $title = trim((string)($job['title'] ?? $job['tweet_author_name'] ?? $job['tweet_author'] ?? ''));
+            if ($title !== '') $title_map[$jid] = $title;
+        }
+    }
+
+    $missing = array_values(array_diff(array_keys($ids), array_keys($title_map)));
+    foreach (array_slice($missing, 0, 80) as $jid) {
+        $job = st_fetch_json(KURAGE_API . '/status/' . rawurlencode($jid), 4);
+        if (!is_array($job)) continue;
+        $title = trim((string)($job['title'] ?? $job['tweet_author_name'] ?? $job['tweet_author'] ?? ''));
+        if ($title !== '') $title_map[$jid] = $title;
+    }
+    return $title_map;
+}
+
+function st_content_title_for_url($url, $title_map) {
+    $meta = st_content_meta_from_url($url);
+    if (!$meta) return '';
+    $title = isset($title_map[$meta['id']]) ? trim((string)$title_map[$meta['id']]) : '';
+    if ($title === '') return $meta['type'] . ' ID: ' . $meta['id'];
+    return $title;
+}
+
+function st_label_url_with_title($url, $title_map) {
+    $label = st_clean_url_label($url);
+    $title = st_content_title_for_url($url, $title_map);
+    return $title !== '' ? ($label . ' - ' . $title) : $label;
+}
+
+function st_is_kurage_detail_url($url) {
+    $meta = st_content_meta_from_url($url);
+    return $meta !== null;
 }
 
 function st_track_go_click($url, $ref, &$go_totals, &$go_products, &$go_sources, $at) {
@@ -131,6 +220,7 @@ if (isset($_GET['dashboard'])) {
     $go_totals = array();
     $go_products = array();
     $go_sources = array();
+    $content_ids = array();
     $voice_pro_count = 0;
     $horizon_count = 0;
     $kurage_count = 0;
@@ -148,6 +238,8 @@ if (isset($_GET['dashboard'])) {
         $ref = $parts[3];
         $ua = isset($parts[4]) ? $parts[4] : '';
         if (st_is_bot_ua($ua)) continue;
+        st_collect_content_id($content_ids, $url);
+        st_collect_content_id($content_ids, $ref);
 
         if (!isset($pv_per_day[$date])) $pv_per_day[$date] = 0;
         $pv_per_day[$date]++;
@@ -160,6 +252,12 @@ if (isset($_GET['dashboard'])) {
                 if (st_is_kurage_detail_url($url)) {
                     if (!isset($detail_count[$url])) $detail_count[$url] = 0;
                     $detail_count[$url]++;
+                }
+                $parsed_url = parse_url(urldecode((string)$url));
+                if (($parsed_url['path'] ?? '') === '/go.php' && !empty($parsed_url['query'])) {
+                    $go_params = array();
+                    parse_str($parsed_url['query'], $go_params);
+                    if (!empty($go_params['from'])) st_collect_content_id($content_ids, (string)$go_params['from']);
                 }
                 st_track_go_click($url, $ref, $go_totals, $go_products, $go_sources, $parts[0]);
                 $path = parse_url($url, PHP_URL_PATH);
@@ -189,6 +287,7 @@ if (isset($_GET['dashboard'])) {
         if ($a['clicks'] !== $b['clicks']) return ($a['clicks'] > $b['clicks']) ? -1 : 1;
         return ($a['raw_clicks'] > $b['raw_clicks']) ? -1 : 1;
     });
+    $title_map = st_build_title_map($content_ids);
 
     $top_urls = array_slice($url_count, 0, 20, true);
     $top_refs = array_slice($ref_count, 0, 20, true);
@@ -200,15 +299,19 @@ if (isset($_GET['dashboard'])) {
 
     $all_urls_array = array();
     foreach ($url_count as $u => $c) {
-        $all_urls_array[] = array('url' => st_clean_url_label($u), 'pv' => $c);
+        $all_urls_array[] = array(
+            'url' => st_clean_url_label($u),
+            'title' => st_content_title_for_url($u, $title_map),
+            'pv' => $c
+        );
     }
     $all_urls = json_encode($all_urls_array, JSON_UNESCAPED_UNICODE);
 
     $dates = json_encode(array_keys($pv_per_day));
     $pv_counts = json_encode(array_values($pv_per_day));
-    $url_labels = json_encode(array_map('st_clean_url_label', array_keys($top_urls)), JSON_UNESCAPED_UNICODE);
+    $url_labels = json_encode(array_map(function($u) use ($title_map) { return st_label_url_with_title($u, $title_map); }, array_keys($top_urls)), JSON_UNESCAPED_UNICODE);
     $url_counts = json_encode(array_values($top_urls));
-    $ref_labels = json_encode(array_map('urldecode', array_keys($top_refs)), JSON_UNESCAPED_UNICODE);
+    $ref_labels = json_encode(array_map(function($u) use ($title_map) { return st_label_url_with_title($u, $title_map); }, array_keys($top_refs)), JSON_UNESCAPED_UNICODE);
     $ref_counts = json_encode(array_values($top_refs));
 ?>
 <!DOCTYPE html>
@@ -239,10 +342,10 @@ if (isset($_GET['dashboard'])) {
 <div class="canvasBox"><h2>Daily PV</h2><canvas id="pvChart"></canvas></div>
 <div class="canvasBox"><h2>Top URLs</h2><canvas id="urlChart"></canvas></div>
 <div class="canvasBox"><h2>Top Referrers</h2><canvas id="refChart"></canvas></div>
-<div class="canvasBox"><h2>動画詳細ページ</h2><table><thead><tr><th>#</th><th>URL</th><th>PV</th></tr></thead><tbody><?php if(empty($top_details)): ?><tr><td colspan="3">動画詳細ページのアクセスはありません。</td></tr><?php else: ?><?php $i=1; foreach($top_details as $u => $c): ?><tr><td><?php echo $i++; ?></td><td><?php echo st_h(st_clean_url_label($u)); ?></td><td><?php echo number_format($c); ?></td></tr><?php endforeach; ?><?php endif; ?></tbody></table></div>
-<div class="canvasBox"><h2>Amazonクリック 呼び出し元ページ</h2><table><thead><tr><th>#</th><th>呼び出し元</th><th>遷移先</th><th>最新クリック日時</th><th>実クリック</th><th>raw</th></tr></thead><tbody><?php if(empty($top_go_sources)): ?><tr><td colspan="6">Amazonクリックはありません。</td></tr><?php else: ?><?php $i=1; foreach($top_go_sources as $row): ?><tr><td><?php echo $i++; ?></td><td><?php echo st_h($row['from']); ?></td><td><?php echo st_h($row['to']); ?></td><td><?php echo st_h($row['latest_at']); ?></td><td><?php echo number_format($row['clicks']); ?></td><td><?php echo number_format($row['raw_clicks']); ?></td></tr><?php endforeach; ?><?php endif; ?></tbody></table></div>
-<div class="canvasBox"><h2>Amazonクリック キーワード/ASIN</h2><table><thead><tr><th>#</th><th>キーワード/ASIN</th><th>ASIN</th><th>呼び出し元</th><th>最新クリック日時</th><th>実クリック</th><th>raw</th></tr></thead><tbody><?php if(empty($top_go_products)): ?><tr><td colspan="7">Amazonクリックはありません。</td></tr><?php else: ?><?php $i=1; foreach($top_go_products as $row): ?><tr><td><?php echo $i++; ?></td><td><?php echo st_h($row['product']); ?></td><td><?php echo st_h($row['asin']); ?></td><td><?php echo st_h($row['from']); ?></td><td><?php echo st_h($row['latest_at']); ?></td><td><?php echo number_format($row['clicks']); ?></td><td><?php echo number_format($row['raw_clicks']); ?></td></tr><?php endforeach; ?><?php endif; ?></tbody></table></div>
-<div class="canvasBox"><h2>Access URL Details</h2><table><thead><tr><th>#</th><th>URL</th><th>PV</th></tr></thead><tbody id="detailBody"></tbody></table></div>
+<div class="canvasBox"><h2>動画詳細ページ</h2><table><thead><tr><th>#</th><th>URL</th><th>投稿・動画タイトル</th><th>PV</th></tr></thead><tbody><?php if(empty($top_details)): ?><tr><td colspan="4">動画詳細ページのアクセスはありません。</td></tr><?php else: ?><?php $i=1; foreach($top_details as $u => $c): ?><tr><td><?php echo $i++; ?></td><td><?php echo st_h(st_clean_url_label($u)); ?></td><td><?php echo st_h(st_content_title_for_url($u, $title_map)); ?></td><td><?php echo number_format($c); ?></td></tr><?php endforeach; ?><?php endif; ?></tbody></table></div>
+<div class="canvasBox"><h2>Amazonクリック 呼び出し元ページ</h2><table><thead><tr><th>#</th><th>呼び出し元</th><th>投稿・動画タイトル</th><th>遷移先</th><th>最新クリック日時</th><th>実クリック</th><th>raw</th></tr></thead><tbody><?php if(empty($top_go_sources)): ?><tr><td colspan="7">Amazonクリックはありません。</td></tr><?php else: ?><?php $i=1; foreach($top_go_sources as $row): ?><tr><td><?php echo $i++; ?></td><td><?php echo st_h($row['from']); ?></td><td><?php echo st_h(st_content_title_for_url($row['from'], $title_map)); ?></td><td><?php echo st_h($row['to']); ?></td><td><?php echo st_h($row['latest_at']); ?></td><td><?php echo number_format($row['clicks']); ?></td><td><?php echo number_format($row['raw_clicks']); ?></td></tr><?php endforeach; ?><?php endif; ?></tbody></table></div>
+<div class="canvasBox"><h2>Amazonクリック キーワード/ASIN</h2><table><thead><tr><th>#</th><th>キーワード/ASIN</th><th>ASIN</th><th>呼び出し元</th><th>投稿・動画タイトル</th><th>最新クリック日時</th><th>実クリック</th><th>raw</th></tr></thead><tbody><?php if(empty($top_go_products)): ?><tr><td colspan="8">Amazonクリックはありません。</td></tr><?php else: ?><?php $i=1; foreach($top_go_products as $row): ?><tr><td><?php echo $i++; ?></td><td><?php echo st_h($row['product']); ?></td><td><?php echo st_h($row['asin']); ?></td><td><?php echo st_h($row['from']); ?></td><td><?php echo st_h(st_content_title_for_url($row['from'], $title_map)); ?></td><td><?php echo st_h($row['latest_at']); ?></td><td><?php echo number_format($row['clicks']); ?></td><td><?php echo number_format($row['raw_clicks']); ?></td></tr><?php endforeach; ?><?php endif; ?></tbody></table></div>
+<div class="canvasBox"><h2>Access URL Details</h2><table><thead><tr><th>#</th><th>URL</th><th>投稿・動画タイトル</th><th>PV</th></tr></thead><tbody id="detailBody"></tbody></table></div>
 <script>
 const allData = <?php echo $all_urls; ?>;
 let rendered = 0;
@@ -251,7 +354,11 @@ function renderRows(){
   const next = Math.min(rendered + 50, allData.length);
   for(let i = rendered; i < next; i++){
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td>'+(i+1)+'</td><td>'+allData[i].url+'</td><td>'+allData[i].pv+'</td>';
+    [String(i + 1), allData[i].url || '', allData[i].title || '', String(allData[i].pv || 0)].forEach(function(value){
+      const td = document.createElement('td');
+      td.textContent = value;
+      tr.appendChild(td);
+    });
     tbody.appendChild(tr);
   }
   rendered = next;
