@@ -684,5 +684,9 @@ document.addEventListener('keydown', function(e) {
     }
 });
 </script>
+<footer class="affiliate-disclosure" style="max-width:1120px;margin:28px auto 18px;padding:12px 16px;color:#647884;font-size:12px;line-height:1.7;text-align:center;">
+  Amazonアソシエイトとして適格販売により収入を得ています。
+</footer>
+
 </body>
 </html>
