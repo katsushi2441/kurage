@@ -9,6 +9,7 @@ $urls = array(
     array('loc' => $base . '/kuragev.php', 'priority' => '0.9', 'changefreq' => 'daily'),
     array('loc' => $base . '/horizon.php', 'priority' => '0.8', 'changefreq' => 'weekly'),
     array('loc' => $base . '/horizonv.php', 'priority' => '0.9', 'changefreq' => 'daily'),
+    array('loc' => $base . '/entertainment.php', 'priority' => '0.85', 'changefreq' => 'hourly'),
     array('loc' => $base . '/kuragevp.php', 'priority' => '0.7', 'changefreq' => 'monthly'),
     array('loc' => $base . '/kdeck.php', 'priority' => '0.7', 'changefreq' => 'monthly'),
     array('loc' => $base . '/rqdb4ai.php', 'priority' => '0.7', 'changefreq' => 'monthly'),
@@ -57,6 +58,30 @@ function add_job_urls(&$urls, $base) {
 }
 
 add_job_urls($urls, $base);
+
+$entertainment_file = __DIR__ . '/data/entertainment_articles.json';
+if (file_exists($entertainment_file)) {
+    $entertainment = json_decode(file_get_contents($entertainment_file), true);
+    if (is_array($entertainment)) {
+        foreach (array_slice($entertainment, 0, 500) as $article) {
+            if (empty($article['slug'])) { continue; }
+            $lastmod = '';
+            foreach (array('updated_at', 'created_at') as $key) {
+                if (!empty($article[$key])) {
+                    $ts = strtotime($article[$key]);
+                    if ($ts) { $lastmod = date('c', $ts); }
+                    break;
+                }
+            }
+            $urls[] = array(
+                'loc' => $base . '/entertainment.php?id=' . rawurlencode($article['slug']),
+                'priority' => '0.72',
+                'changefreq' => 'weekly',
+                'lastmod' => $lastmod,
+            );
+        }
+    }
+}
 
 echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
 ?>

@@ -319,6 +319,83 @@ JSONのみ返してください。"""
     return normalize_script(script, scene_duration=10, force_title=title)
 
 
+ENTERTAINMENT_SHORT_SYSTEM_PROMPT = """You are a Japanese short video editor for safe entertainment news commentary.
+
+Return ONLY a JSON object. No markdown, no code blocks, no explanation. Start with { and end with }.
+
+Required format:
+{"title":"30秒動画タイトル(50字以内)","scenes":[{"index":0,"narration":"日本語ナレーション(25〜35字)","image_prompt":"English vertical 9:16 abstract entertainment news visual under 70 chars","duration":5},...]}
+
+Rules:
+- Exactly 6 scenes, duration: 5 seconds each (total ~30 seconds).
+- Do not imply endorsement, sponsorship, recommendation, romance, scandal, guilt, or private facts unless explicitly in the source text.
+- Do not describe a real person's face, body, or likeness in image_prompt.
+- Use abstract safe visuals: studio lights, city billboard, smartphone news cards, books, streaming icons, cinema seats.
+- Preserve public proper nouns in narration when relevant.
+- Mention Kurage once in the closing as the place for the full article.
+- No double quotes inside string values. Use 「」for Japanese quotes.
+"""
+
+
+def generate_entertainment_short_script(article: dict) -> dict:
+    """Generate a 30-second short video script for entertainment SEO articles."""
+    title = (article.get("title") or "").strip()
+    summary = (article.get("summary") or article.get("content") or "").strip()
+    celebrity = "、".join(article.get("celebrity_names") or []) or "話題の人物"
+    kurage_url = article.get("url") or "https://kurage.exbridge.jp/entertainment.php"
+
+    user_prompt = f"""以下の芸能ニュース考察記事を、30秒の安全なショート動画にしてください。
+
+【記事タイトル】
+{title}
+
+【人物名】
+{celebrity}
+
+【要約】
+{summary[:1200]}
+
+【Kurage記事URL】
+{kurage_url}
+
+重要:
+- 本人が商品をおすすめした、愛用した、宣伝したとは言わない。
+- 人物の顔写真を使う前提にしない。
+- 最後は「続きはKurageで」の自然な回遊にする。
+
+JSONのみ返してください。"""
+
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": ENTERTAINMENT_SHORT_SYSTEM_PROMPT + "\n\n" + user_prompt,
+        "stream": False,
+        "options": {
+            "temperature": 0.25,
+            "num_predict": 4096,
+        },
+    }
+    resp = requests.post(
+        f"{OLLAMA_URL}/api/generate",
+        json=payload,
+        timeout=240,
+    )
+    resp.raise_for_status()
+    response_text = (resp.json().get("response") or "")
+    print(f"  [entertainment_short_script] Ollama response length: {len(response_text)}", flush=True)
+
+    try:
+        requests.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={"model": OLLAMA_MODEL, "prompt": "", "keep_alive": 0},
+            timeout=10,
+        )
+    except Exception:
+        pass
+
+    script = parse_json_from_response(response_text)
+    return normalize_script(script, scene_duration=5, force_title=title[:50])
+
+
 if __name__ == "__main__":
     import sys
     tweet = {

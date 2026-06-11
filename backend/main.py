@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from config import JOBS_DIR, PORT, ERNIE_URL, NVM_NODE, HYPERFRAMES_VERSION, OLLAMA_URL, OLLAMA_MODEL, WAN_API, WAN_TEST_MODE
 from tts_gen import TTS_VOICE, TTS_RATE, TTS_PITCH
-from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, load_job, update_job
+from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, run_pipeline_from_entertainment_short, load_job, update_job
 from typing import Any
 
 app = FastAPI(title="Kurage API", version="1.0.0")
@@ -38,6 +38,15 @@ class NewsRequest(BaseModel):
 
 class UrlRequest(BaseModel):
     url: str
+
+
+class EntertainmentShortRequest(BaseModel):
+    title: str
+    summary: str = ""
+    content: str = ""
+    url: str = ""
+    source_name: str = "Kurage Entertainment"
+    celebrity_names: list[str] = []
 
 
 @app.get("/health")
@@ -195,6 +204,28 @@ def generate_from_blog_url(req: UrlRequest):
                title=article["title"],
                created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
     t = threading.Thread(target=run_pipeline_from_blog, args=(job_id, article), daemon=True)
+    t.start()
+    return {"ok": True, "job_id": job_id}
+
+
+@app.post("/generate_entertainment_short")
+def generate_entertainment_short(req: EntertainmentShortRequest):
+    """Start a 30-second Kurage short video job from an entertainment article."""
+    title = req.title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="title is required")
+    article = req.dict()
+    job_id = str(uuid.uuid4()).replace("-", "")[:16]
+    JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    update_job(job_id, status="queued", progress=0, source="entertainment",
+               content_type="entertainment_short",
+               tweet_url=article.get("url", ""),
+               tweet_text=(article.get("summary") or article.get("content") or "")[:240],
+               tweet_author=article.get("source_name") or "Kurage Entertainment",
+               tweet_author_name=title,
+               title=title,
+               created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
+    t = threading.Thread(target=run_pipeline_from_entertainment_short, args=(job_id, article), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
 
