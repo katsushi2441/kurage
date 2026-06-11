@@ -11,7 +11,7 @@ function go_clean($value) {
 function go_is_bot_ua($ua) {
     $ua = strtolower(trim((string)$ua));
     if ($ua === '') return true;
-    $bot_words = array('bot','crawler','spider','slurp','crawl','mediapartners','curl','wget','python','httpclient','scrapy','headless','phantom','selenium','playwright','puppeteer','facebookexternalhit','meta-externalagent','twitterbot','slackbot','discordbot','linebot','googlebot','googleother','bingbot','duckduckbot','baiduspider','yandexbot','ahrefsbot','semrushbot','mj12bot','petalbot','bytespider','claudebot','gptbot','oai-searchbot','ccbot','perplexitybot','applebot','amazonbot');
+    $bot_words = array('bot','crawler','spider','slurp','crawl','mediapartners','curl','wget','python','httpclient','scrapy','headless','phantom','selenium','playwright','puppeteer','facebookexternalhit','meta-externalagent','twitterbot','slackbot','discordbot','linebot','googlebot','googleother','bingbot','duckduckbot','baiduspider','yandexbot','ahrefsbot','semrushbot','mj12bot','petalbot','bytespider','claudebot','gptbot','oai-searchbot','ccbot','perplexitybot','applebot','amazonbot','kgrowth','kgrowth-kurage');
     foreach ($bot_words as $word) if (strpos($ua, $word) !== false) return true;
     return false;
 }

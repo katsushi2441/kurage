@@ -33,7 +33,7 @@ function st_is_bot_ua($ua) {
         'linebot', 'googlebot', 'googleother', 'google-read-aloud', 'bingbot', 'duckduckbot', 'baiduspider',
         'yandexbot', 'ahrefsbot', 'semrushbot', 'mj12bot', 'petalbot',
         'bytespider', 'claudebot', 'gptbot', 'oai-searchbot', 'ccbot', 'perplexitybot',
-        'applebot', 'amazonbot'
+        'applebot', 'amazonbot', 'kgrowth', 'kgrowth-kurage'
     );
     foreach ($bot_words as $word) {
         if (strpos($ua, $word) !== false) return true;
