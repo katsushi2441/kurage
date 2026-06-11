@@ -1,0 +1,17 @@
+[Unit]
+Description=Kurage Entertainment SEO Pipeline
+After=network-online.target kurage-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/kojima/work/kurage
+Environment=KURAGE_ENTERTAINMENT_INTERVAL=300
+Environment=KURAGE_ENTERTAINMENT_TARGET_PER_DAY=30
+Environment=KURAGE_ENTERTAINMENT_MAX_NEW=3
+ExecStart=/home/kojima/work/kurage/scripts/entertainment_pipeline_service.sh
+Restart=always
+RestartSec=20
+
+[Install]
+WantedBy=default.target

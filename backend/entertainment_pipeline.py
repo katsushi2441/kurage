@@ -25,6 +25,7 @@ KURAGE_BASE = "https://kurage.exbridge.jp"
 GO_BASE = "/go.php"
 DEFAULT_QUERY = "芸能人 OR 俳優 OR 女優 OR アイドル OR 歌手 OR タレント"
 DEFAULT_TARGET_PER_DAY = 30
+MAX_SOURCE_AGE_DAYS = 7
 
 NG_WORDS = (
     "逮捕", "容疑", "起訴", "不起訴", "不倫", "浮気", "離婚", "訃報", "死去",
@@ -117,6 +118,17 @@ def save_articles(articles: list[dict[str, Any]], path: Path = ARTICLES_PATH) ->
 
 def is_safe_headline(title: str) -> bool:
     return not any(word in title for word in NG_WORDS)
+
+
+def is_recent_item(item: dict[str, Any], max_age_days: int = MAX_SOURCE_AGE_DAYS) -> bool:
+    published_at = str(item.get("published_at") or "")
+    if not published_at:
+        return False
+    try:
+        dt = datetime.strptime(published_at, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone(timedelta(hours=9)))
+    except Exception:
+        return False
+    return dt >= datetime.now(timezone(timedelta(hours=9))) - timedelta(days=max_age_days)
 
 
 def extract_celebrity_names(title: str) -> list[str]:
@@ -243,6 +255,9 @@ def run_once(target_per_day: int, max_new: int, query: str, dry_run: bool = Fals
             result["skipped"] += 1
             continue
         if not is_safe_headline(item["title"]):
+            result["skipped"] += 1
+            continue
+        if not is_recent_item(item):
             result["skipped"] += 1
             continue
         if not extract_celebrity_names(item["title"]):
