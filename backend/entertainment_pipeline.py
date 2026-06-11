@@ -21,6 +21,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 ARTICLES_PATH = ROOT / "data" / "entertainment_articles.json"
+JOBS_DIR = ROOT / "storage" / "jobs"
 KURAGE_BASE = "https://kurage.exbridge.jp"
 GO_BASE = "/go.php"
 DEFAULT_QUERY = "芸能人 OR 俳優 OR 女優 OR アイドル OR 歌手 OR タレント"
@@ -40,7 +41,19 @@ GENERIC_WORDS = {
     "研究所", "ドラマ", "映画祭", "総力戦", "栄", "名古屋", "東京", "大阪",
     "社外取締役", "交際報道", "有名人", "都道府県別", "人気美人女優",
     "中学生役", "年上半期", "男性タレント", "女性タレント", "ランキング",
+    "Kurage", "Horizon", "AI", "Google", "OpenAI", "動画", "翻訳", "生成",
+    "物語", "今夜", "金融業界", "製品的", "知識戦略", "婚約者", "募集中",
+    "代償", "昔", "人生", "再構築", "最新", "テクノロジー",
 }
+
+ENGLISH_GENERIC_WORDS = {
+    "AI", "API", "CEO", "CTO", "CFO", "USA", "US", "UK", "Google", "OpenAI",
+    "Kurage", "Horizon", "Amazon", "YouTube", "Twitter", "X", "News",
+    "Video", "Blog", "Voice", "Pro", "Project", "Agent", "Code", "Data",
+    "Canada", "Strong", "America", "Great", "Again", "Banking", "Homebrew",
+}
+
+JOB_VIDEO_SOURCES = {"kuragevp", "horizon", "blog"}
 
 
 def now_jst() -> str:
@@ -141,6 +154,7 @@ def extract_celebrity_names(title: str) -> list[str]:
             candidates.append(name)
     patterns = [
         r"([一-龥]{2,4}\s?[一-龥]{1,4})(?:さん|氏|、|が|は|の|に|と|で)",
+        r"([ァ-ヴー]{2,12}(?:・[ァ-ヴー]{2,12}){1,3})(?:さん|氏|、|が|は|の|に|と|で|:|：)",
         r"(?:俳優|女優|歌手|タレント|モデル|アイドル|声優|芸人)の([一-龥ぁ-んァ-ヶA-Za-z][一-龥ぁ-んァ-ヶA-Za-z・ー]{1,12})",
     ]
     for pattern in patterns:
@@ -152,7 +166,48 @@ def extract_celebrity_names(title: str) -> list[str]:
                 continue
             if name not in candidates:
                 candidates.append(name)
+    for match in re.findall(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b", cleaned):
+        parts = match.split()
+        if any(part in ENGLISH_GENERIC_WORDS for part in parts):
+            continue
+        if match not in candidates:
+            candidates.append(match)
     return candidates[:3]
+
+
+def extract_job_celebrity_names(job: dict[str, Any]) -> list[str]:
+    """Use stricter extraction for video jobs so generic narration is not treated as a person."""
+    title = re.sub(r"\s+", " ", str(job.get("title") or "")).strip()
+    author_name = re.sub(r"\s+", " ", str(job.get("tweet_author_name") or "")).strip()
+    search_text = "\n".join(p for p in [author_name, title] if p)
+    candidates: list[str] = []
+    patterns = [
+        r"([ァ-ヴー]{2,12}(?:・[ァ-ヴー]{2,12}){1,3})(?:さん|氏|、|:|：|$)",
+        r"([一-龥]{2,6}(?:\s?[一-龥]{1,4})?)(?:さん|氏)",
+        r"([一-龥]{2,5})(?:が語る|が明かす|が出演)",
+        r"\b(Mr\.?\s?Beast|MrBeast)\b",
+        r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b(?:\s+(?:says|said|reveals|on|at)|:)",
+    ]
+    for pattern in patterns:
+        for match in re.findall(pattern, search_text):
+            name = str(match).strip(" ・ーさん氏")
+            if name.lower().replace(" ", "") == "mrbeast":
+                name = "MrBeast"
+            parts = name.split()
+            if len(name) < 2 or name in GENERIC_WORDS:
+                continue
+            if any(word in name for word in GENERIC_WORDS):
+                continue
+            if any(part in ENGLISH_GENERIC_WORDS for part in parts):
+                continue
+            if name not in candidates:
+                candidates.append(name)
+    preferred: list[str] = []
+    for name in sorted(candidates, key=len, reverse=True):
+        if any(name != other and name in other for other in preferred):
+            continue
+        preferred.append(name)
+    return preferred[:3]
 
 
 def article_title(source_title: str, names: list[str]) -> str:
@@ -232,6 +287,111 @@ def make_article(item: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def job_id_from_path(path: Path, job: dict[str, Any]) -> str:
+    return re.sub(r"[^a-zA-Z0-9]", "", str(job.get("job_id") or path.stem))
+
+
+def job_view_file(job: dict[str, Any]) -> str:
+    source = str(job.get("source") or "")
+    return "horizonv.php" if source == "horizon" else "kuragev.php"
+
+
+def job_search_text(job: dict[str, Any]) -> str:
+    parts = [
+        str(job.get("title") or ""),
+        str(job.get("tweet_author_name") or ""),
+        str(job.get("tweet_author") or ""),
+        str(job.get("tweet_text") or ""),
+    ]
+    script = job.get("script")
+    if isinstance(script, dict):
+        parts.append(str(script.get("title") or ""))
+        for scene in script.get("scenes") or []:
+            if isinstance(scene, dict):
+                parts.append(str(scene.get("narration") or ""))
+    return "\n".join(p for p in parts if p)
+
+
+def load_done_jobs(limit: int = 300) -> list[tuple[Path, dict[str, Any]]]:
+    if not JOBS_DIR.exists():
+        return []
+    files = sorted(JOBS_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)
+    jobs: list[tuple[Path, dict[str, Any]]] = []
+    for path in files[:limit]:
+        try:
+            job = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if job.get("status") != "done":
+            continue
+        jobs.append((path, job))
+    return jobs
+
+
+def make_article_from_job(path: Path, job: dict[str, Any], names: list[str]) -> dict[str, Any]:
+    jid = job_id_from_path(path, job)
+    file_name = job_view_file(job)
+    video_page = f"{KURAGE_BASE}/{file_name}?id={urllib.parse.quote(jid)}"
+    source_title = str(job.get("title") or job.get("tweet_author_name") or "Kurage生成動画")
+    kw = amazon_keyword(source_title, names)
+    slug = slugify("kurage-job:" + jid)
+    person_label = "、".join(names)
+    amazon_url = GO_BASE + "?" + urllib.parse.urlencode({
+        "to": "amazon",
+        "kw": kw,
+        "from": f"/entertainment.php?id={slug}",
+    })
+    summary = (
+        f"Kurageで生成された動画「{source_title}」をきっかけに、{person_label}への検索流入を"
+        "公開動画、関連記事、Amazon関連作品導線へつなげるための自動生成コンテンツです。"
+    )
+    body = [
+        f"Kurageに新しい動画「{source_title}」が追加されました。",
+        (
+            f"この動画には、{person_label}に関連する話題が含まれています。"
+            "Kurage Entertainmentでは、動画で関心を持った人が関連作品や資料へ自然に進めるよう整理します。"
+        ),
+        (
+            "Amazonリンクは、本人の推奨・愛用・広告出演を示すものではありません。"
+            "動画テーマに近い作品や資料を探すための関連リンクです。"
+        ),
+        (
+            "記事からKurage動画へ、動画から記事へ戻る導線を作ることで、"
+            "芸能人名・著名人名の検索流入をKurage全体の認知につなげます。"
+        ),
+    ]
+    video_script = [
+        "Kurageに新しい動画が追加されました。",
+        f"今回の注目は、{person_label}に関する話題です。",
+        "動画の内容を短く整理して確認できます。",
+        "関連作品や資料も安全に探せます。",
+        "Amazonリンクは関連テーマの検索導線です。",
+        "詳しい記事と動画はKurageでチェック。",
+    ]
+    return {
+        "slug": slug,
+        "title": article_title(source_title, names),
+        "source_title": source_title,
+        "source_url": video_page,
+        "source_name": "Kurage Video",
+        "source_published_at": job.get("created_at") or "",
+        "created_at": now_jst(),
+        "updated_at": now_jst(),
+        "celebrity_names": names,
+        "summary": summary,
+        "body": body,
+        "amazon_kw": kw,
+        "amazon_url": amazon_url,
+        "kurage_url": f"{KURAGE_BASE}/entertainment.php?id={urllib.parse.quote(slug)}",
+        "kurage_cta_url": "/kuragev.php",
+        "video_cta_url": "/" + file_name,
+        "video_script_30s": video_script,
+        "video_job_id": jid,
+        "status": "published",
+        "safety_note": "本人の推奨・愛用・広告出演を断定せず、Kurage生成動画から関連作品・関連資料への導線として生成。",
+    }
+
+
 def published_today_count(articles: list[dict[str, Any]]) -> int:
     today = now_jst()[:10]
     return sum(1 for a in articles if str(a.get("created_at", "")).startswith(today))
@@ -243,12 +403,46 @@ def run_once(target_per_day: int, max_new: int, query: str, dry_run: bool = Fals
     existing_sources = {a.get("source_url") for a in articles}
     remaining = max(0, target_per_day - published_today_count(articles))
     limit = min(max_new, remaining)
-    result = {"target_per_day": target_per_day, "remaining_today": remaining, "created": 0, "skipped": 0, "articles": []}
+    result = {"target_per_day": target_per_day, "remaining_today": remaining, "created": 0, "created_from_jobs": 0, "skipped": 0, "articles": []}
     if limit <= 0:
         return result
 
-    items = parse_google_news_items(fetch_url(google_news_rss_url(query)))
     new_articles: list[dict[str, Any]] = []
+    for path, job in load_done_jobs():
+        if str(job.get("source") or "") not in JOB_VIDEO_SOURCES:
+            result["skipped"] += 1
+            continue
+        jid = job_id_from_path(path, job)
+        source_url = f"{KURAGE_BASE}/{job_view_file(job)}?id={urllib.parse.quote(jid)}"
+        slug = slugify("kurage-job:" + jid)
+        if slug in existing_slugs or source_url in existing_sources:
+            result["skipped"] += 1
+            continue
+        text = job_search_text(job)
+        if not is_safe_headline(text):
+            result["skipped"] += 1
+            continue
+        names = extract_job_celebrity_names(job)
+        if not names:
+            result["skipped"] += 1
+            continue
+        article = make_article_from_job(path, job, names)
+        new_articles.append(article)
+        existing_slugs.add(article["slug"])
+        existing_sources.add(article["source_url"])
+        result["created_from_jobs"] += 1
+        result["articles"].append({"slug": article["slug"], "title": article["title"], "source": "job", "job_id": jid})
+        if len(new_articles) >= limit:
+            break
+
+    remaining_after_jobs = max(0, limit - len(new_articles))
+    if remaining_after_jobs <= 0:
+        result["created"] = len(new_articles)
+        if not dry_run and new_articles:
+            save_articles(new_articles + articles)
+        return result
+
+    items = parse_google_news_items(fetch_url(google_news_rss_url(query)))
     for item in items:
         slug = slugify(item["url"] or item["title"])
         if slug in existing_slugs or item["url"] in existing_sources:
