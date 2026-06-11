@@ -1,3 +1,4 @@
 User-agent: *
 Allow: /
 Sitemap: https://kurage.exbridge.jp/sitemap.xml
+Sitemap: https://kurage.exbridge.jp/video-sitemap.xml
