@@ -217,10 +217,31 @@ def article_title(source_title: str, names: list[str]) -> str:
 
 
 def amazon_keyword(source_title: str, names: list[str]) -> str:
-    if names:
-        return f"{names[0]} 出演作 写真集 本 映画 ドラマ"
+    params = amazon_link_params(source_title, names)
+    return params["kw"]
+
+
+def amazon_link_params(source_title: str, names: list[str]) -> dict[str, str]:
+    name = names[0] if names else ""
+    music_names = {"西城秀樹", "松田聖子", "山口百恵", "DA PUMP"}
+    video_creator_names = {"MrBeast", "ローガン・ポール"}
+    if name in music_names:
+        return {"kw": f"{name} ベスト CD DVD", "cat": "music"}
+    if name in {"道枝駿佑", "森脇健児"}:
+        return {"kw": f"{name} DVD 写真集", "cat": "dvd"}
+    if name in {"イーロン・マスク", "ビル・ゲイツ"}:
+        return {"kw": f"{name} 本", "cat": "books"}
+    if name in {"サム・アルトマン", "ジェンセン・ファン"}:
+        return {"kw": "AI ビジネス書 起業 経営", "cat": "ai"}
+    if name == "木村弘毅":
+        return {"kw": "ゲームビジネス 経営 戦略 本", "cat": "business"}
+    if name in video_creator_names:
+        return {"kw": "動画編集 撮影機材 YouTube 本", "cat": "video"}
+    if name:
+        return {"kw": f"{name} 本 DVD CD", "cat": "books"}
     words = re.sub(r"[^\w一-龥ぁ-んァ-ヶー]+", " ", source_title)
-    return (words[:80] + " 関連作品 本").strip()
+    kw = (words[:60] + " 関連作品 本").strip()
+    return {"kw": kw, "cat": "books"}
 
 
 def make_article(item: dict[str, Any]) -> dict[str, Any]:
@@ -228,10 +249,12 @@ def make_article(item: dict[str, Any]) -> dict[str, Any]:
     names = extract_celebrity_names(source_title)
     slug = slugify(item["url"] or source_title)
     page_url = f"{KURAGE_BASE}/entertainment.php?id={urllib.parse.quote(slug)}"
-    kw = amazon_keyword(source_title, names)
+    amazon_params = amazon_link_params(source_title, names)
+    kw = amazon_params["kw"]
     amazon_url = GO_BASE + "?" + urllib.parse.urlencode({
         "to": "amazon",
         "kw": kw,
+        "cat": amazon_params["cat"],
         "from": f"/entertainment.php?id={slug}",
     })
     title = article_title(source_title, names)
@@ -333,12 +356,14 @@ def make_article_from_job(path: Path, job: dict[str, Any], names: list[str]) -> 
     file_name = job_view_file(job)
     video_page = f"{KURAGE_BASE}/{file_name}?id={urllib.parse.quote(jid)}"
     source_title = str(job.get("title") or job.get("tweet_author_name") or "Kurage生成動画")
-    kw = amazon_keyword(source_title, names)
+    amazon_params = amazon_link_params(source_title, names)
+    kw = amazon_params["kw"]
     slug = slugify("kurage-job:" + jid)
     person_label = "、".join(names)
     amazon_url = GO_BASE + "?" + urllib.parse.urlencode({
         "to": "amazon",
         "kw": kw,
+        "cat": amazon_params["cat"],
         "from": f"/entertainment.php?id={slug}",
     })
     summary = (

@@ -31,9 +31,28 @@ function go_valid_referrer($ref) {
     return $host === 'kurage.exbridge.jp' || substr($host, -12) === '.exbridge.jp';
 }
 
-function amazon_url($kw, $asin, $direct_url) {
+function amazon_category_url($category) {
+    $category = strtolower(trim((string)$category));
+    $paths = array(
+        'books' => '/gp/bestsellers/books',
+        'music' => '/gp/bestsellers/music',
+        'dvd' => '/gp/bestsellers/dvd',
+        'electronics' => '/gp/bestsellers/electronics',
+        'hobby' => '/gp/bestsellers/hobby',
+        'camera' => '/gp/bestsellers/electronics/3210991',
+        'business' => '/s?k=%E3%83%93%E3%82%B8%E3%83%8D%E3%82%B9%E6%9B%B8',
+        'ai' => '/s?k=AI+%E3%83%93%E3%82%B8%E3%83%8D%E3%82%B9%E6%9B%B8',
+        'video' => '/s?k=%E5%8B%95%E7%94%BB%E7%B7%A8%E9%9B%86+%E6%92%AE%E5%BD%B1%E6%A9%9F%E6%9D%90',
+    );
+    $path = isset($paths[$category]) ? $paths[$category] : $paths['books'];
+    $separator = (strpos($path, '?') === false) ? '?' : '&';
+    return 'https://www.amazon.co.jp' . $path . $separator . 'tag=' . rawurlencode(AMAZON_ASSOCIATE_TAG);
+}
+
+function amazon_url($kw, $asin, $direct_url, $category) {
     $asin = strtoupper(trim((string)$asin));
     $direct_url = trim((string)$direct_url);
+    $category = trim((string)$category);
     if ($direct_url !== '' && preg_match('#^https://(?:www\.)?amazon\.co\.jp/#i', $direct_url)) {
         $parts = parse_url($direct_url);
         $query = array();
@@ -45,7 +64,7 @@ function amazon_url($kw, $asin, $direct_url) {
     if (preg_match('/^[A-Z0-9]{10}$/', $asin)) {
         return 'https://www.amazon.co.jp/dp/' . rawurlencode($asin) . '?tag=' . rawurlencode(AMAZON_ASSOCIATE_TAG);
     }
-    if ($kw === '') $kw = 'AI 動画生成';
+    if ($kw === '') return amazon_category_url($category === '' ? 'books' : $category);
     return 'https://www.amazon.co.jp/s?k=' . rawurlencode($kw) . '&tag=' . rawurlencode(AMAZON_ASSOCIATE_TAG);
 }
 
@@ -70,6 +89,7 @@ $to = strtolower(trim((string)($_GET['to'] ?? 'amazon')));
 $kw = mb_substr(trim((string)($_GET['kw'] ?? '')), 0, 200, 'UTF-8');
 $asin = strtoupper(trim((string)($_GET['asin'] ?? '')));
 $direct_url = trim((string)($_GET['url'] ?? ''));
+$category = trim((string)($_GET['cat'] ?? ''));
 $from = trim((string)($_GET['from'] ?? ''));
 $ref = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
 
@@ -86,7 +106,7 @@ if ($to !== 'amazon') {
     exit;
 }
 
-$dest = amazon_url($kw, $asin, $direct_url);
+$dest = amazon_url($kw, $asin, $direct_url, $category);
 $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'kurage.exbridge.jp';
 $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/go.php';
 $click_url = 'https://' . $host . $request_uri;
@@ -104,6 +124,7 @@ $click_url .= (strpos($click_url, '?') === false ? '?' : '&')
     . 'click=' . rawurlencode($to)
     . '&asin=' . rawurlencode($asin)
     . '&kw=' . rawurlencode($kw)
+    . '&cat=' . rawurlencode($category)
     . '&from=' . rawurlencode($from)
     . '&click_quality=' . rawurlencode(($valid_ref || $seen_cookie) ? 'likely_human' : 'raw')
     . '&click_signal=' . rawurlencode($valid_ref ? 'referrer' : ($seen_cookie ? 'seen_cookie' : 'none'));
