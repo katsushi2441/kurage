@@ -386,7 +386,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
     <?php if (!empty($videos)): ?>
     <button class="reel-btn" onclick="openReel(0)">🎬 リール表示</button>
     <?php endif; ?>
-    <a href="kurage.php" class="gen-link">＋ 生成</a>
+    <?php if ($is_admin): ?><a href="kurage.php" class="gen-link">＋ 生成</a><?php endif; ?>
     <?php if ($logged_in): ?>
     <span class="user-tag">@<?php echo h($session_user); ?> <a href="?logout=1" style="color:#007f96;font-size:11px;">logout</a></span>
     <?php else: ?>
@@ -701,7 +701,7 @@ if (sentinel) {
 if (kvVideos.length === 0) {
     var pl = document.getElementById('post-list');
     if (pl) {
-        pl.innerHTML = '<div class="empty">まだ動画がありません。<br><br><a href="kurage.php">最初の動画を生成する →</a></div>';
+        pl.textContent = 'まだ動画がありません。';
     }
 } else {
     renderCards(0, PAGE_SIZE);

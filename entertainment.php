@@ -3,6 +3,26 @@ date_default_timezone_set('Asia/Tokyo');
 
 $BASE_URL = 'https://kurage.exbridge.jp';
 $DATA_FILE = __DIR__ . '/data/entertainment_articles.json';
+$logged_in = false;
+$session_user = '';
+$is_admin = false;
+if (file_exists(__DIR__ . '/auth_common.php')) {
+    require_once __DIR__ . '/auth_common.php';
+    if (function_exists('url2ai_auth_bootstrap')) {
+        $auth = url2ai_auth_bootstrap();
+        $logged_in = !empty($auth['logged_in']);
+        $session_user = (string)($auth['session_user'] ?? '');
+        $is_admin = !empty($auth['is_admin']);
+    }
+    if (isset($_GET['login']) && function_exists('url2ai_auth_login_url')) {
+        header('Location: ' . url2ai_auth_login_url('/entertainment.php'));
+        exit;
+    }
+    if (isset($_GET['logout']) && function_exists('url2ai_auth_logout_url')) {
+        header('Location: ' . url2ai_auth_logout_url('/entertainment.php'));
+        exit;
+    }
+}
 
 function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
 
@@ -103,7 +123,10 @@ a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255
 <body>
 <header class="top"><div class="bar">
   <a class="brand" href="/"><img src="/images/kurage-icon.png" alt="Kurage"><span>Kurage Entertainment</span></a>
-  <nav class="nav"><a href="/">Kurage</a><a href="/entertainment.php">芸能ニュース</a><a href="/kuragev.php">動画一覧</a><a href="/horizon.php">動画生成</a><a href="/simpletrack.php?dashboard=1">Analytics</a></nav>
+  <nav class="nav">
+    <a href="/">Kurage</a><a href="/entertainment.php">芸能ニュース</a><a href="/kuragev.php">動画一覧</a>
+    <?php if ($is_admin): ?><a href="/horizon.php">動画生成</a><a href="/simpletrack.php?dashboard=1">Analytics</a><?php endif; ?>
+  </nav>
 </div></header>
 
 <?php if ($detail): ?>
@@ -120,8 +143,9 @@ a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255
       <?php foreach (($detail['body'] ?? array()) as $p): ?><p><?php echo h($p); ?></p><?php endforeach; ?>
       <div class="cta">
         <a class="btn amazon" href="<?php echo h($detail['amazon_url'] ?? '#'); ?>" target="_blank" rel="sponsored nofollow noopener">Amazonで関連作品・資料を見る</a>
-        <a class="btn kurage" href="/kurage.php">KurageでAIショート動画を作る</a>
         <a class="btn" href="/kuragev.php">Kurageの公開動画を見る</a>
+        <?php if (!empty($detail['video_job_id'])): ?><a class="btn kurage" href="/kuragev.php?id=<?php echo h($detail['video_job_id']); ?>">この話題の30秒動画を見る</a><?php endif; ?>
+        <?php if ($is_admin): ?><a class="btn kurage" href="/kurage.php">管理者: AIショート動画を作る</a><?php endif; ?>
       </div>
       <p class="meta"><?php echo h($detail['safety_note'] ?? ''); ?></p>
     </article>
@@ -133,13 +157,13 @@ a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255
         </ol>
         <?php if (!empty($detail['video_job_id'])): ?>
           <a class="btn kurage" href="/kuragev.php?id=<?php echo h($detail['video_job_id']); ?>">生成済み動画を見る</a>
-        <?php else: ?>
-          <a class="btn kurage" href="/horizon.php">Kurage Blogで動画化する</a>
+        <?php elseif ($is_admin): ?>
+          <a class="btn kurage" href="/horizon.php">管理者: Kurage Blogで動画化する</a>
         <?php endif; ?>
       </div>
       <div class="sidebox">
         <h3>Kurageへの回遊</h3>
-        <p>芸能ニュースで集まった検索流入を、AI動画生成、Kurage Blog、KDeck、RQDB4AIの認知へつなげます。</p>
+        <p>芸能ニュースで集まった検索流入を、公開動画、Kurage Project、KDeck、RQDB4AIの認知へつなげます。</p>
         <a class="btn" href="/">Kurage Projectを見る</a>
       </div>
     </aside>

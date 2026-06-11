@@ -5,6 +5,14 @@ $logfile = __DIR__ . '/access.log';
 define('SIMPLETRACK_INTERNAL_KEY', 'kurage-track-v1');
 define('KURAGE_API', 'http://exbridge.ddns.net:18303');
 
+function st_admin_allowed() {
+    if (!file_exists(__DIR__ . '/auth_common.php')) return false;
+    require_once __DIR__ . '/auth_common.php';
+    if (!function_exists('url2ai_auth_bootstrap')) return false;
+    $auth = url2ai_auth_bootstrap();
+    return !empty($auth['is_admin']);
+}
+
 function st_h($value) {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 }
@@ -193,6 +201,12 @@ function st_track_go_click($url, $ref, &$go_totals, &$go_products, &$go_sources,
 }
 
 if (isset($_GET['dashboard'])) {
+    if (!st_admin_allowed()) {
+        http_response_code(403);
+        header('Content-Type: text/html; charset=UTF-8');
+        echo '<!doctype html><meta charset="utf-8"><title>403 Forbidden</title><p>Analytics dashboard is available to administrators only.</p>';
+        exit;
+    }
     clearstatcache();
     if (!file_exists($logfile)) {
         die('log not found');
