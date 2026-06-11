@@ -136,9 +136,6 @@ a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255
       <span class="pill">Entertainment SEO x Kurage</span>
       <h1><?php echo h($detail['title'] ?? '芸能ニュース考察'); ?></h1>
       <div class="meta"><?php echo h($detail['created_at'] ?? ''); ?> / <?php echo h(implode('、', $detail['celebrity_names'] ?? array())); ?></div>
-      <p class="source"><strong>ニュース起点:</strong> <?php echo h($detail['source_title'] ?? ''); ?><br>
-        <a href="<?php echo h($detail['source_url'] ?? '#'); ?>" target="_blank" rel="nofollow noopener">出典元を確認</a>
-      </p>
       <p><?php echo h($detail['summary'] ?? ''); ?></p>
       <?php foreach (($detail['body'] ?? array()) as $p): ?><p><?php echo h($p); ?></p><?php endforeach; ?>
       <div class="cta">
@@ -147,6 +144,9 @@ a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255
         <?php if (!empty($detail['video_job_id'])): ?><a class="btn kurage" href="/kuragev.php?id=<?php echo h($detail['video_job_id']); ?>">この話題の30秒動画を見る</a><?php endif; ?>
         <?php if ($is_admin): ?><a class="btn kurage" href="/kurage.php">管理者: AIショート動画を作る</a><?php endif; ?>
       </div>
+      <p class="source"><strong>参考にした元コンテンツ:</strong> <?php echo h($detail['source_title'] ?? ''); ?><br>
+        <a href="<?php echo h($detail['source_url'] ?? '#'); ?>" target="_blank" rel="nofollow noopener">元ニュース・元動画を確認する</a>
+      </p>
       <p class="meta"><?php echo h($detail['safety_note'] ?? ''); ?></p>
     </article>
     <aside>
