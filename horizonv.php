@@ -684,8 +684,22 @@ document.addEventListener('keydown', function(e) {
     }
 });
 </script>
-<footer class="affiliate-disclosure" style="max-width:1120px;margin:28px auto 18px;padding:12px 16px;color:#647884;font-size:12px;line-height:1.7;text-align:center;">
-  Amazonアソシエイトとして適格販売により収入を得ています。
+<?php
+$amazon_kw = trim((string)($detail_job['title'] ?? 'AI ニュース 経営 技術 書籍'));
+$amazon_from = '/' . $THIS_FILE . ($detail_id ? ('?id=' . $detail_id) : '');
+$amazon_cta_url = '/go.php?' . http_build_query(array(
+    'to' => 'amazon',
+    'kw' => $amazon_kw,
+    'from' => $amazon_from,
+));
+?>
+<footer class="affiliate-disclosure" style="max-width:1120px;margin:28px auto 18px;padding:16px;color:#647884;font-size:12px;line-height:1.7;text-align:center;">
+  <div style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;border:1px solid #f2d39a;background:linear-gradient(135deg,#fffaf0,#fff);border-radius:999px;padding:9px 12px;box-shadow:0 10px 24px rgba(146,95,0,.08);">
+    <span style="font-weight:900;color:#9a5b00;">Amazon Associate Partner</span>
+    <span>このニューステーマに近い本・資料をAmazonで探せます。</span>
+    <a href="<?php echo h($amazon_cta_url); ?>" target="_blank" rel="sponsored nofollow noopener" style="display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:#ff9900;color:#1f2933;text-decoration:none;font-weight:900;padding:7px 12px;">Amazonで関連アイテムを見る</a>
+  </div>
+  <div style="margin-top:8px;">Amazonアソシエイトとして適格販売により収入を得ています。</div>
 </footer>
 
 </body>
