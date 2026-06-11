@@ -7,13 +7,18 @@ ENV_FILE="${AIXEC_ENV_FILE:-/home/kojima/work/aixec/.env}"
 REMOTE_DIR="${KURAGE_FTP_REMOTE:-/web/kurage_exbridge_jp}"
 TARGET_PER_DAY="${KURAGE_ENTERTAINMENT_TARGET_PER_DAY:-30}"
 MAX_NEW="${KURAGE_ENTERTAINMENT_MAX_NEW:-3}"
-QUERY="${KURAGE_ENTERTAINMENT_QUERY:-芸能人 俳優 女優 アイドル 歌手 出演 映画 ドラマ 番組}"
+MAX_VIDEOS="${KURAGE_ENTERTAINMENT_MAX_VIDEOS:-3}"
+VIDEO_API="${KURAGE_VIDEO_API:-http://127.0.0.1:18303}"
+QUERY="${KURAGE_ENTERTAINMENT_QUERY:-芸能人 OR 俳優 OR 女優 OR アイドル OR 歌手 OR タレント OR 映画 OR ドラマ OR 番組}"
 
 cd "$ROOT"
 python3 backend/entertainment_pipeline.py \
   --target-per-day "$TARGET_PER_DAY" \
   --max-new "$MAX_NEW" \
-  --query "$QUERY"
+  --query "$QUERY" \
+  --auto-video \
+  --video-api "$VIDEO_API" \
+  --max-videos "$MAX_VIDEOS"
 
 mkdir -p "$WEB_DIR/data"
 cp "$ROOT/data/entertainment_articles.json" "$WEB_DIR/data/entertainment_articles.json"

@@ -1,7 +1,7 @@
 """Entertainment news article pipeline for Kurage.
 
-Collects public entertainment-news headlines, creates safe original Kurage
-articles, and prepares Amazon + Kurage short-video links.
+Collects public entertainment-news headlines and creates safe original Kurage
+articles with related reference links.
 """
 from __future__ import annotations
 
@@ -27,11 +27,13 @@ GO_BASE = "/go.php"
 DEFAULT_QUERY = "芸能人 OR 俳優 OR 女優 OR アイドル OR 歌手 OR タレント"
 DEFAULT_TARGET_PER_DAY = 30
 MAX_SOURCE_AGE_DAYS = 7
+DEFAULT_VIDEO_API = "http://127.0.0.1:18303"
 
 NG_WORDS = (
     "逮捕", "容疑", "起訴", "不起訴", "不倫", "浮気", "離婚", "訃報", "死去",
     "暴露", "炎上", "謝罪", "被害", "加害", "薬物", "違法", "疑惑", "裁判",
     "交際", "熱愛", "嫉妬", "報酬", "年俸", "大公開", "がん", "病気", "闘病",
+    "トラブル",
 )
 
 GENERIC_WORDS = {
@@ -43,7 +45,9 @@ GENERIC_WORDS = {
     "中学生役", "年上半期", "男性タレント", "女性タレント", "ランキング",
     "Kurage", "Horizon", "AI", "Google", "OpenAI", "動画", "翻訳", "生成",
     "物語", "今夜", "金融業界", "製品的", "知識戦略", "婚約者", "募集中",
-    "代償", "昔", "人生", "再構築", "最新", "テクノロジー",
+    "代償", "昔", "人生", "再構築", "最新", "テクノロジー", "新予告",
+    "日本版", "ポスター", "創価大学", "大学", "往復書簡", "対談", "身体性",
+    "魅力", "新番組", "静寂", "狂気", "アクション", "ドラマ",
 }
 
 ENGLISH_GENERIC_WORDS = {
@@ -51,9 +55,19 @@ ENGLISH_GENERIC_WORDS = {
     "Kurage", "Horizon", "Amazon", "YouTube", "Twitter", "X", "News",
     "Video", "Blog", "Voice", "Pro", "Project", "Agent", "Code", "Data",
     "Canada", "Strong", "America", "Great", "Again", "Banking", "Homebrew",
+    "NEW", "GROUP",
 }
 
 JOB_VIDEO_SOURCES = {"kuragevp", "horizon", "blog"}
+NON_PERSON_PARTS = (
+    "大学", "高校", "中学", "学校", "番組", "予告", "ポスター", "映画",
+    "書簡", "対談", "ドラマ", "アクション", "ニュース", "魅力", "身体性",
+    "新作", "公開", "解禁", "日本版", "公式", "作品", "企業", "会社",
+    "選手", "監督", "主演", "発覚", "発言", "状態", "報道", "衝撃",
+    "大物俳優", "Festival", "FESTIVAL", "Period", "Hatsuboshi", "Studios", "Century",
+    "披露宴", "出席",
+    "挿入歌", "洋画", "独占", "興行", "全体",
+)
 
 
 def now_jst() -> str:
@@ -129,6 +143,68 @@ def save_articles(articles: list[dict[str, Any]], path: Path = ARTICLES_PATH) ->
     path.write_text(json.dumps(articles[:500], ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def post_json(url: str, payload: dict[str, Any], timeout: int = 15) -> dict[str, Any]:
+    data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={
+            "Content-Type": "application/json; charset=utf-8",
+            "Accept": "application/json",
+            "User-Agent": "KurageEntertainmentBot/1.0 (+https://kurage.exbridge.jp/)",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as res:
+        body = res.read().decode("utf-8", errors="replace")
+    parsed = json.loads(body)
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def enqueue_pending_videos(api_base: str, max_videos: int) -> dict[str, Any]:
+    """Queue short-video generation for published articles that do not have a video job."""
+    articles = load_articles()
+    result: dict[str, Any] = {"queued": 0, "skipped": 0, "errors": [], "jobs": []}
+    if max_videos <= 0:
+        return result
+    api_base = api_base.rstrip("/")
+    changed = False
+    for article in articles:
+        if result["queued"] >= max_videos:
+            break
+        if str(article.get("status") or "published") != "published":
+            result["skipped"] += 1
+            continue
+        if article.get("video_job_id"):
+            result["skipped"] += 1
+            continue
+        payload = {
+            "title": article.get("title") or article.get("source_title") or "芸能ニュース考察",
+            "summary": article.get("summary") or "",
+            "content": "\n".join(article.get("body") or []),
+            "url": article.get("kurage_url") or "",
+            "source_name": article.get("source_name") or "Kurage Entertainment",
+            "celebrity_names": article.get("celebrity_names") or [],
+        }
+        try:
+            response = post_json(f"{api_base}/generate_entertainment_short", payload)
+            job_id = str(response.get("job_id") or "")
+            if not response.get("ok") or not job_id:
+                raise RuntimeError(f"unexpected response: {response}")
+            article["video_job_id"] = job_id
+            article["video_status"] = "queued"
+            article["video_queued_at"] = now_jst()
+            article["updated_at"] = now_jst()
+            result["queued"] += 1
+            result["jobs"].append({"slug": article.get("slug"), "job_id": job_id, "title": article.get("title")})
+            changed = True
+        except Exception as exc:
+            result["errors"].append({"slug": article.get("slug"), "error": str(exc)})
+    if changed:
+        save_articles(articles)
+    return result
+
+
 def is_safe_headline(title: str) -> bool:
     return not any(word in title for word in NG_WORDS)
 
@@ -144,31 +220,64 @@ def is_recent_item(item: dict[str, Any], max_age_days: int = MAX_SOURCE_AGE_DAYS
     return dt >= datetime.now(timezone(timedelta(hours=9))) - timedelta(days=max_age_days)
 
 
+def normalize_person_candidate(value: str) -> str:
+    name = re.sub(r"\s+", " ", str(value)).strip(" ・ーさん氏")
+    name = re.sub(r"^(故|故人|元)[・\s]+", "", name)
+    if " " in name:
+        parts = [p.strip(" ・ー") for p in name.split() if p.strip(" ・ー")]
+        if len(parts) >= 2 and parts[0] in GENERIC_WORDS:
+            name = parts[-1]
+    return name
+
+
+def looks_like_person_name(name: str) -> bool:
+    name = normalize_person_candidate(name)
+    if len(name) < 2:
+        return False
+    if name in GENERIC_WORDS:
+        return False
+    if any(part in name for part in NON_PERSON_PARTS):
+        return False
+    if len(name) > 6 and re.search(r"[のにへがをで]", name):
+        return False
+    if any(word in name for word in GENERIC_WORDS):
+        return False
+    if re.fullmatch(r"[一-龥]{2,8}", name):
+        return True
+    if re.fullmatch(r"[ぁ-んァ-ヶ一-龥A-Za-z][ぁ-んァ-ヶ一-龥A-Za-z・ー]{1,18}", name):
+        return True
+    if re.fullmatch(r"[A-Za-z][A-Za-z .'-]{1,30}", name):
+        parts = name.replace(".", " ").replace("-", " ").split()
+        return not any(part in ENGLISH_GENERIC_WORDS for part in parts)
+    return False
+
+
 def extract_celebrity_names(title: str) -> list[str]:
     quoted = re.findall(r"[「『]([A-Za-z0-9][A-Za-z0-9 ._+-]{1,24})[」』]", title)
     cleaned = re.sub(r"【[^】]+】|『[^』]+』|「[^」]+」|\([^)]*\)|（[^）]*）", " ", title)
     candidates: list[str] = []
     for name in quoted:
-        name = name.strip()
-        if name and name.upper() not in {c.upper() for c in candidates}:
+        name = normalize_person_candidate(name)
+        if looks_like_person_name(name) and name.upper() not in {c.upper() for c in candidates}:
             candidates.append(name)
     patterns = [
+        r"^([一-龥ァ-ヴー・ー]{2,12})(?:[「、]|さん|氏)",
+        r"^([一-龥]{2,6})(?:\s)",
+        r"・([一-龥]{2,6})(?:[「、]|さん|氏)",
+        r"([一-龥ァ-ヴー・ー]{2,12})(?:さん|氏)",
         r"([一-龥]{2,4}\s?[一-龥]{1,4})(?:さん|氏|、|が|は|の|に|と|で)",
         r"([ァ-ヴー]{2,12}(?:・[ァ-ヴー]{2,12}){1,3})(?:さん|氏|、|が|は|の|に|と|で|:|：)",
-        r"(?:俳優|女優|歌手|タレント|モデル|アイドル|声優|芸人)の([一-龥ぁ-んァ-ヶA-Za-z][一-龥ぁ-んァ-ヶA-Za-z・ー]{1,12})",
+        r"(?:俳優|女優|歌手|タレント|モデル|アイドル|声優|芸人)の([一-龥ァ-ヶA-Za-z][一-龥ァ-ヶA-Za-z・ー]{1,12})(?:さん|氏|、|が|は|に|と|で|「|:|：)",
     ]
     for pattern in patterns:
         for match in re.findall(pattern, cleaned):
-            name = str(match).strip(" ・ー")
-            if len(name) < 2 or name in GENERIC_WORDS:
-                continue
-            if any(word in name for word in GENERIC_WORDS):
+            name = normalize_person_candidate(str(match))
+            if not looks_like_person_name(name):
                 continue
             if name not in candidates:
                 candidates.append(name)
     for match in re.findall(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b", cleaned):
-        parts = match.split()
-        if any(part in ENGLISH_GENERIC_WORDS for part in parts):
+        if not looks_like_person_name(match):
             continue
         if match not in candidates:
             candidates.append(match)
@@ -190,15 +299,11 @@ def extract_job_celebrity_names(job: dict[str, Any]) -> list[str]:
     ]
     for pattern in patterns:
         for match in re.findall(pattern, search_text):
-            name = str(match).strip(" ・ーさん氏")
+            name = normalize_person_candidate(str(match))
             if name.lower().replace(" ", "") == "mrbeast":
                 name = "MrBeast"
             parts = name.split()
-            if len(name) < 2 or name in GENERIC_WORDS:
-                continue
-            if any(word in name for word in GENERIC_WORDS):
-                continue
-            if any(part in ENGLISH_GENERIC_WORDS for part in parts):
+            if not looks_like_person_name(name) or any(part in ENGLISH_GENERIC_WORDS for part in parts):
                 continue
             if name not in candidates:
                 candidates.append(name)
@@ -258,9 +363,9 @@ def article_angle(source_title: str) -> dict[str, str]:
         return {
             "label": "作品考察",
             "question": "ニュースで名前を見かけたとき、過去の作品や音源をどう見直せるのか。",
-            "insight": "芸能ニュースの強みは、名前を見た瞬間に過去作品への再検索が起きることです。記事内で文脈を整理すると、懐かしさが購買行動に変わりやすくなります。",
+            "insight": "芸能ニュースは、その人の過去作品や役柄を思い出しながら読むと、短い話題でも受け止め方が変わります。",
             "commerce": "CD、DVD、写真集、出演作などを見直すと、その人物が長く記憶されている理由も見えてきます。",
-            "headline": "{name}再注目：ニュースから作品を見直す入口",
+            "headline": "{name}の話題から作品を見直す",
         }
     return {
         "label": "話題の背景",
@@ -280,7 +385,7 @@ def article_content(source_title: str, names: list[str], origin: str = "news") -
     if origin == "job":
         lead = f"話題になっている「{source_title}」をもとに、{label}について{angle['label']}の視点から整理します。"
     else:
-        lead = f"ニュース「{source_title}」をきっかけに、{label}への関心がどこへ広がるのかを整理します。"
+        lead = f"ニュース「{source_title}」をもとに、{label}の話題を整理します。"
     summary = f"{lead}{angle['question']}"
     body = [
         angle["insight"],
@@ -299,6 +404,22 @@ def article_content(source_title: str, names: list[str], origin: str = "news") -
 
 def specific_headline(source_title: str, name: str) -> str:
     title = str(source_title)
+    if "往復書簡" in title and "対談" in title:
+        return f"{name}の対談から読む「身体性」というテーマ"
+    if "再会" in title and ("2ショット" in title or "ショット" in title):
+        return f"{name}の再会ショットが話題：ファンが反応した理由"
+    if "ドラマ制作" in title and "細木数子" in title:
+        return f"{name}が語るドラマ構想：細木数子邸エピソードの余韻"
+    if "番組出演" in title and "後輩" in title:
+        return f"{name}の番組出演が話題：後輩との関係性を読む"
+    if "歌謡祭" in title or "ベスト" in title:
+        return f"{name}の歌声を聴き直す：歌謡ニュースの余韻"
+    if "2ショット" in title:
+        return f"{name}の2ショットが話題：写真に集まる反応を読む"
+    if "披露宴" in title:
+        return f"{name}が披露宴で見せた交友関係の広がり"
+    if "隠れた" in title or "知性派" in title:
+        return f"{name}の意外な一面：バラエティの印象を読み直す"
     if "Grok" in title or "血液検査" in title:
         return f"{name}のGrok医療構想：AIは健康管理を変えるのか"
     if "危険性" in title or "眠れ" in title:
@@ -568,10 +689,15 @@ def main() -> int:
     parser.add_argument("--interval", type=int, default=300)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--jobs-only", action="store_true", help="Only create articles from completed Kurage video jobs.")
+    parser.add_argument("--auto-video", action="store_true", help="Queue short-video generation for articles without video jobs.")
+    parser.add_argument("--video-api", default=DEFAULT_VIDEO_API)
+    parser.add_argument("--max-videos", type=int, default=3)
     args = parser.parse_args()
 
     while True:
         result = run_once(args.target_per_day, args.max_new, args.query, args.dry_run, args.jobs_only)
+        if args.auto_video and not args.dry_run:
+            result["video_queue"] = enqueue_pending_videos(args.video_api, args.max_videos)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         if not args.loop:
             break

@@ -147,7 +147,6 @@ a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255
       <?php foreach (($detail['body'] ?? array()) as $p): ?><p><?php echo h($p); ?></p><?php endforeach; ?>
       <div class="cta">
         <a class="btn amazon" href="<?php echo h($detail['amazon_url'] ?? '#'); ?>" target="_blank" rel="sponsored nofollow noopener">関連する本・作品をAmazonで見る</a>
-        <?php if ($is_admin): ?><a class="btn kurage" href="/kurage.php">管理者: AIショート動画を作る</a><?php endif; ?>
       </div>
       <p class="source"><strong>参考にした元コンテンツ:</strong> <?php echo h($detail['source_title'] ?? ''); ?><br>
         <a href="<?php echo h($detail['source_url'] ?? '#'); ?>" target="_blank" rel="nofollow noopener">元ニュース・元動画を確認する</a>
@@ -159,7 +158,6 @@ a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255
         <h3>この記事のポイント</h3>
         <p><?php echo h(implode('、', $detail['celebrity_names'] ?? array()) ?: '話題の人物'); ?>について、元ニュースの内容と背景を短く整理しています。</p>
         <p>関連リンクは、ニュースを理解するための作品・書籍・資料を探す参考リンクです。</p>
-        <?php if ($is_admin): ?><a class="btn kurage" href="/horizon.php">管理者: 動画化する</a><?php endif; ?>
       </div>
     </aside>
   </div>
