@@ -59,6 +59,50 @@ function st_is_kurage_detail_url($url) {
     return !empty($params['id']);
 }
 
+function st_track_go_click($url, $ref, &$go_totals, &$go_products, &$go_sources, $at) {
+    $parsed = parse_url((string)$url);
+    $path = isset($parsed['path']) ? $parsed['path'] : '';
+    if ($path !== '/go.php') return;
+    $params = array();
+    if (!empty($parsed['query'])) parse_str($parsed['query'], $params);
+    $to = strtolower(trim((string)($params['to'] ?? $params['click'] ?? '(unknown)')));
+    $kw = trim((string)($params['kw'] ?? ''));
+    $asin = strtoupper(trim((string)($params['asin'] ?? '')));
+    $from = trim((string)($params['from'] ?? ''));
+    $quality = strtolower(trim((string)($params['click_quality'] ?? '')));
+    $likely_human = $quality === 'likely_human';
+    if ($quality === '') $likely_human = ($ref !== '');
+    if ($from === '' && $ref !== '') {
+        $ref_parts = parse_url($ref);
+        $ref_path = isset($ref_parts['path']) ? $ref_parts['path'] : '';
+        $ref_query = isset($ref_parts['query']) ? ('?' . $ref_parts['query']) : '';
+        $from = trim($ref_path . $ref_query);
+    }
+    if ($from === '' && $ref === '') return;
+    if ($from === '') $from = '(unknown)';
+    $product = $kw !== '' ? $kw : ($asin !== '' ? 'ASIN:' . $asin : '(unknown)');
+
+    if (!isset($go_totals[$to])) $go_totals[$to] = array('clicks' => 0, 'raw_clicks' => 0);
+    $go_totals[$to]['raw_clicks']++;
+    if ($likely_human) $go_totals[$to]['clicks']++;
+
+    $source_key = $to . '|' . $from;
+    if (!isset($go_sources[$source_key])) {
+        $go_sources[$source_key] = array('to' => $to, 'from' => $from, 'clicks' => 0, 'raw_clicks' => 0, 'latest_at' => '');
+    }
+    $go_sources[$source_key]['raw_clicks']++;
+    if ($likely_human) $go_sources[$source_key]['clicks']++;
+    if ($go_sources[$source_key]['latest_at'] === '' || $at > $go_sources[$source_key]['latest_at']) $go_sources[$source_key]['latest_at'] = $at;
+
+    $product_key = $to . '|' . $asin . '|' . $from . '|' . $product;
+    if (!isset($go_products[$product_key])) {
+        $go_products[$product_key] = array('to' => $to, 'product' => $product, 'asin' => $asin, 'from' => $from, 'clicks' => 0, 'raw_clicks' => 0, 'latest_at' => '');
+    }
+    $go_products[$product_key]['raw_clicks']++;
+    if ($likely_human) $go_products[$product_key]['clicks']++;
+    if ($go_products[$product_key]['latest_at'] === '' || $at > $go_products[$product_key]['latest_at']) $go_products[$product_key]['latest_at'] = $at;
+}
+
 if (isset($_GET['dashboard'])) {
     clearstatcache();
     if (!file_exists($logfile)) {
@@ -84,6 +128,9 @@ if (isset($_GET['dashboard'])) {
     $url_count = array();
     $ref_count = array();
     $detail_count = array();
+    $go_totals = array();
+    $go_products = array();
+    $go_sources = array();
     $voice_pro_count = 0;
     $horizon_count = 0;
     $kurage_count = 0;
@@ -114,6 +161,7 @@ if (isset($_GET['dashboard'])) {
                     if (!isset($detail_count[$url])) $detail_count[$url] = 0;
                     $detail_count[$url]++;
                 }
+                st_track_go_click($url, $ref, $go_totals, $go_products, $go_sources, $parts[0]);
                 $path = parse_url($url, PHP_URL_PATH);
                 if ($path === '/horizonv.php' || $path === '/horizon.php') $horizon_count++;
                 elseif ($path === '/kuragevp.php') $voice_pro_count++;
@@ -131,10 +179,24 @@ if (isset($_GET['dashboard'])) {
     arsort($url_count);
     arsort($ref_count);
     arsort($detail_count);
+    uasort($go_sources, function($a, $b) {
+        if (($a['latest_at'] ?? '') !== ($b['latest_at'] ?? '')) return strcmp($b['latest_at'], $a['latest_at']);
+        if ($a['clicks'] !== $b['clicks']) return ($a['clicks'] > $b['clicks']) ? -1 : 1;
+        return ($a['raw_clicks'] > $b['raw_clicks']) ? -1 : 1;
+    });
+    uasort($go_products, function($a, $b) {
+        if (($a['latest_at'] ?? '') !== ($b['latest_at'] ?? '')) return strcmp($b['latest_at'], $a['latest_at']);
+        if ($a['clicks'] !== $b['clicks']) return ($a['clicks'] > $b['clicks']) ? -1 : 1;
+        return ($a['raw_clicks'] > $b['raw_clicks']) ? -1 : 1;
+    });
 
     $top_urls = array_slice($url_count, 0, 20, true);
     $top_refs = array_slice($ref_count, 0, 20, true);
     $top_details = array_slice($detail_count, 0, 50, true);
+    $top_go_sources = array_slice($go_sources, 0, 50, true);
+    $top_go_products = array_slice($go_products, 0, 50, true);
+    $amazon_clicks = isset($go_totals['amazon']) ? (int)$go_totals['amazon']['clicks'] : 0;
+    $amazon_raw_clicks = isset($go_totals['amazon']) ? (int)$go_totals['amazon']['raw_clicks'] : 0;
 
     $all_urls_array = array();
     foreach ($url_count as $u => $c) {
@@ -172,11 +234,14 @@ if (isset($_GET['dashboard'])) {
   <div class="stat"><small>Kurage</small><strong><?php echo number_format($kurage_count); ?></strong></div>
   <div class="stat"><small>Horizon</small><strong><?php echo number_format($horizon_count); ?></strong></div>
   <div class="stat"><small>Voice-Pro</small><strong><?php echo number_format($voice_pro_count); ?></strong></div>
+  <div class="stat"><small>Amazon 実クリック / raw</small><strong><?php echo number_format($amazon_clicks); ?> / <?php echo number_format($amazon_raw_clicks); ?></strong></div>
 </div>
 <div class="canvasBox"><h2>Daily PV</h2><canvas id="pvChart"></canvas></div>
 <div class="canvasBox"><h2>Top URLs</h2><canvas id="urlChart"></canvas></div>
 <div class="canvasBox"><h2>Top Referrers</h2><canvas id="refChart"></canvas></div>
 <div class="canvasBox"><h2>動画詳細ページ</h2><table><thead><tr><th>#</th><th>URL</th><th>PV</th></tr></thead><tbody><?php if(empty($top_details)): ?><tr><td colspan="3">動画詳細ページのアクセスはありません。</td></tr><?php else: ?><?php $i=1; foreach($top_details as $u => $c): ?><tr><td><?php echo $i++; ?></td><td><?php echo st_h(st_clean_url_label($u)); ?></td><td><?php echo number_format($c); ?></td></tr><?php endforeach; ?><?php endif; ?></tbody></table></div>
+<div class="canvasBox"><h2>Amazonクリック 呼び出し元ページ</h2><table><thead><tr><th>#</th><th>呼び出し元</th><th>遷移先</th><th>最新クリック日時</th><th>実クリック</th><th>raw</th></tr></thead><tbody><?php if(empty($top_go_sources)): ?><tr><td colspan="6">Amazonクリックはありません。</td></tr><?php else: ?><?php $i=1; foreach($top_go_sources as $row): ?><tr><td><?php echo $i++; ?></td><td><?php echo st_h($row['from']); ?></td><td><?php echo st_h($row['to']); ?></td><td><?php echo st_h($row['latest_at']); ?></td><td><?php echo number_format($row['clicks']); ?></td><td><?php echo number_format($row['raw_clicks']); ?></td></tr><?php endforeach; ?><?php endif; ?></tbody></table></div>
+<div class="canvasBox"><h2>Amazonクリック キーワード/ASIN</h2><table><thead><tr><th>#</th><th>キーワード/ASIN</th><th>ASIN</th><th>呼び出し元</th><th>最新クリック日時</th><th>実クリック</th><th>raw</th></tr></thead><tbody><?php if(empty($top_go_products)): ?><tr><td colspan="7">Amazonクリックはありません。</td></tr><?php else: ?><?php $i=1; foreach($top_go_products as $row): ?><tr><td><?php echo $i++; ?></td><td><?php echo st_h($row['product']); ?></td><td><?php echo st_h($row['asin']); ?></td><td><?php echo st_h($row['from']); ?></td><td><?php echo st_h($row['latest_at']); ?></td><td><?php echo number_format($row['clicks']); ?></td><td><?php echo number_format($row['raw_clicks']); ?></td></tr><?php endforeach; ?><?php endif; ?></tbody></table></div>
 <div class="canvasBox"><h2>Access URL Details</h2><table><thead><tr><th>#</th><th>URL</th><th>PV</th></tr></thead><tbody id="detailBody"></tbody></table></div>
 <script>
 const allData = <?php echo $all_urls; ?>;
