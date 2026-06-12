@@ -563,17 +563,17 @@ def template_article_content(source_title: str, names: list[str], origin: str = 
 def normalize_llm_article(data: dict[str, Any], source_title: str, names: list[str], origin: str) -> dict[str, Any]:
     """Validate and normalize LLM article JSON. Raises ValueError on unusable output."""
     template = template_article_content(source_title, names, origin)
-    title = clamp_text(data.get("title") or "", 72)
-    summary = clamp_text(data.get("summary") or "", 180)
+    title = clamp_text(data.get("title") or "", 64)
+    summary = clamp_text(data.get("summary") or "", 120)
     body_raw = data.get("body")
     script_raw = data.get("video_script")
     if not isinstance(body_raw, list):
         body_raw = []
     if not isinstance(script_raw, list):
         script_raw = []
-    body = [clamp_text(p, 360) for p in body_raw if clamp_text(p, 360)]
-    video_script = [clamp_text(p, 120) for p in script_raw if clamp_text(p, 120)]
-    if len(body) < 4 or len(video_script) < 5 or not title or not summary:
+    body = [clamp_text(p, 150) for p in body_raw if clamp_text(p, 150)]
+    video_script = [clamp_text(p, 70) for p in script_raw if clamp_text(p, 70)]
+    if len(body) < 2 or len(video_script) < 5 or not title or not summary:
         raise ValueError("LLM article output is incomplete")
     forbidden = ("本人が推奨", "愛用している", "スポンサー", "広告出演している", "熱愛", "不倫")
     joined = "\n".join([title, summary, *body, *video_script])
@@ -586,19 +586,19 @@ def normalize_llm_article(data: dict[str, Any], source_title: str, names: list[s
         summary = clamp_text(remove_sentences_with_terms(summary, unsupported_reactions) or summary, 180)
         body = [
             cleaned for p in body
-            if (cleaned := clamp_text(remove_sentences_with_terms(p, unsupported_reactions), 360))
+            if (cleaned := clamp_text(remove_sentences_with_terms(p, unsupported_reactions), 150))
         ]
         video_script = [
             cleaned for p in video_script
-            if (cleaned := clamp_text(remove_sentences_with_terms(p, unsupported_reactions), 120))
+            if (cleaned := clamp_text(remove_sentences_with_terms(p, unsupported_reactions), 70))
         ]
-        if len(body) < 4 or len(video_script) < 5:
+        if len(body) < 2 or len(video_script) < 5:
             raise ValueError("LLM article output relies on unsupported audience reactions")
     return {
         "title": title or template["title"],
         "summary": summary or template["summary"],
-        "body": body[:7],
-        "video_script": video_script[:7],
+        "body": body[:3],
+        "video_script": video_script[:6],
         "generator": "ollama",
     }
 
@@ -608,7 +608,7 @@ def llm_article_content(source_title: str, names: list[str], origin: str = "news
     clean_title = clean_source_title(source_title)
     origin_label = "Kurage内で生成された動画・投稿" if origin == "job" else "外部ニュース見出し"
     prompt = f"""あなたはKurage Entertainmentの芸能ニュース考察ライターです。
-次の{origin_label}をもとに、自然で読み応えのある日本語記事を作ってください。
+次の{origin_label}をもとに、30秒音声で読み切れる短い日本語考察記事を作ってください。
 
 必ずJSONだけを返してください。Markdown、説明、コードブロックは禁止です。
 
@@ -621,13 +621,11 @@ def llm_article_content(source_title: str, names: list[str], origin: str = "news
 出力形式:
 {{
   "title": "記事タイトル。人物名とニュース内容が分かる自然なタイトル。55字以内",
-  "summary": "記事の要約。何のニュースか、なぜ注目かが分かる。120字以内",
+  "summary": "記事の要約。何のニュースか、なぜ注目かが分かる。80字以内",
   "body": [
-    "1段落目: 何のニュースかを具体的に整理する",
-    "2段落目: ニュースの文脈や背景を説明する",
-    "3段落目: なぜ読者の関心が集まりやすいかを考察する",
-    "4段落目: 作品、番組、発言、キャリアなどと結びつけて深める",
-    "5段落目: 関連作品や資料を見る意味を、本人推奨と誤解させずに自然に書く"
+    "1段落目: 何のニュースかを具体的に整理する。90字以内",
+    "2段落目: 背景や見どころを短く考察する。90字以内",
+    "3段落目: 必要な場合だけ、作品や発言とのつながりを補足する。90字以内"
   ],
   "video_script": [
     "30秒動画向けの短い台本1",
@@ -646,9 +644,9 @@ def llm_article_content(source_title: str, names: list[str], origin: str = "news
 - 商品を本人が推奨、愛用、宣伝しているとは書かない。
 - こっち側のSEO目的、アクセス増、Amazon誘導などの内部意図は絶対に書かない。
 - 「この記事のポイント」「詳しくはKurageで」「続きはKurageで」のような定型句は禁止。
-- 出典へすぐ逃がすだけの記事にしない。本文側でニュース内容と考察を完結させる。
-- bodyは5〜7段落。各段落は90〜220字。
-- video_scriptは6行。各行は25〜70字。
+- 出典へすぐ逃がすだけの記事にしない。本文側でニュース内容と考察を短く完結させる。
+- bodyは2〜3段落。本文合計は250字以内。30秒音声で読み切れる量にする。
+- video_scriptは6行。各行は18〜45字。全体で30秒以内。
 """
     data = ollama_generate_json(prompt)
     return normalize_llm_article(data, source_title, names, origin)
