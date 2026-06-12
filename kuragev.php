@@ -107,45 +107,37 @@ function job_source_button_label($job) {
 }
 
 function job_body_label($job) {
-    if (is_voice_pro_job($job)) { return '翻訳テキスト'; }
+    if (is_voice_pro_job($job)) { return '動画の要約'; }
     if (is_entertainment_job($job)) { return '関連記事の要約'; }
     return '元の投稿';
 }
 
+function job_display_title($job) {
+    foreach (array('display_title', 'summary_title', 'article_title', 'title', 'source_title') as $key) {
+        $title = trim((string)($job[$key] ?? ''));
+        if ($title !== '') { return $title; }
+    }
+    return 'Kurage動画';
+}
+
 function job_body_text($job) {
     if (is_voice_pro_job($job)) {
-        $translated = trim((string)($job['translated_text'] ?? ''));
-        if ($translated !== '') { return $translated; }
-        if (!empty($job['script']['scenes']) && is_array($job['script']['scenes'])) {
-            $parts = [];
-            foreach ($job['script']['scenes'] as $scene) {
-                $narration = trim((string)($scene['narration'] ?? ''));
-                if ($narration !== '') { $parts[] = $narration; }
-            }
-            $script_text = trim(implode("\n", $parts));
-            if ($script_text !== '') { return $script_text; }
+        foreach (array('summary', 'display_summary', 'tweet_text', 'source_title') as $key) {
+            $summary = trim((string)($job[$key] ?? ''));
+            if ($summary !== '') { return $summary; }
         }
     }
     return trim((string)($job['tweet_text'] ?? ''));
 }
 
 function share_text_for_job($job, $share_url) {
-    $title = trim((string)($job['title'] ?? 'Kurage動画'));
+    $title = trim((string)job_display_title($job));
     if ($title === '') { $title = 'Kurage動画'; }
     if (is_voice_pro_job($job)) {
-        $translated = trim((string)($job['translated_text'] ?? ''));
-        if ($translated === '' && !empty($job['script']['scenes']) && is_array($job['script']['scenes'])) {
-            $parts = [];
-            foreach ($job['script']['scenes'] as $scene) {
-                $narration = trim((string)($scene['narration'] ?? ''));
-                if ($narration !== '') { $parts[] = $narration; }
-            }
-            $translated = trim(implode("\n", $parts));
-        }
-        $text = $title . "\n\n翻訳字幕・吹替動画\n" . $share_url . "\nPowered by Kurage Voice-Pro";
-        if ($translated !== '') {
-            $text .= "\n\n" . $translated;
-        }
+        $summary = trim((string)job_body_text($job));
+        $text = $title . "\n\n" . ($summary !== '' ? $summary . "\n\n" : "") . "動画: " . $share_url;
+        $article_url = related_article_url($job);
+        if ($article_url !== '') { $text .= "\n考察記事: " . $article_url; }
         return $text;
     }
     return $title . "\n\n" . $share_url . "\n#Kurage #AI動画";
@@ -155,7 +147,7 @@ function copy_text_for_job($job, $share_url) {
     if (is_voice_pro_job($job)) {
         return share_text_for_job($job, $share_url);
     }
-    return ($job['title'] ?? '') . "\n\n" . ($job['tweet_text'] ?? '') . "\n\n" . $share_url . "\n#Kurage #AI動画";
+    return job_display_title($job) . "\n\n" . ($job['tweet_text'] ?? '') . "\n\n" . $share_url . "\n#Kurage #AI動画";
 }
 
 /* ── 動画プロキシ（Range リクエスト対応） ────────────── */
@@ -300,7 +292,7 @@ if (!$detail_id && $videos) {
 
 /* ── SEO ─────────────────────────────────────────────── */
 if ($detail_job) {
-    $page_title = ($detail_job['title'] ?? 'Kurage動画') . ' | ' . $SITE_NAME;
+    $page_title = job_display_title($detail_job) . ' | ' . $SITE_NAME;
     $page_desc  = mb_substr(str_replace("\n", ' ', job_body_text($detail_job)), 0, 160);
     $page_url   = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($detail_id);
     $thumb_ver  = urlencode($detail_job['updated_at'] ?? $detail_job['created_at'] ?? '1');
@@ -605,7 +597,7 @@ $detail_body_text = job_body_text($detail_job);
     <?php
       $r_vid    = h($THIS_FILE . '?proxy=video&job_id=' . urlencode($v['job_id']));
       $r_thumb  = h($THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($v['job_id']) . '&v=' . urlencode($v['updated_at'] ?? $v['created_at'] ?? '1'));
-      $r_title  = h($v['title'] ?? '(無題)');
+      $r_title  = h(job_display_title($v));
       $r_author = h($v['tweet_author'] ?? '');
       $r_share  = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($v['job_id']);
       $r_xtext  = urlencode(share_text_for_job($v, $r_share));
@@ -689,32 +681,33 @@ function sourceButtonLabel(v) {
     return '元の投稿を開く';
 }
 
-function bodyTextForJob(v) {
-    if (isVoiceProJob(v) && String(v.translated_text || '').trim()) {
-        return String(v.translated_text || '').trim();
+function displayTitleForJob(v) {
+    var keys = ['display_title', 'summary_title', 'article_title', 'title', 'source_title'];
+    for (var i = 0; i < keys.length; i++) {
+        var title = String(v[keys[i]] || '').trim();
+        if (title) return title;
     }
-    if (isVoiceProJob(v) && v.script && Array.isArray(v.script.scenes)) {
-        var scriptText = v.script.scenes.map(function(scene) {
-            return (scene && scene.narration ? String(scene.narration).trim() : '');
-        }).filter(Boolean).join('\n').trim();
-        if (scriptText) return scriptText;
+    return 'Kurage動画';
+}
+
+function bodyTextForJob(v) {
+    if (isVoiceProJob(v)) {
+        var keys = ['summary', 'display_summary', 'tweet_text', 'source_title'];
+        for (var i = 0; i < keys.length; i++) {
+            var summary = String(v[keys[i]] || '').trim();
+            if (summary) return summary;
+        }
     }
     return String(v.tweet_text || '').trim();
 }
 
 function shareTextForJob(v, shareUrl) {
-    var title = (v.title || 'Kurage動画').trim() || 'Kurage動画';
+    var title = displayTitleForJob(v);
     if (isVoiceProJob(v)) {
-        var translated = (v.translated_text || '').trim();
-        if (!translated && v.script && Array.isArray(v.script.scenes)) {
-            translated = v.script.scenes.map(function(scene) {
-                return (scene && scene.narration ? String(scene.narration).trim() : '');
-            }).filter(Boolean).join('\n').trim();
-        }
-        var text = title + '\n\n翻訳字幕・吹替動画\n' + shareUrl + '\nPowered by Kurage Voice-Pro';
-        if (translated) {
-            text += '\n\n' + translated;
-        }
+        var summary = bodyTextForJob(v);
+        var text = title + '\n\n' + (summary ? summary + '\n\n' : '') + '動画: ' + shareUrl;
+        var articleUrl = sourceUrlForJob({source_url: v.article_url || v.related_article_url || ''});
+        if (articleUrl) text += '\n考察記事: ' + articleUrl;
         return text;
     }
     return title + '\n\n' + shareUrl + '\n#Kurage #AI動画';
@@ -724,7 +717,7 @@ function copyTextForJob(v, shareUrl) {
     if (isVoiceProJob(v)) {
         return shareTextForJob(v, shareUrl);
     }
-    return (v.title || '') + '\n\n' + (v.tweet_text || '') + '\n\n' + shareUrl + '\n#Kurage #AI動画';
+    return displayTitleForJob(v) + '\n\n' + (v.tweet_text || '') + '\n\n' + shareUrl + '\n#Kurage #AI動画';
 }
 
 function primeThumbVideos(root) {
@@ -752,7 +745,7 @@ function renderCards(from, to) {
     for (var i = from; i < to && i < kvVideos.length; i++) {
         var v      = kvVideos[i];
         var jid    = v.job_id     || '';
-        var title  = v.title      || '(無題)';
+        var title  = displayTitleForJob(v);
         var author = v.tweet_author || '';
         var tweet  = bodyTextForJob(v);
         var turl   = sourceUrlForJob(v);
