@@ -174,6 +174,20 @@ def post_json(url: str, payload: dict[str, Any], timeout: int = 15) -> dict[str,
     return parsed if isinstance(parsed, dict) else {}
 
 
+def get_json(url: str, timeout: int = 15) -> dict[str, Any]:
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "User-Agent": "KurageEntertainmentBot/1.0 (+https://kurage.exbridge.jp/)",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as res:
+        body = res.read().decode("utf-8", errors="replace")
+    parsed = json.loads(body)
+    return parsed if isinstance(parsed, dict) else {}
+
+
 def parse_json_object(text: str) -> dict[str, Any]:
     """Parse a JSON object from an LLM response with light fence recovery."""
     text = str(text or "").strip()
@@ -239,21 +253,49 @@ def normalize_article_phrase(text: str) -> str:
     return text
 
 
+def sync_article_video_statuses(api_base: str, articles: list[dict[str, Any]]) -> dict[str, Any]:
+    api_base = api_base.rstrip("/")
+    result: dict[str, Any] = {"checked": 0, "updated": 0, "errors": []}
+    for article in articles:
+        job_id = str(article.get("video_job_id") or "").strip()
+        if not job_id:
+            continue
+        current = str(article.get("video_status") or "")
+        if current == "done":
+            continue
+        result["checked"] += 1
+        try:
+            status = get_json(f"{api_base}/status/{urllib.parse.quote(job_id)}", timeout=8)
+            remote_status = str(status.get("status") or "")
+            if remote_status and remote_status != current:
+                article["video_status"] = remote_status
+                article["video_status_synced_at"] = now_jst()
+                article["updated_at"] = now_jst()
+                result["updated"] += 1
+        except Exception as exc:
+            result["errors"].append({"slug": article.get("slug"), "job_id": job_id, "error": str(exc)})
+    return result
+
+
 def enqueue_pending_videos(api_base: str, max_videos: int) -> dict[str, Any]:
-    """Queue short-video generation for published articles that do not have a video job."""
+    """Queue short-video generation for published articles that do not have a live video job."""
     articles = load_articles()
     result: dict[str, Any] = {"queued": 0, "skipped": 0, "errors": [], "jobs": []}
     if max_videos <= 0:
         return result
     api_base = api_base.rstrip("/")
+    sync_result = sync_article_video_statuses(api_base, articles)
+    result["status_sync"] = sync_result
     changed = False
+    if sync_result.get("updated"):
+        changed = True
     for article in articles:
         if result["queued"] >= max_videos:
             break
         if str(article.get("status") or "published") != "published":
             result["skipped"] += 1
             continue
-        if article.get("video_job_id"):
+        if article.get("video_job_id") and str(article.get("video_status") or "") not in {"failed", "error"}:
             result["skipped"] += 1
             continue
         payload = {
