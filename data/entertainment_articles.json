@@ -36,7 +36,7 @@
     "video_job_id": "676cf572c9014274",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "queued",
+    "video_status": "done",
     "video_queued_at": "2026-06-12 09:04:31",
     "article_generator": "ollama"
   },
@@ -78,7 +78,7 @@
     "video_job_id": "13fe1b9b9e1140fd",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "queued",
+    "video_status": "done",
     "video_queued_at": "2026-06-12 09:04:31",
     "article_generator": "ollama"
   },
@@ -119,7 +119,7 @@
     "video_job_id": "79d0dfa8bc4d4c7d",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "queued",
+    "video_status": "done",
     "video_queued_at": "2026-06-12 09:04:31",
     "article_generator": "ollama"
   },
@@ -160,7 +160,7 @@
     "video_job_id": "bf48f072a6c64568",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "queued",
+    "video_status": "imaging",
     "video_queued_at": "2026-06-12 09:02:50",
     "article_generator": "ollama"
   },
@@ -203,7 +203,7 @@
     "video_job_id": "323218d7628340c5",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "queued",
+    "video_status": "imaging",
     "video_queued_at": "2026-06-12 09:02:50",
     "article_generator": "ollama"
   },
@@ -244,7 +244,7 @@
     "video_job_id": "2b539081d0e74899",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "queued",
+    "video_status": "imaging",
     "video_queued_at": "2026-06-12 09:02:50",
     "article_generator": "ollama"
   },
@@ -285,7 +285,7 @@
     "video_job_id": "85df7e34a5454d7a",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "queued",
+    "video_status": "done",
     "article_generator": "ollama",
     "video_queued_at": "2026-06-12 09:23:34"
   },
@@ -327,7 +327,7 @@
     "video_job_id": "9f025a5502ea4409",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "queued",
+    "video_status": "done",
     "article_generator": "ollama",
     "video_queued_at": "2026-06-12 09:23:34"
   },
@@ -369,7 +369,7 @@
     "video_job_id": "c22486d28ad54067",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "queued",
+    "video_status": "done",
     "article_generator": "ollama",
     "video_queued_at": "2026-06-12 09:23:34"
   },
@@ -381,7 +381,7 @@
     "source_name": "Yahoo!ニュース",
     "source_published_at": "2026-06-12 07:11:09",
     "created_at": "2026-06-12 08:49:02",
-    "updated_at": "2026-06-12 09:15:00",
+    "updated_at": "2026-06-12 09:34:29",
     "celebrity_names": [
       "鈴鹿央士"
     ],
@@ -407,11 +407,12 @@
       "記事URL: https://kurage.exbridge.jp/entertainment.php?id=ent-3bb46c43f167",
       "元ニュースURL: https://news.google.com/rss/articles/CBMif0FVX3lxTE8xemhDekc5WGsxOWE3NkxUTlpaOFR2VnFFRGE5SGREaFhvNFNNSFp4LVk3NnVwbEpuWFh0TzF6Z084Sk5jSDJZenNuSV9reTVwc3JDSVZCTGlGdWJKSTFMckJrSDJEaGpWQWdQWmQtTW9uMGwwM3dMaWtVUlBSaWM?oc=5"
     ],
-    "video_job_id": "",
+    "video_job_id": "dcf8fc621a94446d",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "",
-    "article_generator": "ollama"
+    "video_status": "done",
+    "article_generator": "ollama",
+    "video_queued_at": "2026-06-12 09:34:29"
   },
   {
     "slug": "ent-8073ec0808f1",
@@ -421,7 +422,7 @@
     "source_name": "NHK出版デジタルマガジン",
     "source_published_at": "2026-06-12 07:09:36",
     "created_at": "2026-06-12 08:38:40",
-    "updated_at": "2026-06-12 09:15:14",
+    "updated_at": "2026-06-12 09:34:29",
     "celebrity_names": [
       "森崎ウィン"
     ],
@@ -447,11 +448,11 @@
       "記事URL: https://kurage.exbridge.jp/entertainment.php?id=ent-8073ec0808f1",
       "元ニュースURL: https://news.google.com/rss/articles/CBMiUkFVX3lxTFAwd3BHZW9ncDNKVVJUSWY2ZG1yRlF0MFVrdkRPMFJPSHhIRTdNUFR0cHJBdjQtN0Rac1c2YVFfZEtxb216ZjQ4UFowSFAtUEU0bkE?oc=5"
     ],
-    "video_job_id": "",
+    "video_job_id": "6efc9a828adc436e",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "needs_regeneration",
-    "video_queued_at": "2026-06-12 08:46:49",
+    "video_status": "imaging",
+    "video_queued_at": "2026-06-12 09:34:29",
     "article_generator": "ollama"
   },
   {
@@ -462,7 +463,7 @@
     "source_name": "朝日新聞",
     "source_published_at": "2026-06-12 05:00:00",
     "created_at": "2026-06-12 08:37:21",
-    "updated_at": "2026-06-12 09:15:25",
+    "updated_at": "2026-06-12 09:34:29",
     "celebrity_names": [
       "磯野真穂",
       "濱口竜介"
@@ -489,11 +490,12 @@
       "記事URL: https://kurage.exbridge.jp/entertainment.php?id=ent-d383b5f3bdcf",
       "元ニュースURL: https://news.google.com/rss/articles/CBMiXEFVX3lxTE1CYVVkU1haUUwyRG1VU3k5MDRQM1pzdE9kOU45ZEQzOUtPMG54VWxTbG1fcXpPYk5ZWnM4dWJ4NnZFaTU0SFQwVWgtUFEwaGkxcXRBTnlYd2dmSjhB?oc=5"
     ],
-    "video_job_id": "",
+    "video_job_id": "7806e721b1c5445c",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "",
-    "article_generator": "ollama"
+    "video_status": "rendering",
+    "article_generator": "ollama",
+    "video_queued_at": "2026-06-12 09:34:29"
   },
   {
     "slug": "ent-fe7f5c371350",
