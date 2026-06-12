@@ -45,6 +45,7 @@ class EntertainmentShortRequest(BaseModel):
     summary: str = ""
     content: str = ""
     url: str = ""
+    source_url: str = ""
     source_name: str = "Kurage Entertainment"
     celebrity_names: list[str] = []
 

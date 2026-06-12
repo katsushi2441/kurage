@@ -48,6 +48,9 @@ GENERIC_WORDS = {
     "代償", "昔", "人生", "再構築", "最新", "テクノロジー", "新予告",
     "日本版", "ポスター", "創価大学", "大学", "往復書簡", "対談", "身体性",
     "魅力", "新番組", "静寂", "狂気", "アクション", "ドラマ",
+    "実在人物", "人物", "保育園",
+    "グループ", "人気アイドルグループ", "アーティスト", "タレントマネジメント",
+    "業務開始", "お知らせ", "ジェリービーンズグループ",
 }
 
 ENGLISH_GENERIC_WORDS = {
@@ -55,7 +58,7 @@ ENGLISH_GENERIC_WORDS = {
     "Kurage", "Horizon", "Amazon", "YouTube", "Twitter", "X", "News",
     "Video", "Blog", "Voice", "Pro", "Project", "Agent", "Code", "Data",
     "Canada", "Strong", "America", "Great", "Again", "Banking", "Homebrew",
-    "NEW", "GROUP",
+    "NEW", "GROUP", "WOOAH",
 }
 
 JOB_VIDEO_SOURCES = {"kuragevp", "horizon", "blog"}
@@ -67,6 +70,8 @@ NON_PERSON_PARTS = (
     "大物俳優", "Festival", "FESTIVAL", "Period", "Hatsuboshi", "Studios", "Century",
     "披露宴", "出席",
     "挿入歌", "洋画", "独占", "興行", "全体",
+    "実在人物", "保育園", "園児", "子ども", "先生",
+    "グループ", "業務開始", "お知らせ", "マネジメント",
 )
 
 
@@ -183,6 +188,7 @@ def enqueue_pending_videos(api_base: str, max_videos: int) -> dict[str, Any]:
             "summary": article.get("summary") or "",
             "content": "\n".join(article.get("body") or []),
             "url": article.get("kurage_url") or "",
+            "source_url": article.get("source_url") or "",
             "source_name": article.get("source_name") or "Kurage Entertainment",
             "celebrity_names": article.get("celebrity_names") or [],
         }
@@ -235,6 +241,8 @@ def looks_like_person_name(name: str) -> bool:
     if len(name) < 2:
         return False
     if name in GENERIC_WORDS:
+        return False
+    if name.upper() in ENGLISH_GENERIC_WORDS:
         return False
     if any(part in name for part in NON_PERSON_PARTS):
         return False
@@ -322,7 +330,80 @@ def article_title(source_title: str, names: list[str]) -> str:
 
 def compact_title(title: str, limit: int = 46) -> str:
     title = re.sub(r"\s+", " ", str(title)).strip(" -｜|。")
-    return title if len(title) <= limit else title[:limit].rstrip() + "..."
+    return title if len(title) <= limit else title[:limit].rstrip() + "…"
+
+
+def clean_source_title(source_title: str) -> str:
+    """Keep the actual news topic while removing distributor boilerplate."""
+    title = re.sub(r"\s+", " ", str(source_title)).strip()
+    title = re.sub(r"\s*-\s*(Yahoo!ニュース|Google ニュース|Google News)\s*$", "", title)
+    title = re.sub(r"（[^）]{1,24}）\s*$", "", title)
+    title = re.sub(r"\s*-\s*[^-]{2,30}$", "", title)
+    return title.strip(" -｜|。") or str(source_title).strip()
+
+
+def news_summary_sentence(source_title: str, names: list[str]) -> str:
+    clean = clean_source_title(source_title)
+    label = "、".join(names) if names else "話題の人物"
+    if len(clean) > 78:
+        clean = clean[:78].rstrip() + "..."
+    return f"今回取り上げるのは「{clean}」というニュースです。中心にいるのは{label}で、見出しからは発表・出演・発言・作品情報のどこに注目が集まっているのかが分かります。"
+
+
+def commentary_sentence(source_title: str, name: str, angle: dict[str, str]) -> str:
+    title = str(source_title)
+    if any(word in title for word in ("出演", "キャスト", "主演", "映画", "ドラマ", "公開")):
+        return f"{name}の名前が作品ニュースの中で出てくるときは、単なる出演情報だけでなく、その作品がどんな層に届こうとしているのか、キャスティングで何を伝えたいのかを見ると読みやすくなります。"
+    if any(word in title for word in ("発言", "語る", "明かす", "対談", "インタビュー", "手紙")):
+        return f"{name}の発言や対談が話題になるのは、言葉そのものに加えて、これまでの活動イメージとの違いや、いま本人が何を大事にしているかが見えるからです。"
+    if any(word in title for word in ("写真", "ショット", "再会", "披露宴", "イベント")):
+        return f"写真やイベントのニュースは一瞬で消費されがちですが、反応が集まる背景には、過去の共演、ファンの記憶、作品への思い入れが重なっています。"
+    if angle["label"] == "AI時代の読み解き":
+        return "AI関連の発言は、過激な見出しだけで判断せず、技術が実際の仕事や生活にどう入り込むのかまで分けて読む必要があります。"
+    return f"{name}のニュースとして読むだけでなく、作品、発言、時期、メディアでの見え方を分けると、なぜこの話題が今出てきたのかを立体的に理解できます。"
+
+
+def quoted_work_title(source_title: str) -> str:
+    for value in re.findall(r"[「『]([^」』]{2,40})[」』]", str(source_title)):
+        value = value.strip()
+        if value.endswith(("です", "ます")) or "？" in value or "?" in value:
+            continue
+        return value
+    return ""
+
+
+def source_based_headline(source_title: str, name: str) -> str:
+    clean = clean_source_title(source_title)
+    work = quoted_work_title(clean)
+    if "出演決定" in clean:
+        return f"{name}の出演決定ニュース：{('「' + work + '」') if work else '新作'}で何が動いたか"
+    if "追加キャスト" in clean or "キャスト" in clean:
+        return f"{name}の参加で見える{('「' + work + '」') if work else '作品ニュース'}の狙い"
+    if "挿入歌" in clean or "新曲" in clean:
+        return f"{name}の新曲・挿入歌ニュースから作品の余韻を読む"
+    if "ゲスト声優" in clean or "声優" in clean:
+        return f"{name}の声優参加ニュース：{('「' + work + '」') if work else '作品'}の注目点"
+    if "公開" in clean and work:
+        return f"{name}と「{work}」公開ニュース：注目点を整理"
+    if "不思議な映画" in clean and work:
+        return f"{name}が語る「{work}」の不思議さを読む"
+    if "手紙" in clean:
+        return f"{name}の手紙企画に見る、言葉で届く魅力"
+    if "対談" in clean:
+        return f"{name}の対談ニュースから見えるテーマ"
+    if "番組出演" in clean or "出演" in clean:
+        return f"{name}の出演ニュースから見える注目点"
+    if "2ショット" in clean or "ショット" in clean:
+        return f"{name}の写真ニュースに反応が集まる理由"
+    if "語る" in clean or "明かす" in clean:
+        return f"{name}の発言ニュースを読み解く"
+    topic = clean
+    if topic.startswith(name):
+        topic = topic[len(name):].strip(" 、,:：")
+    topic = topic.lstrip("の").strip(" 、,:：")
+    topic = re.sub(r"^(さん|氏)\s*", "", topic)
+    topic = compact_title(topic, 26)
+    return f"{name}のニュース：{topic}を読む"
 
 
 def article_angle(source_title: str) -> dict[str, str]:
@@ -365,7 +446,7 @@ def article_angle(source_title: str) -> dict[str, str]:
             "question": "ニュースで名前を見かけたとき、過去の作品や音源をどう見直せるのか。",
             "insight": "芸能ニュースは、その人の過去作品や役柄を思い出しながら読むと、短い話題でも受け止め方が変わります。",
             "commerce": "CD、DVD、写真集、出演作などを見直すと、その人物が長く記憶されている理由も見えてきます。",
-            "headline": "{name}の話題から作品を見直す",
+            "headline": "{name}の作品ニュースを読み解く",
         }
     return {
         "label": "話題の背景",
@@ -380,24 +461,28 @@ def article_content(source_title: str, names: list[str], origin: str = "news") -
     name = names[0] if names else "この話題"
     label = "、".join(names) if names else "話題の人物"
     short = compact_title(source_title)
+    clean_title = clean_source_title(source_title)
     angle = article_angle(source_title)
-    title = specific_headline(source_title, name) or angle["headline"].format(name=name)
+    title = source_based_headline(source_title, name) or specific_headline(source_title, name) or angle["headline"].format(name=name)
     if origin == "job":
-        lead = f"話題になっている「{source_title}」をもとに、{label}について{angle['label']}の視点から整理します。"
+        lead = f"動画・投稿として追加された「{clean_title}」をもとに、{label}について{angle['label']}の視点から整理します。"
     else:
-        lead = f"ニュース「{source_title}」をもとに、{label}の話題を整理します。"
-    summary = f"{lead}{angle['question']}"
+        lead = f"ニュース「{clean_title}」をもとに、{label}の話題を整理します。"
+    summary = f"{lead} 何のニュースなのか、なぜ注目されるのか、作品や発言の背景をあわせて考察します。"
     body = [
-        angle["insight"],
-        angle["commerce"],
+        news_summary_sentence(source_title, names),
+        f"まず押さえたいのは、見出しが伝えている主役は{label}だけではなく、作品名、番組名、発言の場、公開時期といった文脈もセットになっている点です。人物名だけで検索すると話題の表面だけを追いがちですが、ニュースの意味はこの文脈にあります。",
+        commentary_sentence(source_title, name, angle),
+        f"{angle['label']}として見ると、ポイントは「{angle['question']}」という問いです。{angle['insight']}",
+        f"関連作品や資料を見るなら、本人の推奨や広告出演と混同せず、ニュースの背景を補うための参考として確認するのが自然です。{angle['commerce']}",
     ]
     video_script = [
         f"今日のテーマは、{name}に関する話題です。",
         short,
-        angle["question"],
-        angle["insight"],
-        "関連する作品や資料もあわせて見ると理解が深まります。",
-        "詳しい考察は記事で確認できます。",
+        "まず、何がニュースになったのかを整理します。",
+        commentary_sentence(source_title, name, angle),
+        "背景を見ると、単なる名前検索より理解が深まります。",
+        "記事URLと元ニュースURLは説明欄で確認できます。",
     ]
     return {"title": title, "summary": summary, "body": body, "video_script": video_script}
 
@@ -489,6 +574,8 @@ def make_article(item: dict[str, Any]) -> dict[str, Any]:
         "from": f"/entertainment.php?id={slug}",
     })
     content = article_content(source_title, names, "news")
+    content["video_script"][-1] = f"記事URL: {page_url}"
+    content["video_script"].append(f"元ニュースURL: {item['url']}")
     return {
         "slug": slug,
         "title": content["title"],
@@ -570,6 +657,9 @@ def make_article_from_job(path: Path, job: dict[str, Any], names: list[str]) -> 
         "from": f"/entertainment.php?id={slug}",
     })
     content = article_content(source_title, names, "job")
+    page_url = f"{KURAGE_BASE}/entertainment.php?id={urllib.parse.quote(slug)}"
+    content["video_script"][-1] = f"記事URL: {page_url}"
+    content["video_script"].append(f"元動画URL: {video_page}")
     return {
         "slug": slug,
         "title": content["title"],
@@ -584,7 +674,7 @@ def make_article_from_job(path: Path, job: dict[str, Any], names: list[str]) -> 
         "body": content["body"],
         "amazon_kw": kw,
         "amazon_url": amazon_url,
-        "kurage_url": f"{KURAGE_BASE}/entertainment.php?id={urllib.parse.quote(slug)}",
+        "kurage_url": page_url,
         "kurage_cta_url": "/kuragev.php",
         "video_cta_url": "/" + file_name,
         "video_script_30s": content["video_script"],

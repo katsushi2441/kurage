@@ -332,7 +332,8 @@ Rules:
 - Do not describe a real person's face, body, or likeness in image_prompt.
 - Use abstract safe visuals: studio lights, city billboard, smartphone news cards, books, streaming icons, cinema seats.
 - Preserve public proper nouns in narration when relevant.
-- Mention Kurage once in the closing as the place for the full article.
+- In the closing, cite the exact article URL and source URL when supplied.
+- Do not say vague phrases like 「続きはKurageで」 or 「詳しくはKurageで」.
 - No double quotes inside string values. Use 「」for Japanese quotes.
 """
 
@@ -343,6 +344,7 @@ def generate_entertainment_short_script(article: dict) -> dict:
     summary = (article.get("summary") or article.get("content") or "").strip()
     celebrity = "、".join(article.get("celebrity_names") or []) or "話題の人物"
     kurage_url = article.get("url") or "https://kurage.exbridge.jp/entertainment.php"
+    source_url = article.get("source_url") or ""
 
     user_prompt = f"""以下の芸能ニュース考察記事を、30秒の安全なショート動画にしてください。
 
@@ -358,10 +360,14 @@ def generate_entertainment_short_script(article: dict) -> dict:
 【Kurage記事URL】
 {kurage_url}
 
+【元ニュース・元動画URL】
+{source_url or "記事ページ内の参考リンク"}
+
 重要:
 - 本人が商品をおすすめした、愛用した、宣伝したとは言わない。
 - 人物の顔写真を使う前提にしない。
-- 最後は「続きはKurageで」の自然な回遊にする。
+- 最後は記事URLと元ニュースURLを短く案内する。
+- 「続きはKurageで」「詳しくはKurageで」のような曖昧な表現は禁止。
 
 JSONのみ返してください。"""
 
