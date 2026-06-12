@@ -41,6 +41,22 @@ function is_voice_pro_job($job) {
     return (($job['source'] ?? '') === 'kuragevp') || (($job['content_type'] ?? '') === 'voice_pro_translation') || !empty($job['kuragevp_job_id']);
 }
 
+function is_entertainment_job($job) {
+    return (($job['source'] ?? '') === 'entertainment')
+        || (($job['content_type'] ?? '') === 'entertainment_short')
+        || (strpos((string)($job['tweet_url'] ?? ''), '/entertainment.php') !== false);
+}
+
+function related_article_url($job) {
+    foreach (array('article_url', 'tweet_url') as $key) {
+        $url = trim((string)($job[$key] ?? ''));
+        if ($url !== '' && strpos($url, '/entertainment.php') !== false) {
+            return $url;
+        }
+    }
+    return '';
+}
+
 function share_text_for_job($job, $share_url) {
     $title = trim((string)($job['title'] ?? 'Kurage動画'));
     if ($title === '') { $title = 'Kurage動画'; }
@@ -417,7 +433,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
     </div>
     <?php if (!empty($detail_job['tweet_url'])): ?>
     <div class="detail-url-box">
-      元のXの投稿:
+      <?php echo is_entertainment_job($detail_job) ? '関連する考察記事:' : '元のXの投稿:'; ?>
       <a href="<?php echo h($detail_job['tweet_url']); ?>" target="_blank" rel="noopener"><?php echo h($detail_job['tweet_url']); ?></a>
     </div>
     <?php endif; ?>
@@ -431,7 +447,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
     </div>
 
     <?php if (!empty($detail_job['tweet_text'])): ?>
-    <div class="section-title">📣 元のXの投稿</div>
+    <div class="section-title"><?php echo is_entertainment_job($detail_job) ? '📣 関連記事の要約' : '📣 元のXの投稿'; ?></div>
     <div class="tweet-body"><?php echo h($detail_job['tweet_text']); ?></div>
     <?php endif; ?>
 
@@ -451,6 +467,14 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
     </div>
     <?php endif; ?>
 
+    <?php $article_url = related_article_url($detail_job); ?>
+    <?php if ($article_url !== ''): ?>
+    <div class="detail-url-box" style="margin-top:14px">
+      この動画の詳しい考察記事:
+      <a href="<?php echo h($article_url); ?>" target="_blank" rel="noopener"><?php echo h($article_url); ?></a>
+    </div>
+    <?php endif; ?>
+
     <?php
     $share_url_d = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($detail_id);
     $copy_d      = copy_text_for_job($detail_job, $share_url_d);
@@ -467,7 +491,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
       <?php if (!empty($detail_job['tweet_url'])): ?>
       <a class="kv-link" href="<?php echo h($detail_job['tweet_url']); ?>" target="_blank" rel="noopener">
         <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-        元の投稿を開く
+        <?php echo is_entertainment_job($detail_job) ? '考察記事を開く' : '元の投稿を開く'; ?>
       </a>
       <?php endif; ?>
       <?php if ($is_admin): ?>

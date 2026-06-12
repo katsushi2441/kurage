@@ -151,6 +151,8 @@ def run_pipeline_from_entertainment_short(job_id: str, article: dict):
         update_job(job_id, status="scripting", progress=25, source="entertainment",
                    content_type="entertainment_short",
                    tweet_url=article_url,
+                   article_url=article_url,
+                   source_url=article.get("source_url") or "",
                    tweet_text=article_text[:240],
                    tweet_author=article.get("source_name") or "Kurage Entertainment",
                    tweet_author_name=article_title)

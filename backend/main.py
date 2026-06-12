@@ -221,6 +221,8 @@ def generate_entertainment_short(req: EntertainmentShortRequest):
     update_job(job_id, status="queued", progress=0, source="entertainment",
                content_type="entertainment_short",
                tweet_url=article.get("url", ""),
+               article_url=article.get("url", ""),
+               source_url=article.get("source_url", ""),
                tweet_text=(article.get("summary") or article.get("content") or "")[:240],
                tweet_author=article.get("source_name") or "Kurage Entertainment",
                tweet_author_name=title,
