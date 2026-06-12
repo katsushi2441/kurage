@@ -150,7 +150,7 @@ $schema = $detail ? array(
 :root{--ink:#18262e;--muted:#637985;--line:#d8e7eb;--brand:#007f96;--gold:#ff9900;--soft:#f6fbfc}
 *{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#fffaf0 0%,#f4fbfd 34%,#fff 100%);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;line-height:1.75}
 a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}.bar{max-width:1120px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-weight:900}.brand img{width:38px;height:38px;border-radius:50%}.nav{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.nav a{font-size:12px;text-decoration:none;border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 10px;font-weight:800;color:#36515c}.amazon-mini{width:30px;height:30px;padding:0!important;border-radius:9px!important;background:linear-gradient(135deg,#ffb84d,#ff9900)!important;border-color:#e58a00!important;color:#1f2933!important;display:inline-flex!important;align-items:center;justify-content:center;font-weight:1000!important;font-size:18px!important;font-family:Georgia,serif;box-shadow:0 8px 18px rgba(255,153,0,.28);transform:rotate(-2deg)}.amazon-mini:hover{transform:rotate(2deg) translateY(-1px);box-shadow:0 10px 22px rgba(255,153,0,.38)}
-.hero{max-width:1120px;margin:0 auto;padding:42px 16px 24px}.eyebrow{display:inline-flex;border:1px solid #f2d39a;background:#fff7e6;color:#9a5b00;border-radius:999px;padding:6px 12px;font-weight:900;font-size:12px}.hero h1{font-size:40px;line-height:1.18;letter-spacing:-.04em;margin:14px 0 10px}.hero p{max-width:780px;color:var(--muted);font-size:16px;margin:0}.wrap{max-width:1120px;margin:0 auto;padding:8px 16px 48px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card,.article{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 34px rgba(30,84,96,.08)}.card{display:block;text-decoration:none;padding:18px}.card h2{font-size:21px;line-height:1.45;margin:8px 0}.meta{color:var(--muted);font-size:12px}.pill{display:inline-flex;border:1px solid #f2d39a;background:#fff8e8;color:#9a5b00;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:900}.card p{color:#526b76;margin:0}.layout{display:block}.article{padding:24px}.article h1{font-size:34px;line-height:1.25;letter-spacing:-.03em;margin:10px 0}.article p{font-size:15px}.source{border-left:4px solid var(--brand);background:#f4fbfd;border-radius:0 10px 10px 0;padding:12px 14px;color:#526b76}.cta{display:grid;gap:10px;margin:18px 0}.btn{display:inline-flex;align-items:center;justify-content:center;text-align:center;border-radius:999px;padding:10px 14px;text-decoration:none;font-weight:900;border:1px solid var(--line);background:#fff}.btn.amazon{background:var(--gold);border-color:#e58a00;color:#1f2933}.btn.kurage{background:var(--brand);border-color:var(--brand);color:#fff}.script-list{padding-left:1.2em;margin:8px 0}.script-list li{margin:6px 0}.disclosure{max-width:1120px;margin:24px auto 18px;padding:12px 16px;color:#647884;font-size:12px;text-align:center}.footer-links{margin-top:8px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}.footer-links a{font-weight:800}@media(max-width:760px){.bar{align-items:flex-start;flex-direction:column}.hero h1{font-size:30px}.grid{grid-template-columns:1fr}.article{padding:18px}}
+.hero{max-width:1120px;margin:0 auto;padding:42px 16px 24px}.eyebrow{display:inline-flex;border:1px solid #f2d39a;background:#fff7e6;color:#9a5b00;border-radius:999px;padding:6px 12px;font-weight:900;font-size:12px}.hero h1{font-size:40px;line-height:1.18;letter-spacing:-.04em;margin:14px 0 10px}.hero p{max-width:780px;color:var(--muted);font-size:16px;margin:0}.wrap{max-width:1120px;margin:0 auto;padding:8px 16px 48px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.card,.article{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 34px rgba(30,84,96,.08)}.card{display:block;text-decoration:none;padding:18px}.card h2{font-size:21px;line-height:1.45;margin:8px 0}.card-title{display:block;text-decoration:none}.card-actions{display:flex;align-items:center;gap:8px;justify-content:space-between;margin-top:12px}.video-badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:#102a33;color:#fff;text-decoration:none;font-weight:900;font-size:12px;padding:7px 10px}.video-badge:hover{background:var(--brand)}.meta{color:var(--muted);font-size:12px}.pill{display:inline-flex;border:1px solid #f2d39a;background:#fff8e8;color:#9a5b00;border-radius:999px;padding:4px 9px;font-size:11px;font-weight:900}.card p{color:#526b76;margin:0}.layout{display:block}.article{padding:24px}.article h1{font-size:34px;line-height:1.25;letter-spacing:-.03em;margin:10px 0}.article p{font-size:15px}.source{border-left:4px solid var(--brand);background:#f4fbfd;border-radius:0 10px 10px 0;padding:12px 14px;color:#526b76}.cta{display:grid;gap:10px;margin:18px 0}.btn{display:inline-flex;align-items:center;justify-content:center;text-align:center;border-radius:999px;padding:10px 14px;text-decoration:none;font-weight:900;border:1px solid var(--line);background:#fff}.btn.amazon{background:var(--gold);border-color:#e58a00;color:#1f2933}.btn.kurage{background:var(--brand);border-color:var(--brand);color:#fff}.script-list{padding-left:1.2em;margin:8px 0}.script-list li{margin:6px 0}.disclosure{max-width:1120px;margin:24px auto 18px;padding:12px 16px;color:#647884;font-size:12px;text-align:center}.footer-links{margin-top:8px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}.footer-links a{font-weight:800}@media(max-width:760px){.bar{align-items:flex-start;flex-direction:column}.hero h1{font-size:30px}.grid{grid-template-columns:1fr}.article{padding:18px}}
 .embedded-video{margin:18px 0 20px;border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#0c1c22;box-shadow:0 14px 34px rgba(30,84,96,.12)}.embedded-video video{display:block;width:100%;max-height:70vh;background:#000}.video-caption{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;background:#fff;padding:10px 12px;color:#526b76;font-size:13px}.video-caption a{font-weight:900;color:var(--brand)}
 </style>
 </head>
@@ -171,6 +171,11 @@ a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255
       <span class="pill">芸能・有名人ニュース考察</span>
       <h1><?php echo h($detail['title'] ?? '芸能ニュース考察'); ?></h1>
       <div class="meta"><?php echo h($detail['created_at'] ?? ''); ?> / <?php echo h(implode('、', $detail['celebrity_names'] ?? array())); ?></div>
+      <p><?php echo h($detail['summary'] ?? ''); ?></p>
+      <?php foreach (($detail['body'] ?? array()) as $p): ?><p><?php echo h($p); ?></p><?php endforeach; ?>
+      <div class="cta">
+        <a class="btn amazon" href="<?php echo h($detail['amazon_url'] ?? '#'); ?>" target="_blank" rel="sponsored nofollow noopener">関連する本・作品をAmazonで見る</a>
+      </div>
       <?php if ($detail_video_job): ?>
       <div class="embedded-video">
         <video src="/kuragev.php?proxy=video&job_id=<?php echo h($detail['video_job_id']); ?>"
@@ -182,11 +187,6 @@ a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255
         </div>
       </div>
       <?php endif; ?>
-      <p><?php echo h($detail['summary'] ?? ''); ?></p>
-      <?php foreach (($detail['body'] ?? array()) as $p): ?><p><?php echo h($p); ?></p><?php endforeach; ?>
-      <div class="cta">
-        <a class="btn amazon" href="<?php echo h($detail['amazon_url'] ?? '#'); ?>" target="_blank" rel="sponsored nofollow noopener">関連する本・作品をAmazonで見る</a>
-      </div>
       <p class="source"><strong>参考にした元コンテンツ:</strong> <?php echo h($detail['source_title'] ?? ''); ?><br>
         <a href="<?php echo h($detail['source_url'] ?? '#'); ?>" target="_blank" rel="nofollow noopener">元ニュース・元動画を確認する</a>
       </p>
@@ -206,12 +206,20 @@ a{color:inherit}.top{position:sticky;top:0;z-index:5;background:rgba(255,255,255
       <div class="card"><h2>記事はまだありません</h2><p>収集ジョブが記事を生成するとここに表示されます。</p></div>
     <?php else: ?>
       <?php foreach ($articles as $a): ?>
-      <a class="card" href="/entertainment.php?id=<?php echo h($a['slug'] ?? ''); ?>">
+      <article class="card">
+        <a class="card-title" href="/entertainment.php?id=<?php echo h($a['slug'] ?? ''); ?>">
         <span class="pill"><?php echo h(implode('、', $a['celebrity_names'] ?? array()) ?: '芸能ニュース'); ?></span>
         <h2><?php echo h($a['title'] ?? ''); ?></h2>
         <div class="meta"><?php echo h($a['created_at'] ?? ''); ?> / <?php echo h($a['source_name'] ?? ''); ?></div>
         <p><?php echo h(short_text($a['summary'] ?? '', 130)); ?></p>
-      </a>
+        </a>
+        <?php if (!empty($a['video_job_id']) && (($a['video_status'] ?? '') === 'done')): ?>
+        <div class="card-actions">
+          <span class="meta">30秒動画あり</span>
+          <a class="video-badge" href="/kuragev.php?id=<?php echo h($a['video_job_id']); ?>" aria-label="この記事の動画を見る">▶ 動画を見る</a>
+        </div>
+        <?php endif; ?>
+      </article>
       <?php endforeach; ?>
     <?php endif; ?>
   </div>

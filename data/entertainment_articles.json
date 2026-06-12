@@ -505,7 +505,7 @@
     "source_name": "オリコンニュース",
     "source_published_at": "2026-06-12 07:40:00",
     "created_at": "2026-06-12 08:37:21",
-    "updated_at": "2026-06-12 09:15:39",
+    "updated_at": "2026-06-12 09:39:29",
     "celebrity_names": [
       "名取裕子"
     ],
@@ -532,11 +532,12 @@
       "記事URL: https://kurage.exbridge.jp/entertainment.php?id=ent-fe7f5c371350",
       "元ニュースURL: https://news.google.com/rss/articles/CBMiVkFVX3lxTE9SbGtIMjE0MEFDYnR3eHNralN5QU9SbzBoTXZHclkwTHNPcWNUUGJSM3JRajBSbF9PaHk0UXZZN3lmRDNtT0d6TDN4czVKZDI5MFFuVGFR?oc=5"
     ],
-    "video_job_id": "",
+    "video_job_id": "a91a57e4c8194fa7",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "",
-    "article_generator": "ollama"
+    "video_status": "queued",
+    "article_generator": "ollama",
+    "video_queued_at": "2026-06-12 09:39:29"
   },
   {
     "slug": "ent-c82ecdb3d6f4",
@@ -546,7 +547,7 @@
     "source_name": "Yahoo!ニュース",
     "source_published_at": "2026-06-12 07:05:26",
     "created_at": "2026-06-12 08:37:21",
-    "updated_at": "2026-06-12 09:26:04",
+    "updated_at": "2026-06-12 09:39:29",
     "celebrity_names": [
       "上沼恵美子",
       "細木数子"
@@ -569,11 +570,12 @@
       "今後の上沼さんの作品制作の動向から、目が離せませんね。",
       "記事URL: https://kurage.exbridge.jp/entertainment.php?id=ent-c82ecdb3d6f4"
     ],
-    "video_job_id": "",
+    "video_job_id": "5afca177409449e2",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "",
-    "article_generator": "ollama"
+    "video_status": "queued",
+    "article_generator": "ollama",
+    "video_queued_at": "2026-06-12 09:39:29"
   },
   {
     "slug": "ent-28417f656eaf",
@@ -583,7 +585,7 @@
     "source_name": "Kurage Video",
     "source_published_at": "2026-06-10 14:54:16",
     "created_at": "2026-06-12 06:21:54",
-    "updated_at": "2026-06-12 09:26:14",
+    "updated_at": "2026-06-12 09:39:29",
     "celebrity_names": [
       "イーロン・マスク"
     ],
@@ -604,11 +606,12 @@
       "優秀な人材を引き寄せるための、新たな組織論が提示されました。",
       "記事URL: https://kurage.exbridge.jp/entertainment.php?id=ent-28417f656eaf"
     ],
-    "video_job_id": "",
+    "video_job_id": "d77f08a9e5f242cb",
     "status": "published",
     "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
-    "video_status": "needs_regeneration",
-    "article_generator": "ollama"
+    "video_status": "queued",
+    "article_generator": "ollama",
+    "video_queued_at": "2026-06-12 09:39:29"
   },
   {
     "slug": "ent-8aadbb10bdf8",
