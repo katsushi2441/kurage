@@ -57,6 +57,78 @@ function related_article_url($job) {
     return '';
 }
 
+function is_local_source_path($url) {
+    $url = trim((string)$url);
+    return $url === '' || strpos($url, '/home/') === 0 || strpos($url, 'file:') === 0;
+}
+
+function job_source_url($job) {
+    foreach (array('source_url', 'original_url', 'tweet_url') as $key) {
+        $url = trim((string)($job[$key] ?? ''));
+        if ($url !== '' && !is_local_source_path($url)) {
+            return $url;
+        }
+    }
+    return '';
+}
+
+function job_source_platform($job) {
+    $platform = strtolower(trim((string)($job['source_platform'] ?? '')));
+    $url = strtolower(job_source_url($job));
+    if ($platform === 'youtube' || strpos($url, 'youtube.com') !== false || strpos($url, 'youtu.be') !== false) {
+        return 'youtube';
+    }
+    if ($platform === 'x' || $platform === 'twitter' || strpos($url, 'x.com') !== false || strpos($url, 'twitter.com') !== false) {
+        return 'x';
+    }
+    return $platform ?: 'video';
+}
+
+function job_source_label($job) {
+    if (is_entertainment_job($job)) { return '関連する考察記事:'; }
+    if (is_voice_pro_job($job)) {
+        $platform = job_source_platform($job);
+        if ($platform === 'youtube') { return '元のYouTube動画:'; }
+        if ($platform === 'x') { return '元のX投稿:'; }
+        return '元動画:';
+    }
+    return '元の投稿:';
+}
+
+function job_source_button_label($job) {
+    if (is_entertainment_job($job)) { return '考察記事を開く'; }
+    if (is_voice_pro_job($job)) {
+        $platform = job_source_platform($job);
+        if ($platform === 'youtube') { return '元のYouTube動画'; }
+        if ($platform === 'x') { return '元のX投稿'; }
+        return '元動画を開く';
+    }
+    return '元の投稿を開く';
+}
+
+function job_body_label($job) {
+    if (is_voice_pro_job($job)) { return '翻訳テキスト'; }
+    if (is_entertainment_job($job)) { return '関連記事の要約'; }
+    return '元の投稿';
+}
+
+function job_body_text($job) {
+    if (is_voice_pro_job($job)) {
+        $translated = trim((string)($job['translated_text'] ?? ''));
+        if ($translated !== '') { return $translated; }
+        if (!empty($job['script']['scenes']) && is_array($job['script']['scenes'])) {
+            $parts = [];
+            foreach ($job['script']['scenes'] as $scene) {
+                $narration = trim((string)($scene['narration'] ?? ''));
+                if ($narration !== '') { $parts[] = $narration; }
+            }
+            $script_text = trim(implode("\n", $parts));
+            if ($script_text !== '') { return $script_text; }
+        }
+    }
+    return trim((string)($job['tweet_text'] ?? ''));
+}
+
 function share_text_for_job($job, $share_url) {
     $title = trim((string)($job['title'] ?? 'Kurage動画'));
     if ($title === '') { $title = 'Kurage動画'; }
@@ -191,11 +263,12 @@ if (!$detail_id) {
     $jobs_res = kurage_get('/jobs?limit=100');
     $all_jobs = (!empty($jobs_res['jobs'])) ? $jobs_res['jobs'] : [];
 
-    /* done のみ、tweet_url ごとに最新1件 */
+    /* done のみ、公開元URLごとに最新1件 */
     $seen = [];
     foreach ($all_jobs as $j) {
         if (($j['status'] ?? '') !== 'done') continue;
-        $key = !empty($j['tweet_url']) ? $j['tweet_url'] : ('_' . $j['job_id']);
+        $source_key = job_source_url($j);
+        $key = $source_key !== '' ? $source_key : ('_' . $j['job_id']);
         if (isset($seen[$key])) continue;
         $seen[$key] = true;
         $videos[] = $j;
@@ -228,13 +301,13 @@ if (!$detail_id && $videos) {
 /* ── SEO ─────────────────────────────────────────────── */
 if ($detail_job) {
     $page_title = ($detail_job['title'] ?? 'Kurage動画') . ' | ' . $SITE_NAME;
-    $page_desc  = mb_substr(str_replace("\n", ' ', $detail_job['tweet_text'] ?? ''), 0, 160);
+    $page_desc  = mb_substr(str_replace("\n", ' ', job_body_text($detail_job)), 0, 160);
     $page_url   = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($detail_id);
     $thumb_ver  = urlencode($detail_job['updated_at'] ?? $detail_job['created_at'] ?? '1');
     $page_image = $BASE_URL . '/' . $THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($detail_id) . '&v=' . $thumb_ver;
 } else {
-    $page_title = $SITE_NAME . ' — AIが作るXショート動画';
-    $page_desc  = 'Xの投稿をAIが短編縦型動画に自動生成。';
+    $page_title = $SITE_NAME . ' — AIショート動画';
+    $page_desc  = 'AIで生成・翻訳した短編縦型動画を公開しています。';
     $page_url   = $BASE_URL . '/' . $THIS_FILE;
     $page_image = $BASE_URL . '/images/kurage.png';
 }
@@ -253,7 +326,7 @@ $header_amazon_url = '/go.php?' . http_build_query(array(
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?php echo h($page_title); ?></title>
 <meta name="description" content="<?php echo h($page_desc); ?>">
-<meta name="keywords" content="AI動画生成,ショート動画,縦型動画,X,Twitter,自動生成,Kurage,クラゲ,AI">
+<meta name="keywords" content="AI動画生成,ショート動画,縦型動画,動画翻訳,自動生成,Kurage,クラゲ,AI">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="<?php echo h($page_url); ?>">
 <meta property="og:type" content="website">
@@ -265,7 +338,7 @@ $header_amazon_url = '/go.php?' . http_build_query(array(
 <meta property="og:image" content="<?php echo h($page_image); ?>">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Kurage — AIが作るXショート動画">
+<meta property="og:image:alt" content="Kurage — AIショート動画">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@xb_bittensor">
 <meta name="twitter:title" content="<?php echo h($page_title); ?>">
@@ -425,16 +498,20 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 
 <?php if ($detail_job): ?>
 <!-- ============ 詳細ページ ============ -->
+<?php
+$detail_source_url = job_source_url($detail_job);
+$detail_body_text = job_body_text($detail_job);
+?>
 <div class="container">
   <div class="detail-header">
     <div class="detail-meta">
       <span><?php echo h($detail_job['created_at'] ?? ''); ?></span>
       <span class="views">表示<?php echo h((string)($detail_job['views'] ?? 9999)); ?></span>
     </div>
-    <?php if (!empty($detail_job['tweet_url'])): ?>
+    <?php if ($detail_source_url !== ''): ?>
     <div class="detail-url-box">
-      <?php echo is_entertainment_job($detail_job) ? '関連する考察記事:' : '元のXの投稿:'; ?>
-      <a href="<?php echo h($detail_job['tweet_url']); ?>" target="_blank" rel="noopener"><?php echo h($detail_job['tweet_url']); ?></a>
+      <?php echo h(job_source_label($detail_job)); ?>
+      <a href="<?php echo h($detail_source_url); ?>" target="_blank" rel="noopener"><?php echo h($detail_source_url); ?></a>
     </div>
     <?php endif; ?>
   </div>
@@ -446,9 +523,9 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
              controls playsinline preload="metadata"></video>
     </div>
 
-    <?php if (!empty($detail_job['tweet_text'])): ?>
-    <div class="section-title"><?php echo is_entertainment_job($detail_job) ? '📣 関連記事の要約' : '📣 元のXの投稿'; ?></div>
-    <div class="tweet-body"><?php echo h($detail_job['tweet_text']); ?></div>
+    <?php if ($detail_body_text !== ''): ?>
+    <div class="section-title">📣 <?php echo h(job_body_label($detail_job)); ?></div>
+    <div class="tweet-body"><?php echo h($detail_body_text); ?></div>
     <?php endif; ?>
 
     <?php
@@ -488,10 +565,9 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
         <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
         Xに投稿
       </a>
-      <?php if (!empty($detail_job['tweet_url'])): ?>
-      <a class="kv-link" href="<?php echo h($detail_job['tweet_url']); ?>" target="_blank" rel="noopener">
-        <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-        <?php echo is_entertainment_job($detail_job) ? '考察記事を開く' : '元の投稿を開く'; ?>
+      <?php if ($detail_source_url !== ''): ?>
+      <a class="kv-link" href="<?php echo h($detail_source_url); ?>" target="_blank" rel="noopener">
+        🔗 <?php echo h(job_source_button_label($detail_job)); ?>
       </a>
       <?php endif; ?>
       <?php if ($is_admin): ?>
@@ -570,9 +646,60 @@ var PAGE_SIZE = 20;
 var curPage = 0;
 
 var X_SVG = '<svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor;vertical-align:middle;"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>';
+var LINK_ICON = '🔗';
 
 function isVoiceProJob(v) {
     return (v.source === 'kuragevp') || (v.content_type === 'voice_pro_translation') || !!v.kuragevp_job_id;
+}
+
+function isEntertainmentJob(v) {
+    return (v.source === 'entertainment') || (v.content_type === 'entertainment_short') || String(v.tweet_url || '').indexOf('/entertainment.php') !== -1;
+}
+
+function isLocalSourcePath(url) {
+    url = String(url || '').trim();
+    return !url || url.indexOf('/home/') === 0 || url.indexOf('file:') === 0;
+}
+
+function sourceUrlForJob(v) {
+    var keys = ['source_url', 'original_url', 'tweet_url'];
+    for (var i = 0; i < keys.length; i++) {
+        var url = String(v[keys[i]] || '').trim();
+        if (url && !isLocalSourcePath(url)) return url;
+    }
+    return '';
+}
+
+function sourcePlatformForJob(v) {
+    var platform = String(v.source_platform || '').toLowerCase();
+    var url = sourceUrlForJob(v).toLowerCase();
+    if (platform === 'youtube' || url.indexOf('youtube.com') !== -1 || url.indexOf('youtu.be') !== -1) return 'youtube';
+    if (platform === 'x' || platform === 'twitter' || url.indexOf('x.com') !== -1 || url.indexOf('twitter.com') !== -1) return 'x';
+    return platform || 'video';
+}
+
+function sourceButtonLabel(v) {
+    if (isEntertainmentJob(v)) return '考察記事を開く';
+    if (isVoiceProJob(v)) {
+        var platform = sourcePlatformForJob(v);
+        if (platform === 'youtube') return '元のYouTube動画';
+        if (platform === 'x') return '元のX投稿';
+        return '元動画を開く';
+    }
+    return '元の投稿を開く';
+}
+
+function bodyTextForJob(v) {
+    if (isVoiceProJob(v) && String(v.translated_text || '').trim()) {
+        return String(v.translated_text || '').trim();
+    }
+    if (isVoiceProJob(v) && v.script && Array.isArray(v.script.scenes)) {
+        var scriptText = v.script.scenes.map(function(scene) {
+            return (scene && scene.narration ? String(scene.narration).trim() : '');
+        }).filter(Boolean).join('\n').trim();
+        if (scriptText) return scriptText;
+    }
+    return String(v.tweet_text || '').trim();
 }
 
 function shareTextForJob(v, shareUrl) {
@@ -627,8 +754,8 @@ function renderCards(from, to) {
         var jid    = v.job_id     || '';
         var title  = v.title      || '(無題)';
         var author = v.tweet_author || '';
-        var tweet  = v.tweet_text || '';
-        var turl   = v.tweet_url  || '';
+        var tweet  = bodyTextForJob(v);
+        var turl   = sourceUrlForJob(v);
         var date   = v.created_at || '';
         var views  = v.views || 9999;
         var av     = author ? author.replace(/^@/, '').charAt(0).toUpperCase() : '🪼';
@@ -642,7 +769,7 @@ function renderCards(from, to) {
             : '';
 
         var turlBtn = turl
-            ? '<a class="kv-link" href="' + esc(turl) + '" target="_blank" rel="noopener">' + X_SVG + '&nbsp;元の投稿</a>'
+            ? '<a class="kv-link" href="' + esc(turl) + '" target="_blank" rel="noopener">' + LINK_ICON + '&nbsp;' + esc(sourceButtonLabel(v)) + '</a>'
             : '';
 
         var videoSrc = 'kuragev.php?proxy=video&job_id=' + encodeURIComponent(jid);
