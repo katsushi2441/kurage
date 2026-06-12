@@ -10,6 +10,7 @@ import email.utils
 import hashlib
 import html
 import json
+import os
 import re
 import time
 import urllib.parse
@@ -18,6 +19,11 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
+
+try:
+    from config import OLLAMA_MODEL, OLLAMA_URL
+except ModuleNotFoundError:
+    from backend.config import OLLAMA_MODEL, OLLAMA_URL
 
 ROOT = Path(__file__).resolve().parents[1]
 ARTICLES_PATH = ROOT / "data" / "entertainment_articles.json"
@@ -28,6 +34,8 @@ DEFAULT_QUERY = "芸能人 OR 俳優 OR 女優 OR アイドル OR 歌手 OR タ�
 DEFAULT_TARGET_PER_DAY = 30
 MAX_SOURCE_AGE_DAYS = 7
 DEFAULT_VIDEO_API = "http://127.0.0.1:18303"
+ENTERTAINMENT_USE_LLM = os.environ.get("ENTERTAINMENT_USE_LLM", "1") != "0"
+ENTERTAINMENT_LLM_TIMEOUT = int(os.environ.get("ENTERTAINMENT_LLM_TIMEOUT", "180"))
 
 NG_WORDS = (
     "逮捕", "容疑", "起訴", "不起訴", "不倫", "浮気", "離婚", "訃報", "死去",
@@ -164,6 +172,71 @@ def post_json(url: str, payload: dict[str, Any], timeout: int = 15) -> dict[str,
         body = res.read().decode("utf-8", errors="replace")
     parsed = json.loads(body)
     return parsed if isinstance(parsed, dict) else {}
+
+
+def parse_json_object(text: str) -> dict[str, Any]:
+    """Parse a JSON object from an LLM response with light fence recovery."""
+    text = str(text or "").strip()
+    text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\s*```$", "", text, flags=re.MULTILINE).strip()
+    try:
+        parsed = json.loads(text)
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        pass
+    start = text.find("{")
+    if start < 0:
+        return {}
+    depth = 0
+    for i, ch in enumerate(text[start:], start):
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    parsed = json.loads(text[start:i + 1])
+                    return parsed if isinstance(parsed, dict) else {}
+                except Exception:
+                    return {}
+    return {}
+
+
+def ollama_generate_json(prompt: str, temperature: float = 0.45, timeout: int = ENTERTAINMENT_LLM_TIMEOUT) -> dict[str, Any]:
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "temperature": temperature,
+            "num_predict": 4096,
+        },
+    }
+    response = post_json(f"{OLLAMA_URL.rstrip('/')}/api/generate", payload, timeout=timeout)
+    return parse_json_object(response.get("response") or "")
+
+
+def clamp_text(value: Any, limit: int) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    return text if len(text) <= limit else text[:limit].rstrip() + "…"
+
+
+def remove_sentences_with_terms(text: str, terms: tuple[str, ...]) -> str:
+    parts = re.split(r"(?<=。)", str(text or ""))
+    kept = [p for p in parts if p.strip() and not any(term in p for term in terms)]
+    return "".join(kept).strip()
+
+
+def normalize_article_phrase(text: str) -> str:
+    replacements = {
+        "深掘り": "考察",
+        "深堀り": "考察",
+        "深層": "背景",
+        "迫る": "整理する",
+    }
+    for src, dst in replacements.items():
+        text = str(text or "").replace(src, dst)
+    return text
 
 
 def enqueue_pending_videos(api_base: str, max_videos: int) -> dict[str, Any]:
@@ -457,7 +530,7 @@ def article_angle(source_title: str) -> dict[str, str]:
     }
 
 
-def article_content(source_title: str, names: list[str], origin: str = "news") -> dict[str, Any]:
+def template_article_content(source_title: str, names: list[str], origin: str = "news") -> dict[str, Any]:
     name = names[0] if names else "この話題"
     label = "、".join(names) if names else "話題の人物"
     short = compact_title(source_title)
@@ -485,6 +558,111 @@ def article_content(source_title: str, names: list[str], origin: str = "news") -
         "記事URLと元ニュースURLは説明欄で確認できます。",
     ]
     return {"title": title, "summary": summary, "body": body, "video_script": video_script}
+
+
+def normalize_llm_article(data: dict[str, Any], source_title: str, names: list[str], origin: str) -> dict[str, Any]:
+    """Validate and normalize LLM article JSON. Raises ValueError on unusable output."""
+    template = template_article_content(source_title, names, origin)
+    title = clamp_text(data.get("title") or "", 72)
+    summary = clamp_text(data.get("summary") or "", 180)
+    body_raw = data.get("body")
+    script_raw = data.get("video_script")
+    if not isinstance(body_raw, list):
+        body_raw = []
+    if not isinstance(script_raw, list):
+        script_raw = []
+    body = [clamp_text(p, 360) for p in body_raw if clamp_text(p, 360)]
+    video_script = [clamp_text(p, 120) for p in script_raw if clamp_text(p, 120)]
+    if len(body) < 4 or len(video_script) < 5 or not title or not summary:
+        raise ValueError("LLM article output is incomplete")
+    forbidden = ("本人が推奨", "愛用している", "スポンサー", "広告出演している", "熱愛", "不倫")
+    joined = "\n".join([title, summary, *body, *video_script])
+    if any(word in joined for word in forbidden):
+        raise ValueError("LLM article output contains unsafe claim")
+    unsupported_reactions = ("ファン", "反響", "感動の声", "称賛の声", "SNSで話題")
+    if not any(word in source_title for word in unsupported_reactions):
+        if any(word in title for word in unsupported_reactions):
+            raise ValueError("LLM article title adds unsupported audience reactions")
+        summary = clamp_text(remove_sentences_with_terms(summary, unsupported_reactions) or summary, 180)
+        body = [
+            cleaned for p in body
+            if (cleaned := clamp_text(remove_sentences_with_terms(p, unsupported_reactions), 360))
+        ]
+        video_script = [
+            cleaned for p in video_script
+            if (cleaned := clamp_text(remove_sentences_with_terms(p, unsupported_reactions), 120))
+        ]
+        if len(body) < 4 or len(video_script) < 5:
+            raise ValueError("LLM article output relies on unsupported audience reactions")
+    return {
+        "title": title or template["title"],
+        "summary": summary or template["summary"],
+        "body": body[:7],
+        "video_script": video_script[:7],
+        "generator": "ollama",
+    }
+
+
+def llm_article_content(source_title: str, names: list[str], origin: str = "news", source_name: str = "") -> dict[str, Any]:
+    name_label = "、".join(names) if names else "話題の人物"
+    clean_title = clean_source_title(source_title)
+    origin_label = "Kurage内で生成された動画・投稿" if origin == "job" else "外部ニュース見出し"
+    prompt = f"""あなたはKurage Entertainmentの芸能ニュース考察ライターです。
+次の{origin_label}をもとに、自然で読み応えのある日本語記事を作ってください。
+
+必ずJSONだけを返してください。Markdown、説明、コードブロックは禁止です。
+
+入力:
+- 元見出し: {source_title}
+- 整理した見出し: {clean_title}
+- 出典名: {source_name or "不明"}
+- 主な人物名: {name_label}
+
+出力形式:
+{{
+  "title": "記事タイトル。人物名とニュース内容が分かる自然なタイトル。55字以内",
+  "summary": "記事の要約。何のニュースか、なぜ注目かが分かる。120字以内",
+  "body": [
+    "1段落目: 何のニュースかを具体的に整理する",
+    "2段落目: ニュースの文脈や背景を説明する",
+    "3段落目: なぜ読者の関心が集まりやすいかを考察する",
+    "4段落目: 作品、番組、発言、キャリアなどと結びつけて深める",
+    "5段落目: 関連作品や資料を見る意味を、本人推奨と誤解させずに自然に書く"
+  ],
+  "video_script": [
+    "30秒動画向けの短い台本1",
+    "台本2",
+    "台本3",
+    "台本4",
+    "台本5",
+    "記事URLと元ニュースURLを確認できる案内"
+  ]
+}}
+
+重要ルール:
+- 元見出しにない事実を断定しない。
+- 元見出しにない読者反応、ファンの声、SNS反響、現場描写を作らない。
+- 恋愛、スキャンダル、犯罪、病気などを推測しない。
+- 商品を本人が推奨、愛用、宣伝しているとは書かない。
+- こっち側のSEO目的、アクセス増、Amazon誘導などの内部意図は絶対に書かない。
+- 「この記事のポイント」「詳しくはKurageで」「続きはKurageで」のような定型句は禁止。
+- 出典へすぐ逃がすだけの記事にしない。本文側でニュース内容と考察を完結させる。
+- bodyは5〜7段落。各段落は90〜220字。
+- video_scriptは6行。各行は25〜70字。
+"""
+    data = ollama_generate_json(prompt)
+    return normalize_llm_article(data, source_title, names, origin)
+
+
+def article_content(source_title: str, names: list[str], origin: str = "news", source_name: str = "") -> dict[str, Any]:
+    if ENTERTAINMENT_USE_LLM:
+        try:
+            return llm_article_content(source_title, names, origin, source_name)
+        except Exception as exc:
+            print(f"[entertainment] LLM article fallback: {exc}", flush=True)
+    content = template_article_content(source_title, names, origin)
+    content["generator"] = "template"
+    return content
 
 
 def specific_headline(source_title: str, name: str) -> str:
@@ -573,7 +751,7 @@ def make_article(item: dict[str, Any]) -> dict[str, Any]:
         "cat": amazon_params["cat"],
         "from": f"/entertainment.php?id={slug}",
     })
-    content = article_content(source_title, names, "news")
+    content = article_content(source_title, names, "news", item.get("source_name") or "Google News")
     content["video_script"][-1] = f"記事URL: {page_url}"
     content["video_script"].append(f"元ニュースURL: {item['url']}")
     return {
@@ -594,6 +772,7 @@ def make_article(item: dict[str, Any]) -> dict[str, Any]:
         "kurage_cta_url": "/kurage.php",
         "video_cta_url": "/horizon.php",
         "video_script_30s": content["video_script"],
+        "article_generator": content.get("generator") or "",
         "video_job_id": "",
         "status": "published",
         "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
@@ -656,7 +835,7 @@ def make_article_from_job(path: Path, job: dict[str, Any], names: list[str]) -> 
         "cat": amazon_params["cat"],
         "from": f"/entertainment.php?id={slug}",
     })
-    content = article_content(source_title, names, "job")
+    content = article_content(source_title, names, "job", "Kurage Video")
     page_url = f"{KURAGE_BASE}/entertainment.php?id={urllib.parse.quote(slug)}"
     content["video_script"][-1] = f"記事URL: {page_url}"
     content["video_script"].append(f"元動画URL: {video_page}")
@@ -678,6 +857,7 @@ def make_article_from_job(path: Path, job: dict[str, Any], names: list[str]) -> 
         "kurage_cta_url": "/kuragev.php",
         "video_cta_url": "/" + file_name,
         "video_script_30s": content["video_script"],
+        "article_generator": content.get("generator") or "",
         "video_job_id": jid,
         "status": "published",
         "safety_note": "関連リンクは、本人の推奨・愛用・広告出演を示すものではありません。",
