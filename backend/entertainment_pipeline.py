@@ -232,7 +232,7 @@ def normalize_article_phrase(text: str) -> str:
         "深掘り": "考察",
         "深堀り": "考察",
         "深層": "背景",
-        "迫る": "整理する",
+        "迫る": "踏み込む",
     }
     for src, dst in replacements.items():
         text = str(text or "").replace(src, dst)
