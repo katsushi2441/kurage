@@ -144,10 +144,10 @@ function share_text_for_job($job, $share_url) {
 }
 
 function copy_text_for_job($job, $share_url) {
-    if (is_voice_pro_job($job)) {
-        return share_text_for_job($job, $share_url);
-    }
-    return job_display_title($job) . "\n\n" . ($job['tweet_text'] ?? '') . "\n\n" . $share_url . "\n#Kurage #AI動画";
+    $title = trim((string)job_display_title($job));
+    if ($title === '') { $title = 'Kurage動画'; }
+    $detail = trim((string)job_body_text($job));
+    return "タイトル:\n" . $title . "\n\n詳細:\n" . $detail . "\n\nURL:\n" . $share_url;
 }
 
 /* ── 動画プロキシ（Range リクエスト対応） ────────────── */
@@ -714,10 +714,9 @@ function shareTextForJob(v, shareUrl) {
 }
 
 function copyTextForJob(v, shareUrl) {
-    if (isVoiceProJob(v)) {
-        return shareTextForJob(v, shareUrl);
-    }
-    return displayTitleForJob(v) + '\n\n' + (v.tweet_text || '') + '\n\n' + shareUrl + '\n#Kurage #AI動画';
+    return 'タイトル:\n' + displayTitleForJob(v)
+        + '\n\n詳細:\n' + bodyTextForJob(v)
+        + '\n\nURL:\n' + shareUrl;
 }
 
 function primeThumbVideos(root) {
