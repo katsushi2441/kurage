@@ -173,12 +173,21 @@ function copy_detail_text_for_job($job) {
     return $candidate !== '' ? $candidate : '詳細は動画ページで確認できます。';
 }
 
+function shorten_share_detail($text, $limit = 90) {
+    $text = preg_replace('/\s+/u', ' ', trim((string)$text));
+    if ($text === '') { return ''; }
+    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+        return mb_strlen($text, 'UTF-8') > $limit ? mb_substr($text, 0, $limit, 'UTF-8') . '…' : $text;
+    }
+    return strlen($text) > $limit ? substr($text, 0, $limit) . '...' : $text;
+}
+
 function share_text_for_job($job, $share_url) {
     $title = trim((string)job_display_title($job));
     if ($title === '') { $title = 'Kurage動画'; }
     if (is_voice_pro_job($job)) {
-        $summary = trim((string)job_body_text($job));
-        $text = $title . "\n\n" . ($summary !== '' ? $summary . "\n\n" : "") . "動画: " . $share_url;
+        $summary = shorten_share_detail(copy_detail_text_for_job($job));
+        $text = $title . "\nKurage Voice Proで翻訳、吹替、字幕生成しています。\n\n" . ($summary !== '' ? $summary . "\n\n" : "") . "動画: " . $share_url;
         $article_url = related_article_url($job);
         if ($article_url !== '') { $text .= "\n考察記事: " . $article_url; }
         return $text;
@@ -192,7 +201,8 @@ function copy_text_for_job($job, $share_url) {
     $detail = trim((string)copy_detail_text_for_job($job));
     if ($detail !== '' && preg_match('/」$/u', $detail) && !preg_match('/「/u', $detail)) { $detail = '「' . $detail; }
     if ($detail !== '' && preg_match('/』$/u', $detail) && !preg_match('/『/u', $detail)) { $detail = '『' . $detail; }
-    return "タイトル:\n" . $title . "\n\n詳細:\n" . $detail . "\n\nURL:\n" . $share_url;
+    $voice_pro_note = is_voice_pro_job($job) ? "\nKurage Voice Proで翻訳、吹替、字幕生成しています。" : "";
+    return "タイトル:\n" . $title . $voice_pro_note . "\n\n詳細:\n" . $detail . "\n\nURL:\n" . $share_url;
 }
 
 /* ── 動画プロキシ（Range リクエスト対応） ────────────── */
@@ -781,11 +791,17 @@ function copyDetailTextForJob(v) {
     return sceneCandidate || '詳細は動画ページで確認できます。';
 }
 
+function shortenShareDetail(text, limit) {
+    limit = limit || 90;
+    text = String(text || '').trim().replace(/\s+/g, ' ');
+    return text.length > limit ? text.slice(0, limit) + '…' : text;
+}
+
 function shareTextForJob(v, shareUrl) {
     var title = displayTitleForJob(v);
     if (isVoiceProJob(v)) {
-        var summary = bodyTextForJob(v);
-        var text = title + '\n\n' + (summary ? summary + '\n\n' : '') + '動画: ' + shareUrl;
+        var summary = shortenShareDetail(copyDetailTextForJob(v));
+        var text = title + '\nKurage Voice Proで翻訳、吹替、字幕生成しています。\n\n' + (summary ? summary + '\n\n' : '') + '動画: ' + shareUrl;
         var articleUrl = sourceUrlForJob({source_url: v.article_url || v.related_article_url || ''});
         if (articleUrl) text += '\n考察記事: ' + articleUrl;
         return text;
@@ -794,7 +810,9 @@ function shareTextForJob(v, shareUrl) {
 }
 
 function copyTextForJob(v, shareUrl) {
+    var voiceProNote = isVoiceProJob(v) ? '\nKurage Voice Proで翻訳、吹替、字幕生成しています。' : '';
     return 'タイトル:\n' + displayTitleForJob(v)
+        + voiceProNote
         + '\n\n詳細:\n' + copyDetailTextForJob(v)
         + '\n\nURL:\n' + shareUrl;
 }
