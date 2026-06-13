@@ -35,7 +35,7 @@ if (isset($_POST['delete_job']) && $is_admin) {
 }
 $SITE_NAME  = 'Kurage';
 
-function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+function h($s) { return str_replace("\xEF\xBF\xBD", '', htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')); }
 
 function is_voice_pro_job($job) {
     return (($job['source'] ?? '') === 'kuragevp') || (($job['content_type'] ?? '') === 'voice_pro_translation') || !empty($job['kuragevp_job_id']);
@@ -130,6 +130,49 @@ function job_body_text($job) {
     return trim((string)($job['tweet_text'] ?? ''));
 }
 
+function normalize_copy_compare_text($text) {
+    return preg_replace('/\s+/u', '', trim((string)$text));
+}
+
+function copy_detail_candidate($title, $text) {
+    $title = trim((string)$title);
+    $text = trim((string)$text);
+    if (function_exists('iconv')) {
+        $clean_text = @iconv('UTF-8', 'UTF-8//IGNORE', $text);
+        if ($clean_text !== false) { $text = $clean_text; }
+    }
+    $text = str_replace("\xEF\xBF\xBD", '', trim($text));
+    if ($text !== '' && preg_match('/」$/u', $text) && !preg_match('/「/u', $text)) { $text = '「' . $text; }
+    if ($text !== '' && preg_match('/』$/u', $text) && !preg_match('/『/u', $text)) { $text = '『' . $text; }
+    if ($text === '') { return ''; }
+    $title_norm = normalize_copy_compare_text($title);
+    $text_norm = normalize_copy_compare_text($text);
+    if ($title_norm !== '' && $text_norm === $title_norm) { return ''; }
+    if ($title !== '' && strpos($text, $title) === 0) {
+        $trimmed = trim(substr($text, strlen($title)));
+        $trimmed = preg_replace('/^[\s:：\-ー|｜。.]+/u', '', $trimmed);
+        $trimmed = trim((string)$trimmed);
+        if ($trimmed !== '') { return $trimmed; }
+    }
+    return $text;
+}
+
+function copy_detail_text_for_job($job) {
+    $title = job_display_title($job);
+    foreach (array('display_summary', 'summary', 'tweet_text', 'source_title', 'translated_text') as $key) {
+        $candidate = copy_detail_candidate($title, $job[$key] ?? '');
+        if ($candidate !== '') { return $candidate; }
+    }
+    $scenes = (!empty($job['script']['scenes']) && is_array($job['script']['scenes'])) ? $job['script']['scenes'] : [];
+    $narrations = array();
+    foreach ($scenes as $scene) {
+        $narration = trim((string)($scene['narration'] ?? ''));
+        if ($narration !== '') { $narrations[] = $narration; }
+    }
+    $candidate = copy_detail_candidate($title, implode("\n", $narrations));
+    return $candidate !== '' ? $candidate : '詳細は動画ページで確認できます。';
+}
+
 function share_text_for_job($job, $share_url) {
     $title = trim((string)job_display_title($job));
     if ($title === '') { $title = 'Kurage動画'; }
@@ -146,7 +189,9 @@ function share_text_for_job($job, $share_url) {
 function copy_text_for_job($job, $share_url) {
     $title = trim((string)job_display_title($job));
     if ($title === '') { $title = 'Kurage動画'; }
-    $detail = trim((string)job_body_text($job));
+    $detail = trim((string)copy_detail_text_for_job($job));
+    if ($detail !== '' && preg_match('/」$/u', $detail) && !preg_match('/「/u', $detail)) { $detail = '「' . $detail; }
+    if ($detail !== '' && preg_match('/』$/u', $detail) && !preg_match('/『/u', $detail)) { $detail = '『' . $detail; }
     return "タイトル:\n" . $title . "\n\n詳細:\n" . $detail . "\n\nURL:\n" . $share_url;
 }
 
@@ -701,6 +746,41 @@ function bodyTextForJob(v) {
     return String(v.tweet_text || '').trim();
 }
 
+function normalizeCopyCompareText(text) {
+    return String(text || '').trim().replace(/\s+/g, '');
+}
+
+function copyDetailCandidate(title, text) {
+    title = String(title || '').trim();
+    text = String(text || '').replace(/\uFFFD/g, '').trim();
+    if (text && text.endsWith('」') && text.indexOf('「') === -1) text = '「' + text;
+    if (text && text.endsWith('』') && text.indexOf('『') === -1) text = '『' + text;
+    if (!text) return '';
+    var titleNorm = normalizeCopyCompareText(title);
+    var textNorm = normalizeCopyCompareText(text);
+    if (titleNorm && textNorm === titleNorm) return '';
+    if (title && text.indexOf(title) === 0) {
+        var trimmed = text.slice(title.length).replace(/^[\s:：\-ー|｜。.\n\r]+/, '').trim();
+        if (trimmed) return trimmed;
+    }
+    return text;
+}
+
+function copyDetailTextForJob(v) {
+    var title = displayTitleForJob(v);
+    var keys = ['display_summary', 'summary', 'tweet_text', 'source_title', 'translated_text'];
+    for (var i = 0; i < keys.length; i++) {
+        var candidate = copyDetailCandidate(title, v[keys[i]]);
+        if (candidate) return candidate;
+    }
+    var scenes = v.script && Array.isArray(v.script.scenes) ? v.script.scenes : [];
+    var narrations = scenes.map(function(scene) {
+        return String((scene && scene.narration) || '').trim();
+    }).filter(Boolean).join('\n');
+    var sceneCandidate = copyDetailCandidate(title, narrations);
+    return sceneCandidate || '詳細は動画ページで確認できます。';
+}
+
 function shareTextForJob(v, shareUrl) {
     var title = displayTitleForJob(v);
     if (isVoiceProJob(v)) {
@@ -715,7 +795,7 @@ function shareTextForJob(v, shareUrl) {
 
 function copyTextForJob(v, shareUrl) {
     return 'タイトル:\n' + displayTitleForJob(v)
-        + '\n\n詳細:\n' + bodyTextForJob(v)
+        + '\n\n詳細:\n' + copyDetailTextForJob(v)
         + '\n\nURL:\n' + shareUrl;
 }
 
