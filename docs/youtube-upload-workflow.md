@@ -93,30 +93,16 @@ https://katsushi2441.github.io/vwork/
 https://exbridge.jp/" \
   --tags "AI,Kurage,Horizon,VWork,Codex,バイブコーディング" \
   --privacy public \
-  --thumbnail-intro "/home/kojima/work/kurage/storage/jobs/${JOB_ID}/thumbnail.jpg" \
-  --thumbnail-intro-seconds 3.0 \
   --json-out "storage/youtube/horizon_${JOB_ID}_response.json"
 ```
+
+サムネイルは設定しない（サムネ設定は機能しないため省略）。
 
 動画IDを取得する。
 
 ```bash
 VIDEO_ID="$(jq -r '.id' "storage/youtube/horizon_${JOB_ID}_response.json")"
 YOUTUBE_URL="https://youtu.be/${VIDEO_ID}"
-```
-
-Shortsのサムネイル運用:
-
-- Shortsは投稿後の外部サムネ設定が反映されないことがある。
-- Kurage/Horizon動画は、サムネ画像を動画の先頭に3秒入れてから投稿する。
-- `set_thumbnail.py` は通常動画向けの補助として扱い、Shortsでは `--thumbnail-intro` を優先する。
-
-通常動画としてサムネイルを別途設定したい場合:
-
-```bash
-python3 tools/youtube/set_thumbnail.py \
-  --video-id "$VIDEO_ID" \
-  --image "/home/kojima/work/kurage/storage/jobs/${JOB_ID}/thumbnail.jpg"
 ```
 
 ## 3. 認証で失敗した場合
