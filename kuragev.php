@@ -307,7 +307,7 @@ $detail_job = null;
 if ($detail_id) {
     $detail_job = kurage_get('/status/' . $detail_id);
     if ($detail_job) {
-        $detail_jobs_res = kurage_get('/jobs?limit=100');
+        $detail_jobs_res = kurage_get('/jobs?limit=0');
         foreach (($detail_jobs_res['jobs'] ?? []) as $meta_job) {
             if (($meta_job['job_id'] ?? '') === $detail_id) {
                 $detail_job = array_merge($meta_job, $detail_job);
@@ -324,17 +324,12 @@ if ($detail_id) {
 /* ── 一覧データ（詳細以外） ──────────────────────────── */
 $videos = [];
 if (!$detail_id) {
-    $jobs_res = kurage_get('/jobs?limit=100');
+    $jobs_res = kurage_get('/jobs?limit=0');
     $all_jobs = (!empty($jobs_res['jobs'])) ? $jobs_res['jobs'] : [];
 
-    /* done のみ、公開元URLごとに最新1件 */
-    $seen = [];
+    /* done の全動画を無限スクロール対象にする */
     foreach ($all_jobs as $j) {
         if (($j['status'] ?? '') !== 'done') continue;
-        $source_key = job_source_url($j);
-        $key = $source_key !== '' ? $source_key : ('_' . $j['job_id']);
-        if (isset($seen[$key])) continue;
-        $seen[$key] = true;
         $videos[] = $j;
     }
     foreach ($videos as $idx => $video) {

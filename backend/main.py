@@ -354,7 +354,7 @@ def thumbnail(job_id: str):
 
 @app.get("/jobs")
 def list_jobs(limit: int = 20, source: str | None = None):
-    """List recent jobs. ?source=horizon filters by source."""
+    """List jobs. ?source=horizon filters by source. limit<=0 returns all."""
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     files = list(JOBS_DIR.glob("*.json"))
     jobs = []
@@ -397,7 +397,9 @@ def list_jobs(limit: int = 20, source: str | None = None):
         except Exception:
             pass
     jobs.sort(key=lambda j: j.get("created_at") or "", reverse=True)
-    return {"ok": True, "jobs": jobs[:limit]}
+    if limit and limit > 0:
+        jobs = jobs[:limit]
+    return {"ok": True, "jobs": jobs, "count": len(jobs)}
 
 
 if __name__ == "__main__":
