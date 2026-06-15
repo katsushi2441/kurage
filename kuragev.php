@@ -107,7 +107,7 @@ function job_source_button_label($job) {
 }
 
 function job_body_label($job) {
-    if (is_voice_pro_job($job)) { return '動画の要約'; }
+    if (is_voice_pro_job($job)) { return '動画の説明'; }
     if (is_entertainment_job($job)) { return '関連記事の要約'; }
     return '元の投稿';
 }
@@ -120,9 +120,22 @@ function job_display_title($job) {
     return 'Kurage動画';
 }
 
+function voice_pro_label_for_job($job) {
+    $label = trim((string)($job['voice_pro_label'] ?? ''));
+    if ($label !== '') { return $label; }
+    $title = job_display_title($job);
+    if (preg_match('/\\[([^\\]]*(?:Dub|Subtitles)[^\\]]*)\\]/i', $title, $m)) { return trim($m[1]); }
+    if (preg_match('/【([^】]*(?:字幕|吹替)[^】]*)】/u', $title, $m)) { return trim($m[1]); }
+    $lang = strtolower((string)($job['target_lang'] ?? ''));
+    $audio_mode = (string)($job['audio_mode'] ?? '');
+    if (strpos($lang, 'en') === 0) { return $audio_mode === 'subtitle_only' ? 'English Subtitles' : 'English Dub/Subtitles'; }
+    if (strpos($lang, 'ja') === 0) { return $audio_mode === 'subtitle_only' ? '日本語字幕' : '日本語吹替・日本語字幕'; }
+    return $audio_mode === 'subtitle_only' ? '翻訳字幕' : '翻訳吹替・字幕';
+}
+
 function job_body_text($job) {
     if (is_voice_pro_job($job)) {
-        foreach (array('summary', 'display_summary', 'tweet_text', 'source_title') as $key) {
+        foreach (array('display_summary', 'summary', 'tweet_text', 'source_title') as $key) {
             $summary = trim((string)($job[$key] ?? ''));
             if ($summary !== '') { return $summary; }
         }
@@ -159,7 +172,10 @@ function copy_detail_candidate($title, $text) {
 
 function copy_detail_text_for_job($job) {
     $title = job_display_title($job);
-    foreach (array('display_summary', 'summary', 'tweet_text', 'source_title', 'translated_text') as $key) {
+    $keys = is_voice_pro_job($job)
+        ? array('copy_summary', 'primary_description', 'translated_text', 'summary', 'tweet_text')
+        : array('display_summary', 'summary', 'tweet_text', 'source_title', 'translated_text');
+    foreach ($keys as $key) {
         $candidate = copy_detail_candidate($title, $job[$key] ?? '');
         if ($candidate !== '') { return $candidate; }
     }
@@ -187,7 +203,8 @@ function share_text_for_job($job, $share_url) {
     if ($title === '') { $title = 'Kurage動画'; }
     if (is_voice_pro_job($job)) {
         $summary = shorten_share_detail(copy_detail_text_for_job($job));
-        $text = $title . "\nKurage Voice Proで翻訳、吹替、字幕生成しています。\n\n" . ($summary !== '' ? $summary . "\n\n" : "") . "動画: " . $share_url;
+        $label = voice_pro_label_for_job($job);
+        $text = $title . "\nKurage Voice Pro: " . $label . "\n\n" . ($summary !== '' ? $summary . "\n\n" : "") . "動画: " . $share_url;
         $article_url = related_article_url($job);
         if ($article_url !== '') { $text .= "\n考察記事: " . $article_url; }
         return $text;
@@ -201,7 +218,7 @@ function copy_text_for_job($job, $share_url) {
     $detail = trim((string)copy_detail_text_for_job($job));
     if ($detail !== '' && preg_match('/」$/u', $detail) && !preg_match('/「/u', $detail)) { $detail = '「' . $detail; }
     if ($detail !== '' && preg_match('/』$/u', $detail) && !preg_match('/『/u', $detail)) { $detail = '『' . $detail; }
-    $voice_pro_note = is_voice_pro_job($job) ? "\nKurage Voice Proで翻訳、吹替、字幕生成しています。" : "";
+    $voice_pro_note = is_voice_pro_job($job) ? "\nKurage Voice Pro: " . voice_pro_label_for_job($job) : "";
     return "タイトル:\n" . $title . $voice_pro_note . "\n\n詳細:\n" . $detail . "\n\nURL:\n" . $share_url;
 }
 
@@ -289,7 +306,7 @@ $detail_id  = isset($_GET['id']) ? preg_replace('/[^a-zA-Z0-9]/', '', $_GET['id'
 $detail_job = null;
 if ($detail_id) {
     $detail_job = kurage_get('/status/' . $detail_id);
-    if ($detail_job && empty($detail_job['source'])) {
+    if ($detail_job) {
         $detail_jobs_res = kurage_get('/jobs?limit=100');
         foreach (($detail_jobs_res['jobs'] ?? []) as $meta_job) {
             if (($meta_job['job_id'] ?? '') === $detail_id) {
@@ -745,9 +762,24 @@ function displayTitleForJob(v) {
     return 'Kurage動画';
 }
 
+function voiceProLabelForJob(v) {
+    var label = String(v.voice_pro_label || '').trim();
+    if (label) return label;
+    var title = displayTitleForJob(v);
+    var m = title.match(/\[([^\]]*(?:Dub|Subtitles)[^\]]*)\]/i);
+    if (m) return m[1].trim();
+    m = title.match(/【([^】]*(?:字幕|吹替)[^】]*)】/);
+    if (m) return m[1].trim();
+    var lang = String(v.target_lang || '').toLowerCase();
+    var mode = String(v.audio_mode || '');
+    if (lang.indexOf('en') === 0) return mode === 'subtitle_only' ? 'English Subtitles' : 'English Dub/Subtitles';
+    if (lang.indexOf('ja') === 0) return mode === 'subtitle_only' ? '日本語字幕' : '日本語吹替・日本語字幕';
+    return mode === 'subtitle_only' ? '翻訳字幕' : '翻訳吹替・字幕';
+}
+
 function bodyTextForJob(v) {
     if (isVoiceProJob(v)) {
-        var keys = ['summary', 'display_summary', 'tweet_text', 'source_title'];
+        var keys = ['display_summary', 'summary', 'tweet_text', 'source_title'];
         for (var i = 0; i < keys.length; i++) {
             var summary = String(v[keys[i]] || '').trim();
             if (summary) return summary;
@@ -778,7 +810,9 @@ function copyDetailCandidate(title, text) {
 
 function copyDetailTextForJob(v) {
     var title = displayTitleForJob(v);
-    var keys = ['display_summary', 'summary', 'tweet_text', 'source_title', 'translated_text'];
+    var keys = isVoiceProJob(v)
+        ? ['copy_summary', 'primary_description', 'translated_text', 'summary', 'tweet_text']
+        : ['display_summary', 'summary', 'tweet_text', 'source_title', 'translated_text'];
     for (var i = 0; i < keys.length; i++) {
         var candidate = copyDetailCandidate(title, v[keys[i]]);
         if (candidate) return candidate;
@@ -801,7 +835,8 @@ function shareTextForJob(v, shareUrl) {
     var title = displayTitleForJob(v);
     if (isVoiceProJob(v)) {
         var summary = shortenShareDetail(copyDetailTextForJob(v));
-        var text = title + '\nKurage Voice Proで翻訳、吹替、字幕生成しています。\n\n' + (summary ? summary + '\n\n' : '') + '動画: ' + shareUrl;
+        var label = voiceProLabelForJob(v);
+        var text = title + '\nKurage Voice Pro: ' + label + '\n\n' + (summary ? summary + '\n\n' : '') + '動画: ' + shareUrl;
         var articleUrl = sourceUrlForJob({source_url: v.article_url || v.related_article_url || ''});
         if (articleUrl) text += '\n考察記事: ' + articleUrl;
         return text;
@@ -810,7 +845,7 @@ function shareTextForJob(v, shareUrl) {
 }
 
 function copyTextForJob(v, shareUrl) {
-    var voiceProNote = isVoiceProJob(v) ? '\nKurage Voice Proで翻訳、吹替、字幕生成しています。' : '';
+    var voiceProNote = isVoiceProJob(v) ? '\nKurage Voice Pro: ' + voiceProLabelForJob(v) : '';
     return 'タイトル:\n' + displayTitleForJob(v)
         + voiceProNote
         + '\n\n詳細:\n' + copyDetailTextForJob(v)
