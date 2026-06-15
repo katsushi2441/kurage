@@ -497,6 +497,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 
 /* ── 詳細ページ ── */
 .detail-header{padding:24px 20px 16px;border-bottom:1px solid #f0f0f0;}
+.detail-title{font-size:22px;line-height:1.35;margin:0 0 12px;color:#111;font-weight:900;}
 .detail-meta{font-size:13px;color:#888;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;}
 .detail-body{padding:20px;}
 .section-title{font-size:12px;font-weight:700;color:#007f96;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;margin-top:20px;}
@@ -568,6 +569,7 @@ $detail_body_text = job_body_text($detail_job);
 ?>
 <div class="container">
   <div class="detail-header">
+    <h1 class="detail-title"><?php echo h(job_display_title($detail_job)); ?></h1>
     <div class="detail-meta">
       <span><?php echo h($detail_job['created_at'] ?? ''); ?></span>
       <span class="views">表示<?php echo h((string)($detail_job['views'] ?? 9999)); ?></span>
