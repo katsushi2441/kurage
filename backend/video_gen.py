@@ -12,13 +12,130 @@ from tts_gen import generate_scene_narration_audio
 
 
 HF_TEMPLATE = ROOT / "hyperframes" / "aixec-health-book" / "hyperframes.json"
+AVATAR_IDLE = ROOT / "images" / "kurage_avatar_idle.png"
+AVATAR_TALK = ROOT / "images" / "kurage_avatar_talk_open.png"
+AVATAR_SMILE = ROOT / "images" / "kurage_avatar_smile.png"
+
+
+def _avatar_asset_paths() -> list[Path]:
+    """Return avatar assets when the local PNG-tuber set is available."""
+    return [p for p in (AVATAR_IDLE, AVATAR_TALK, AVATAR_SMILE) if p.exists()]
+
+
+def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
+    """HTML/CSS/GSAP snippets for the branded Kurage VTuber explainer layer."""
+    safe_title = html.escape(title)
+    overlay_html = f"""
+    <div id="vtuber-layer" aria-label="Kurage VTuber explainer overlay">
+      <div class="vtuber-badge">VTuber解説モード</div>
+      <div class="vtuber-card">
+        <div class="vtuber-copy">
+          <div class="vtuber-name">Kurage AI Navigator</div>
+          <div class="vtuber-topic">{safe_title}</div>
+        </div>
+        <div class="vtuber-avatar-wrap">
+          <div class="vtuber-glow"></div>
+          <img id="vtuber-idle" class="vtuber-avatar" src="assets/avatar_idle.png" alt="Kurage avatar">
+          <img id="vtuber-talk" class="vtuber-avatar" src="assets/avatar_talk.png" alt="">
+        </div>
+      </div>
+    </div>"""
+
+    overlay_css = """
+    #vtuber-layer {
+      position: absolute; inset: 0; z-index: 22; pointer-events: none;
+      font-family: "Noto Sans JP", sans-serif;
+    }
+    .vtuber-badge {
+      position: absolute; top: 24px; right: 22px;
+      padding: 8px 13px; border-radius: 999px;
+      color: #073044; background: rgba(213, 251, 255, 0.92);
+      border: 1px solid rgba(255,255,255,0.72);
+      box-shadow: 0 10px 28px rgba(4, 31, 51, 0.22);
+      font-size: 15px; font-weight: 900; letter-spacing: 0.04em;
+    }
+    .vtuber-card {
+      position: absolute; right: 18px; bottom: 22px;
+      width: 252px; min-height: 248px; border-radius: 28px;
+      background:
+        radial-gradient(circle at 78% 12%, rgba(255,255,255,0.85), transparent 26%),
+        linear-gradient(145deg, rgba(16, 92, 130, 0.74), rgba(9, 26, 51, 0.82));
+      border: 1px solid rgba(213, 251, 255, 0.62);
+      box-shadow: 0 20px 48px rgba(0, 20, 40, 0.46), inset 0 1px 0 rgba(255,255,255,0.36);
+      overflow: hidden;
+    }
+    .vtuber-card::before {
+      content: ""; position: absolute; inset: auto -40px -70px -30px; height: 142px;
+      background: radial-gradient(ellipse at center, rgba(80, 219, 255, 0.44), transparent 70%);
+    }
+    .vtuber-copy {
+      position: absolute; left: 17px; right: 17px; top: 15px; z-index: 2;
+      color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,0.45);
+    }
+    .vtuber-name {
+      display: inline-block; padding: 5px 9px; border-radius: 999px;
+      background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.26);
+      font-size: 13px; font-weight: 900; letter-spacing: 0.03em;
+    }
+    .vtuber-topic {
+      margin-top: 8px; max-height: 45px; overflow: hidden;
+      font-size: 16px; font-weight: 900; line-height: 1.35;
+    }
+    .vtuber-avatar-wrap {
+      position: absolute; right: -6px; bottom: -10px;
+      width: 224px; height: 224px; z-index: 1;
+    }
+    .vtuber-glow {
+      position: absolute; left: 26px; right: 12px; bottom: 20px; height: 92px;
+      border-radius: 999px; background: rgba(102, 235, 255, 0.28);
+      filter: blur(16px);
+    }
+    .vtuber-avatar {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: contain; filter: drop-shadow(0 12px 18px rgba(0, 14, 32, 0.38));
+      transform-origin: 54% 66%;
+    }
+    #vtuber-talk { opacity: 0; }
+    body.vtuber-enabled .scene-text {
+      bottom: 292px; padding: 0 30px;
+    }"""
+
+    mouth_js = []
+    t = 2.0
+    while t < total_dur:
+        mouth_js.append(
+            f'    tl.set("#vtuber-talk", {{opacity:1}}, {t:.2f})'
+            f'.set("#vtuber-talk", {{opacity:0}}, {t + 0.10:.2f});'
+        )
+        t += 0.28
+
+    bob_js = []
+    t = 1.6
+    while t < total_dur:
+        bob_js.append(
+            f'    tl.to(".vtuber-avatar-wrap", {{y:-8, duration:1.65, ease:"sine.inOut"}}, {t:.2f})'
+            f'.to(".vtuber-avatar-wrap", {{y:0, duration:1.65, ease:"sine.inOut"}}, {t + 1.65:.2f});'
+        )
+        bob_js.append(
+            f'    tl.to(".vtuber-glow", {{scale:1.08, opacity:0.82, duration:1.35, ease:"sine.inOut"}}, {t:.2f})'
+            f'.to(".vtuber-glow", {{scale:1, opacity:1, duration:1.35, ease:"sine.inOut"}}, {t + 1.35:.2f});'
+        )
+        t += 3.3
+
+    overlay_js = f"""
+    tl.from("#vtuber-layer", {{opacity:0, y:38, scale:0.96, duration:0.55, ease:"power3.out"}}, 1.15);
+{chr(10).join(bob_js)}
+{chr(10).join(mouth_js)}"""
+
+    return overlay_html, overlay_css, overlay_js
 
 
 def build_html(script: dict, image_paths: list[Path], total_dur: float,
-               narration_duration: float = 0.0) -> str:
+               narration_duration: float = 0.0, vtuber_mode: bool = False) -> str:
     """Build HyperFrames index.html for a short drama video (576x1024 vertical)."""
     scenes = script.get("scenes") or []
-    title = html.escape(script.get("title") or "Kurage Video")
+    raw_title = script.get("title") or "Kurage Video"
+    title = html.escape(raw_title)
 
     # Cumulative timing — ナレーションがある場合はtotal_durを均等割り
     scene_timing = []
@@ -49,6 +166,12 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
     </div>""")
 
     scenes_html = "\n".join(scene_blocks)
+    vtuber_html = ""
+    vtuber_css = ""
+    vtuber_js = ""
+    body_class = ' class="vtuber-enabled"' if vtuber_mode else ""
+    if vtuber_mode:
+        vtuber_html, vtuber_css, vtuber_js = _build_vtuber_overlay(total_dur, raw_title)
 
     # GSAP animation: cross-fade between scenes
     gsap_scenes = []
@@ -111,9 +234,10 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
       text-align: center; padding: 0 32px; line-height: 1.4;
       text-shadow: 0 2px 8px rgba(0,0,0,0.8);
     }}
+    {vtuber_css}
   </style>
 </head>
-<body>
+<body{body_class}>
   <div id="composition"
        data-composition-id="main"
        data-width="576"
@@ -124,6 +248,7 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
     </div>
 
     {scenes_html}
+    {vtuber_html}
     {audio_tag}
   </div>
 
@@ -138,6 +263,9 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
     // Scenes
     {gsap_js}
 
+    // Optional Kurage VTuber explainer overlay
+    {vtuber_js}
+
     // HyperFrames timeline registry
     window.__timelines = window.__timelines || {{}};
     window.__timelines["main"] = tl;
@@ -148,7 +276,7 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
 '''
 
 
-def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path]) -> Path:
+def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path], vtuber_mode: bool = False) -> Path:
     """Create a HyperFrames project directory ready for rendering."""
     project_dir = job_dir / "hf_project"
     project_dir.mkdir(parents=True, exist_ok=True)
@@ -159,6 +287,17 @@ def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path]) -> P
     for i, img in enumerate(image_paths):
         dest = assets_dir / f"scene_{i:02d}.png"
         shutil.copy(img, dest)
+
+    if vtuber_mode:
+        avatar_assets = _avatar_asset_paths()
+        if len(avatar_assets) < 2:
+            print("  [video] vtuber_mode requested but avatar PNGs are missing; rendering without avatar", flush=True)
+            vtuber_mode = False
+        else:
+            shutil.copy(AVATAR_IDLE, assets_dir / "avatar_idle.png")
+            shutil.copy(AVATAR_TALK, assets_dir / "avatar_talk.png")
+            if AVATAR_SMILE.exists():
+                shutil.copy(AVATAR_SMILE, assets_dir / "avatar_smile.png")
 
     # Total duration
     scenes = script.get("scenes") or []
@@ -173,7 +312,7 @@ def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path]) -> P
         total_dur = scene_dur
 
     # Write index.html
-    html_content = build_html(script, image_paths, total_dur, narration_duration)
+    html_content = build_html(script, image_paths, total_dur, narration_duration, vtuber_mode=vtuber_mode)
     (project_dir / "index.html").write_text(html_content, encoding="utf-8")
 
     # Copy hyperframes.json template
@@ -353,14 +492,14 @@ def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0, t
     return output_path
 
 
-def generate_video(script: dict, image_paths: list[Path], job_dir: Path) -> Path:
+def generate_video(script: dict, image_paths: list[Path], job_dir: Path, vtuber_mode: bool = False) -> Path:
     """Full video generation pipeline: project setup + render.
 
     Returns:
         Path to the output MP4 file
     """
     output_path = job_dir / "output.mp4"
-    project_dir = create_hf_project(job_dir, script, image_paths)
+    project_dir = create_hf_project(job_dir, script, image_paths, vtuber_mode=vtuber_mode)
     print(f"  [video] HyperFrames project: {project_dir}", flush=True)
     render_video(project_dir, output_path)
     print(f"  [video] Rendered: {output_path} ({output_path.stat().st_size} bytes)", flush=True)

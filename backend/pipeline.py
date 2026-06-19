@@ -35,7 +35,7 @@ def update_job(job_id: str, **kwargs):
     p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def run_pipeline_from_news(job_id: str, news: dict):
+def run_pipeline_from_news(job_id: str, news: dict, vtuber_mode: bool = False):
     """Run pipeline from multiple news articles (skip tweet fetch)."""
     job_dir = JOBS_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -46,6 +46,7 @@ def run_pipeline_from_news(job_id: str, news: dict):
         tweet_text = "、".join(i.get("title", "") for i in news_items[:3])[:120]
 
         update_job(job_id, status="scripting", progress=25, source="horizon",
+                   vtuber_mode=vtuber_mode,
                    tweet_url=first.get("url", ""),
                    tweet_text=tweet_text,
                    tweet_author="Horizon",
@@ -75,7 +76,7 @@ def run_pipeline_from_news(job_id: str, news: dict):
         update_job(job_id, image_count=len(image_paths))
 
         update_job(job_id, status="rendering", progress=75)
-        video_path = generate_video(script, image_paths, job_dir)
+        video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
         thumb_path = job_dir / "thumbnail.jpg"
         update_job(job_id, status="done", progress=100, video_file=str(video_path),
                    thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
@@ -87,7 +88,7 @@ def run_pipeline_from_news(job_id: str, news: dict):
         update_job(job_id, status="error", error=str(exc), traceback=tb)
 
 
-def run_pipeline_from_blog(job_id: str, article: dict):
+def run_pipeline_from_blog(job_id: str, article: dict, vtuber_mode: bool = False):
     """Run 2-minute commentary video pipeline from one blog article."""
     job_dir = JOBS_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -98,6 +99,7 @@ def run_pipeline_from_blog(job_id: str, article: dict):
         article_text = article.get("content") or ""
 
         update_job(job_id, status="scripting", progress=25, source="blog",
+                   vtuber_mode=vtuber_mode,
                    tweet_url=article_url,
                    tweet_text=article_text[:240],
                    tweet_author=article.get("source_name") or "Blog",
@@ -126,7 +128,7 @@ def run_pipeline_from_blog(job_id: str, article: dict):
         update_job(job_id, image_count=len(image_paths))
 
         update_job(job_id, status="rendering", progress=75)
-        video_path = generate_video(script, image_paths, job_dir)
+        video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
         thumb_path = job_dir / "thumbnail.jpg"
         update_job(job_id, status="done", progress=100, video_file=str(video_path),
                    thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
@@ -138,7 +140,7 @@ def run_pipeline_from_blog(job_id: str, article: dict):
         update_job(job_id, status="error", error=str(exc), traceback=tb)
 
 
-def run_pipeline_from_entertainment_short(job_id: str, article: dict):
+def run_pipeline_from_entertainment_short(job_id: str, article: dict, vtuber_mode: bool = False):
     """Run a 30-second safe entertainment-news short video pipeline."""
     job_dir = JOBS_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -150,6 +152,7 @@ def run_pipeline_from_entertainment_short(job_id: str, article: dict):
 
         update_job(job_id, status="scripting", progress=25, source="entertainment",
                    content_type="entertainment_short",
+                   vtuber_mode=vtuber_mode,
                    tweet_url=article_url,
                    article_url=article_url,
                    source_url=article.get("source_url") or "",
@@ -180,7 +183,7 @@ def run_pipeline_from_entertainment_short(job_id: str, article: dict):
         update_job(job_id, image_count=len(image_paths))
 
         update_job(job_id, status="rendering", progress=75)
-        video_path = generate_video(script, image_paths, job_dir)
+        video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
         thumb_path = job_dir / "thumbnail.jpg"
         update_job(job_id, status="done", progress=100, video_file=str(video_path),
                    thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
@@ -192,7 +195,7 @@ def run_pipeline_from_entertainment_short(job_id: str, article: dict):
         update_job(job_id, status="error", error=str(exc), traceback=tb)
 
 
-def run_pipeline(job_id: str, tweet_url: str, mode: str = "hyperframes"):
+def run_pipeline(job_id: str, tweet_url: str, mode: str = "hyperframes", vtuber_mode: bool = False):
     """Run the full pipeline. Resumes from last successful step if data exists."""
     job_dir = JOBS_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -311,7 +314,7 @@ def run_pipeline(job_id: str, tweet_url: str, mode: str = "hyperframes"):
             # Step 4: Render video
             print(f"[{job_id}] rendering video...", flush=True)
             update_job(job_id, status="rendering", progress=75)
-            video_path = generate_video(script, image_paths, job_dir)
+            video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
             thumb_path = job_dir / "thumbnail.jpg"
 
             update_job(job_id, status="done", progress=100, video_file=str(video_path),

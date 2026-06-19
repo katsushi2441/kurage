@@ -142,6 +142,10 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
 .mode-label { font-size:.78rem; font-weight:800; color:var(--muted); }
 .mode-select { min-width:260px; max-width:100%; border:1px solid var(--border2); border-radius:8px; padding:.58rem .75rem; background:#fff; color:var(--text); font-size:.86rem; font-weight:700; }
 .mode-note { margin-top:.5rem; font-size:.76rem; line-height:1.65; color:var(--muted); }
+.vtuber-toggle { margin-top:.8rem; display:flex; align-items:flex-start; gap:.65rem; padding:.75rem .85rem; border:1px solid #bfe9ef; border-radius:12px; background:linear-gradient(135deg,#f2fdff,#fff); }
+.vtuber-toggle input { margin-top:.22rem; accent-color:var(--accent); }
+.vtuber-toggle strong { display:block; color:var(--text); font-size:.86rem; }
+.vtuber-toggle span { display:block; margin-top:.2rem; color:var(--muted); font-size:.76rem; line-height:1.55; }
 /* Status */
 #status-box { display:none; }
 .progress-bar { width:100%; height:6px; background:var(--border); border-radius:3px; margin:.75rem 0; overflow:hidden; }
@@ -241,6 +245,13 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
           <option value="wan">Wan2.1 AI動画生成（実験）</option>
         </select>
       </div>
+      <label class="vtuber-toggle">
+        <input type="checkbox" id="vtuber-mode">
+        <span>
+          <strong>VTuber解説モードを追加</strong>
+          <span>右下にKurage AI Navigatorを表示し、ナレーションに合わせた口パク風アニメーションを重ねます。</span>
+        </span>
+      </label>
       <div id="mode-note" class="mode-note"></div>
     </div>
   </div>
@@ -346,10 +357,11 @@ function startGenerate() {
     btn.classList.add('loading');
 
     var mode = selectedMode();
+    var vtuberMode = !!(document.getElementById('vtuber-mode') && document.getElementById('vtuber-mode').checked);
     fetch(PROXY + '?proxy=generate', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({tweet_url: url, mode: mode}),
+        body: JSON.stringify({tweet_url: url, mode: mode, vtuber_mode: vtuberMode}),
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -501,6 +513,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 var vl = cfg.video  && cfg.video.label  || 'HyperFrames';
                 var wl = cfg.wan    && cfg.wan.label    || 'Wan2.1 AI Video';
                 var wa = cfg.wan    && cfg.wan.api      || '';
+                var vt = cfg.vtuber && cfg.vtuber.label || 'Kurage VTuber解説モード';
+                var va = cfg.vtuber && cfg.vtuber.api   || '';
                 var tl2 = cfg.tts && cfg.tts.label || 'edge-tts';
                 var ta  = cfg.tts && cfg.tts.api   || '';
                 var rows = [
@@ -508,6 +522,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ['🖼️ 静止画生成', il,  maskUrl(cfg.image  && cfg.image.api)],
                     ['🎞️ AI動画生成', wl,  maskUrl(wa)],
                     ['🔊 音声合成', tl2, ta],
+                    ['🪼 VTuber演出', vt, va],
                     ['🎬 動画合成', vl,  cfg.video && cfg.video.api],
                 ];
                 rows.forEach(function(r) {

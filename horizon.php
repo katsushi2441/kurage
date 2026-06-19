@@ -138,6 +138,10 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
 .btn-primary:hover { background:var(--accent-h); }
 .btn:disabled { opacity:.45; cursor:not-allowed; }
 .hint { font-size:.78rem; color:var(--muted); margin-top:.6rem; line-height:1.75; }
+.vtuber-toggle { margin-top:.8rem; display:flex; align-items:flex-start; gap:.65rem; padding:.75rem .85rem; border:1px solid #bfe9ef; border-radius:12px; background:linear-gradient(135deg,#f2fdff,#fff); }
+.vtuber-toggle input { margin-top:.22rem; accent-color:var(--accent); }
+.vtuber-toggle strong { display:block; color:var(--text); font-size:.86rem; }
+.vtuber-toggle span { display:block; margin-top:.2rem; color:var(--muted); font-size:.76rem; line-height:1.55; }
 /* Status */
 #status-box { display:none; }
 .progress-bar { width:100%; height:6px; background:var(--border); border-radius:3px; margin:.75rem 0; overflow:hidden; }
@@ -230,6 +234,13 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
         ブログ・ニュース記事のURLを貼り付けてください。約2分の動画を生成します。<br>
         <span id="hint-pipeline">読込中...</span>
       </div>
+      <label class="vtuber-toggle">
+        <input type="checkbox" id="vtuber-mode" checked>
+        <span>
+          <strong>VTuber解説モードで生成</strong>
+          <span>Kurage AI Navigatorが右下で解説する、投稿向けの商品デモ風レイアウトにします。</span>
+        </span>
+      </label>
     </div>
   </div>
 
@@ -301,11 +312,12 @@ function startGenerate() {
     var btn = document.getElementById('btn-generate');
     btn.disabled = true;
     btn.classList.add('loading');
+    var vtuberMode = !!(document.getElementById('vtuber-mode') && document.getElementById('vtuber-mode').checked);
 
     fetch(PROXY + '?proxy=generate_url', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({url: url}),
+        body: JSON.stringify({url: url, vtuber_mode: vtuberMode}),
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -460,6 +472,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 var tl2 = cfg.tts && cfg.tts.label || 'edge-tts';
                 var ta  = cfg.tts && cfg.tts.api   || '';
+                var vt = cfg.vtuber && cfg.vtuber.label || 'Kurage VTuber解説モード';
+                var va = cfg.vtuber && cfg.vtuber.api   || '';
                 STATUS_LABELS.scripting = sl  + ' で脚本・プロンプトを生成中...';
                 STATUS_LABELS.imaging   = il  + ' で画像生成中...';
                 STATUS_LABELS.rendering = vl  + ' で動画レンダリング中...';
@@ -467,6 +481,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     ['📝 脚本生成', sl,  maskUrl(cfg.script && cfg.script.api)],
                     ['🖼️ 画像生成', il,  maskUrl(cfg.image  && cfg.image.api)],
                     ['🔊 音声合成', tl2, ta],
+                    ['🪼 VTuber演出', vt, va],
                     ['🎬 動画合成', vl,  cfg.video && cfg.video.api],
                 ];
                 rows.forEach(function(r) {

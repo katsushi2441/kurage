@@ -29,15 +29,18 @@ app.add_middleware(
 class GenerateRequest(BaseModel):
     tweet_url: str
     mode: str = "hyperframes"  # "hyperframes" or "wan"
+    vtuber_mode: bool = False
 
 
 class NewsRequest(BaseModel):
     news_items: list[Any]    # [{"title": str, "content": str, "url": str, "source_name": str}, ...]
     title: str = ""          # 動画全体タイトル（省略時はLLMが生成）
+    vtuber_mode: bool = False
 
 
 class UrlRequest(BaseModel):
     url: str
+    vtuber_mode: bool = False
 
 
 class EntertainmentShortRequest(BaseModel):
@@ -48,6 +51,7 @@ class EntertainmentShortRequest(BaseModel):
     source_url: str = ""
     source_name: str = "Kurage Entertainment"
     celebrity_names: list[str] = []
+    vtuber_mode: bool = False
 
 
 @app.get("/health")
@@ -59,6 +63,13 @@ def _mask_url(url: str) -> str:
     """Replace scheme+host+port with localhost for public display."""
     import re
     return re.sub(r'https?://[^/]+', lambda m: 'http://localhost', url)
+
+
+def _request_data(req: BaseModel) -> dict:
+    """Return request data on both Pydantic v1 and v2."""
+    if hasattr(req, "model_dump"):
+        return req.model_dump()
+    return req.dict()
 
 
 @app.get("/config")
@@ -80,6 +91,10 @@ def config():
         "video": {
             "label": f"HyperFrames v{HYPERFRAMES_VERSION}",
             "api": "CLI (npx hyperframes render)",
+        },
+        "vtuber": {
+            "label": "Kurage VTuber解説モード",
+            "api": "PNG avatar overlay + deterministic mouth switching",
         },
         "wan": {
             "label": "Wan2.1 AI Video",
@@ -128,12 +143,13 @@ def generate(req: GenerateRequest):
         job_id = str(uuid.uuid4()).replace("-", "")[:16]
         JOBS_DIR.mkdir(parents=True, exist_ok=True)
         update_job(job_id, status="queued", progress=0, tweet_url=tweet_url,
+                   vtuber_mode=req.vtuber_mode,
                    created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
 
     # Run pipeline in background thread
     mode = req.mode if req.mode in ("hyperframes", "wan") else "hyperframes"
-    update_job(job_id, mode=mode)
-    t = threading.Thread(target=run_pipeline, args=(job_id, tweet_url, mode), daemon=True)
+    update_job(job_id, mode=mode, vtuber_mode=req.vtuber_mode)
+    t = threading.Thread(target=run_pipeline, args=(job_id, tweet_url, mode, req.vtuber_mode), daemon=True)
     t.start()
 
     return {"ok": True, "job_id": job_id}
@@ -149,12 +165,13 @@ def generate_from_news(req: NewsRequest):
     first = req.news_items[0] if req.news_items else {}
     tweet_text = "、".join(i.get("title", "") for i in req.news_items[:3])[:120]
     update_job(job_id, status="queued", progress=0, source="horizon",
+               vtuber_mode=req.vtuber_mode,
                tweet_url=first.get("url", ""),
                tweet_text=tweet_text,
                tweet_author="Horizon",
                tweet_author_name=req.title or tweet_text[:50],
                created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
-    t = threading.Thread(target=run_pipeline_from_news, args=(job_id, req.dict()), daemon=True)
+    t = threading.Thread(target=run_pipeline_from_news, args=(job_id, _request_data(req), req.vtuber_mode), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
 
@@ -173,13 +190,14 @@ def generate_from_url(req: UrlRequest):
     job_id = str(uuid.uuid4()).replace("-", "")[:16]
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     update_job(job_id, status="queued", progress=0, source="horizon",
+               vtuber_mode=req.vtuber_mode,
                tweet_url=article["url"],
                tweet_text=article["content"][:120],
                tweet_author=article["source_name"],
                tweet_author_name=article["title"],
                created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
     news = {"news_items": [article], "title": article["title"]}
-    t = threading.Thread(target=run_pipeline_from_news, args=(job_id, news), daemon=True)
+    t = threading.Thread(target=run_pipeline_from_news, args=(job_id, news, req.vtuber_mode), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
 
@@ -198,13 +216,14 @@ def generate_from_blog_url(req: UrlRequest):
     job_id = str(uuid.uuid4()).replace("-", "")[:16]
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     update_job(job_id, status="queued", progress=0, source="horizon", content_type="blog",
+               vtuber_mode=req.vtuber_mode,
                tweet_url=article["url"],
                tweet_text=article["content"][:240],
                tweet_author=article["source_name"],
                tweet_author_name=article["title"],
                title=article["title"],
                created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
-    t = threading.Thread(target=run_pipeline_from_blog, args=(job_id, article), daemon=True)
+    t = threading.Thread(target=run_pipeline_from_blog, args=(job_id, article, req.vtuber_mode), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
 
@@ -215,11 +234,12 @@ def generate_entertainment_short(req: EntertainmentShortRequest):
     title = req.title.strip()
     if not title:
         raise HTTPException(status_code=400, detail="title is required")
-    article = req.dict()
+    article = _request_data(req)
     job_id = str(uuid.uuid4()).replace("-", "")[:16]
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     update_job(job_id, status="queued", progress=0, source="entertainment",
                content_type="entertainment_short",
+               vtuber_mode=req.vtuber_mode,
                tweet_url=article.get("url", ""),
                article_url=article.get("url", ""),
                source_url=article.get("source_url", ""),
@@ -228,7 +248,7 @@ def generate_entertainment_short(req: EntertainmentShortRequest):
                tweet_author_name=title,
                title=title,
                created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
-    t = threading.Thread(target=run_pipeline_from_entertainment_short, args=(job_id, article), daemon=True)
+    t = threading.Thread(target=run_pipeline_from_entertainment_short, args=(job_id, article, req.vtuber_mode), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
 
@@ -262,6 +282,7 @@ def status(job_id: str):
         "source_platform": job.get("source_platform"),
         "content_type": job.get("content_type"),
         "source": job.get("source"),
+        "vtuber_mode": bool(job.get("vtuber_mode")),
         "translated_text": job.get("translated_text"),
         "kuragevp_job_id": job.get("kuragevp_job_id"),
         "image_count": job.get("image_count"),
@@ -388,6 +409,7 @@ def list_jobs(limit: int = 20, source: str | None = None):
                 "content_type": d.get("content_type"),
                 "kuragevp_job_id": d.get("kuragevp_job_id"),
                 "source": job_source,
+                "vtuber_mode": bool(d.get("vtuber_mode")),
                 "created_at": d.get("created_at"),
                 "updated_at": d.get("updated_at"),
                 "views": _job_views(d),
