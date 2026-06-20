@@ -469,10 +469,11 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 .post-card:hover{background:#fafafa;}
 .post-meta{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
 .avatar{width:40px;height:40px;background:linear-gradient(135deg,#007f96,#00bcd4);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#fff;flex-shrink:0;}
-.post-title{font-weight:700;color:#111;font-size:14px;margin-bottom:2px;}
+.post-title{font-weight:700;color:#111;font-size:14px;margin-bottom:2px;cursor:pointer;}
+.post-title:hover{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;}
 .post-author{color:#888;font-size:12px;}
 .post-time{color:#aaa;font-size:12px;margin-left:auto;white-space:nowrap;}
-.tweet-block{background:#e8f8fb;border-left:3px solid #007f96;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:10px;font-size:13px;line-height:1.7;color:#444;white-space:pre-wrap;max-height:72px;overflow:hidden;position:relative;}
+.tweet-block{background:#e8f8fb;border-left:3px solid #007f96;border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:10px;font-size:13px;line-height:1.7;color:#444;white-space:pre-wrap;max-height:72px;overflow:hidden;position:relative;cursor:pointer;}
 .tweet-block::after{content:'';position:absolute;bottom:0;left:0;right:0;height:24px;background:linear-gradient(transparent,#e8f8fb);pointer-events:none;}
 .card-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
 .card-video-wrap{position:relative;width:80px;height:142px;flex-shrink:0;border-radius:8px;overflow:hidden;background:#000;cursor:pointer;}
@@ -897,9 +898,10 @@ function renderCards(from, to) {
         var videoSrc = 'kuragev.php?proxy=video&job_id=' + encodeURIComponent(jid);
         var thumbVer = encodeURIComponent(v.updated_at || v.created_at || '1');
         var thumbSrc = 'kuragev.php?proxy=thumbnail&job_id=' + encodeURIComponent(jid) + '&v=' + thumbVer;
-        var html = '<div class="post-card">'
+        var detailUrl = 'kuragev.php?id=' + encodeURIComponent(jid);
+        var html = '<div class="post-card" data-detail-url="' + detailUrl + '">'
             + '<div style="display:flex;gap:12px;align-items:flex-start;">'
-            + '<div class="card-video-wrap" data-jid="' + esc(jid) + '">'
+            + '<div class="card-video-wrap" data-jid="' + esc(jid) + '" data-detail-url="' + detailUrl + '" title="詳細を見る">'
             + '<video class="thumb-video" src="' + videoSrc + '" poster="' + thumbSrc + '" playsinline muted preload="metadata" loop></video>'
             + '<div class="card-video-play">▶</div>'
             + '</div>'
@@ -910,7 +912,7 @@ function renderCards(from, to) {
             + '</div>'
             + tweetHtml
             + '<div class="card-links">'
-            + '<a class="kv-link primary" href="kuragev.php?id=' + encodeURIComponent(jid) + '">📄 詳細</a>'
+            + '<a class="kv-link primary" href="' + detailUrl + '">📄 詳細</a>'
             + '<button class="kv-link reel-open-btn" data-idx="' + i + '">🎬 リール</button>'
             + '<button class="kv-link kv-copy-btn" data-text="' + esc(copyText) + '">📋 コピー</button>'
             + '<a class="kv-link" href="https://twitter.com/intent/tweet?text=' + xText + '" target="_blank" rel="noopener">' + X_SVG + '&nbsp;Xに投稿</a>'
@@ -926,21 +928,8 @@ function renderCards(from, to) {
     primeThumbVideos(list);
 }
 
-/* イベント委任（コピー・リール・カード動画再生） */
+/* イベント委任（コピー・リール・詳細遷移） */
 document.addEventListener('click', function(e) {
-    var vwrap = e.target.closest('.card-video-wrap');
-    if (vwrap) {
-        var vid = vwrap.querySelector('video');
-        if (!vid) return;
-        if (vid.paused) {
-            vid.play();
-            vwrap.classList.add('playing');
-        } else {
-            vid.pause();
-            vwrap.classList.remove('playing');
-        }
-        return;
-    }
     var copyBtn = e.target.closest('.kv-copy-btn');
     if (copyBtn) {
         var text = copyBtn.dataset.text || '';
@@ -965,6 +954,16 @@ document.addEventListener('click', function(e) {
         var jid = delBtn.dataset.jid;
         fetch('kuragev.php', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'delete_job='+encodeURIComponent(jid)})
             .then(function(){ location.reload(); });
+        return;
+    }
+    var detailTarget = e.target.closest('.card-video-wrap, .post-title, .tweet-block');
+    if (detailTarget && !e.target.closest('a,button,form,input,textarea,select')) {
+        var card = detailTarget.closest('.post-card');
+        var detailUrl = (detailTarget.dataset && detailTarget.dataset.detailUrl) || (card && card.dataset.detailUrl);
+        if (detailUrl) {
+            window.location.href = detailUrl;
+            return;
+        }
     }
 });
 

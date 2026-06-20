@@ -35,6 +35,24 @@ def update_job(job_id: str, **kwargs):
     p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def script_summary_text(script: dict, limit: int = 220) -> str:
+    """Build a Japanese description from generated narration scenes."""
+    scenes = script.get("scenes") if isinstance(script, dict) else []
+    lines: list[str] = []
+    if isinstance(scenes, list):
+        for scene in scenes:
+            if not isinstance(scene, dict):
+                continue
+            narration = str(scene.get("narration") or "").strip()
+            if narration:
+                lines.append(narration)
+    text = " ".join(lines)
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    return text[:limit].rstrip() + "…"
+
+
 def run_pipeline_from_news(job_id: str, news: dict, vtuber_mode: bool = False):
     """Run pipeline from multiple news articles (skip tweet fetch)."""
     job_dir = JOBS_DIR / job_id
@@ -55,7 +73,17 @@ def run_pipeline_from_news(job_id: str, news: dict, vtuber_mode: bool = False):
 
         NEWS_EXPECTED_SCENES = 12
         script = generate_news_script(news_items)
-        update_job(job_id, script=script, title=script.get("title"))
+        summary = script_summary_text(script)
+        update_job(
+            job_id,
+            script=script,
+            title=script.get("title"),
+            display_title=script.get("title"),
+            summary_title=script.get("title"),
+            tweet_text=summary,
+            summary=summary,
+            display_summary=summary,
+        )
         print(f"[{job_id}] script: {script.get('title')} ({len(script.get('scenes', []))} scenes)", flush=True)
 
         scenes = script.get("scenes") or []
