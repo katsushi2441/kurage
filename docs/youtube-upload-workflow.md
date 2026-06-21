@@ -1,5 +1,10 @@
 # Kurage / VWork YouTube Upload Workflow
 
+## Design Rule: White Studio VTuber
+
+Kurage VTuberモード、ブログ動画、YouTube投稿用動画では、黒背景・ダークモード背景を使わない。白系・薄い水色系・明るい紙面系のWhite Studioデザインを基本にする。`background: #000`、黒いタイトルオーバーレイ、黒い半透明字幕箱、暗紺の全面背景は禁止。
+
+
 Kurage/Horizonで生成した動画を、YouTubeへ投稿してAIxSNSで告知するための手順。
 
 kdeck.phpでスマホから作業するとき、作業フォルダが `/home/kojima/work/kurage` の場合は、このファイルを最初に読む。

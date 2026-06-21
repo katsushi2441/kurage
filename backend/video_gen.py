@@ -49,32 +49,33 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
     .vtuber-badge {
       position: absolute; top: 24px; right: 22px;
       padding: 8px 13px; border-radius: 999px;
-      color: #073044; background: rgba(213, 251, 255, 0.92);
-      border: 1px solid rgba(255,255,255,0.72);
-      box-shadow: 0 10px 28px rgba(4, 31, 51, 0.22);
+      color: #07536a; background: rgba(255,255,255,0.94);
+      border: 1px solid rgba(7,138,166,0.22);
+      box-shadow: 0 10px 28px rgba(49, 121, 139, 0.16);
       font-size: 15px; font-weight: 900; letter-spacing: 0.04em;
     }
     .vtuber-card {
       position: absolute; right: 18px; bottom: 22px;
       width: 252px; min-height: 248px; border-radius: 28px;
       background:
-        radial-gradient(circle at 78% 12%, rgba(255,255,255,0.85), transparent 26%),
-        linear-gradient(145deg, rgba(16, 92, 130, 0.74), rgba(9, 26, 51, 0.82));
-      border: 1px solid rgba(213, 251, 255, 0.62);
-      box-shadow: 0 20px 48px rgba(0, 20, 40, 0.46), inset 0 1px 0 rgba(255,255,255,0.36);
+        radial-gradient(circle at 78% 12%, rgba(255,255,255,0.92), transparent 28%),
+        linear-gradient(145deg, rgba(255,255,255,0.94), rgba(231, 249, 255, 0.9));
+      border: 1px solid rgba(7,138,166,0.22);
+      box-shadow: 0 20px 48px rgba(49, 121, 139, 0.18), inset 0 1px 0 rgba(255,255,255,0.86);
       overflow: hidden;
     }
     .vtuber-card::before {
       content: ""; position: absolute; inset: auto -40px -70px -30px; height: 142px;
-      background: radial-gradient(ellipse at center, rgba(80, 219, 255, 0.44), transparent 70%);
+      background: radial-gradient(ellipse at center, rgba(111, 218, 236, 0.34), transparent 70%);
     }
     .vtuber-copy {
       position: absolute; left: 17px; right: 17px; top: 15px; z-index: 2;
-      color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,0.45);
+      color: #17313a; text-shadow: none;
     }
     .vtuber-name {
       display: inline-block; padding: 5px 9px; border-radius: 999px;
-      background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.26);
+      background: #e5faff; border: 1px solid rgba(7,138,166,0.18);
+      color: #078aa6;
       font-size: 13px; font-weight: 900; letter-spacing: 0.03em;
     }
     .vtuber-topic {
@@ -87,12 +88,12 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
     }
     .vtuber-glow {
       position: absolute; left: 26px; right: 12px; bottom: 20px; height: 92px;
-      border-radius: 999px; background: rgba(102, 235, 255, 0.28);
+      border-radius: 999px; background: rgba(102, 211, 230, 0.26);
       filter: blur(16px);
     }
     .vtuber-avatar {
       position: absolute; inset: 0; width: 100%; height: 100%;
-      object-fit: contain; filter: drop-shadow(0 12px 18px rgba(0, 14, 32, 0.38));
+      object-fit: contain; filter: drop-shadow(0 16px 22px rgba(49, 121, 139, 0.22));
       transform-origin: 54% 66%;
     }
     #vtuber-talk { opacity: 0; }
@@ -204,11 +205,27 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
   <style>
     * {{ margin: 0; padding: 0; box-sizing: border-box; }}
     html, body {{
-      width: 576px; height: 1024px; overflow: hidden; background: #000;
+      width: 576px; height: 1024px; overflow: hidden;
+      background:
+        radial-gradient(circle at 18% 10%, rgba(135,224,239,0.28), transparent 30%),
+        radial-gradient(circle at 88% 0%, rgba(255,222,170,0.46), transparent 30%),
+        linear-gradient(180deg, #ffffff 0%, #f7fcff 52%, #eaf8fb 100%);
       font-family: "Noto Sans JP", "Noto Sans JP", sans-serif;
     }}
     #composition {{
-      position: relative; width: 576px; height: 1024px; overflow: hidden; background: #000;
+      position: relative; width: 576px; height: 1024px; overflow: hidden;
+      background:
+        radial-gradient(circle at 18% 10%, rgba(135,224,239,0.28), transparent 30%),
+        radial-gradient(circle at 88% 0%, rgba(255,222,170,0.46), transparent 30%),
+        linear-gradient(180deg, #ffffff 0%, #f7fcff 52%, #eaf8fb 100%);
+    }}
+    #composition::before {{
+      content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background-image:
+        linear-gradient(rgba(7,138,166,0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(7,138,166,0.045) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: linear-gradient(180deg, rgba(0,0,0,0.5), transparent 74%);
     }}
     .scene {{
       position: absolute; top: 0; left: 0; width: 576px; height: 1024px;
@@ -216,23 +233,39 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
     }}
     .scene-bg {{
       width: 100%; height: 100%; object-fit: cover; display: block;
+      filter: saturate(0.96) brightness(1.08);
+    }}
+    .scene::after {{
+      content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.02) 52%, rgba(245,252,255,0.78) 100%);
     }}
     .scene-text {{
       position: absolute; bottom: 80px; left: 0; right: 0; padding: 0 28px;
-      opacity: 0; transform: translateY(20px);
+      opacity: 0; transform: translateY(20px); z-index: 4;
       text-align: center; font-size: 28px; font-weight: 700;
-      color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,0.9), 0 0 30px rgba(0,0,0,0.7);
+      color: #17313a; text-shadow: 0 2px 0 rgba(255,255,255,0.92);
       line-height: 1.5; letter-spacing: 0.02em;
+    }}
+    .scene-text::before {{
+      content: ""; position: absolute; z-index: -1;
+      inset: -14px 18px;
+      border-radius: 22px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid rgba(7,138,166,0.18);
+      box-shadow: 0 18px 48px rgba(49,121,139,0.18);
     }}
     #title-overlay {{
       position: absolute; top: 0; left: 0; width: 576px; height: 1024px;
       display: flex; align-items: center; justify-content: center;
-      background: rgba(0,0,0,0.6); z-index: 10; opacity: 0;
+      background:
+        radial-gradient(circle at 50% 35%, rgba(255,255,255,0.96), rgba(235,249,253,0.9) 58%, rgba(214,241,248,0.88));
+      z-index: 10; opacity: 0;
     }}
     #title-overlay h1 {{
-      color: #fff; font-size: 32px; font-weight: 900;
+      color: #17313a; font-size: 32px; font-weight: 900;
       text-align: center; padding: 0 32px; line-height: 1.4;
-      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+      text-shadow: 0 2px 0 rgba(255,255,255,0.95);
     }}
     {vtuber_css}
   </style>
