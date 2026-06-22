@@ -146,8 +146,8 @@ if (!in_array($sort, ['created', 'views'], true)) { $sort = 'created'; }
 if (!$detail_id && $videos) {
     usort($videos, function($a, $b) use ($sort) {
         if ($sort === 'views') {
-            $av = (int)($a['views'] ?? 9999);
-            $bv = (int)($b['views'] ?? 9999);
+            $av = (int)($a['views'] ?? 0);
+            $bv = (int)($b['views'] ?? 0);
             if ($bv !== $av) return $bv <=> $av;
         }
         $ad = (string)($a['created_at'] ?? $a['updated_at'] ?? '');
@@ -345,7 +345,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
     <div class="detail-meta">
       <span><?php echo h($detail_job['tweet_author'] ?? ''); ?></span>
       <span><?php echo h($detail_job['created_at'] ?? ''); ?></span>
-      <span class="views">表示<?php echo h((string)($detail_job['views'] ?? 9999)); ?></span>
+      <span class="views">表示<?php echo h((string)($detail_job['views'] ?? 0)); ?></span>
     </div>
     <?php if (!empty($detail_job['tweet_url'])): ?>
     <div class="detail-url-box">
@@ -502,7 +502,7 @@ function renderCards(from, to) {
         var content = v.tweet_text       || '';
         var nurl    = v.tweet_url        || '';
         var date    = v.created_at       || '';
-        var views   = v.views || 9999;
+        var views   = Number.isFinite(Number(v.views)) ? Number(v.views) : 0;
 
         var shareUrl = '<?php echo $BASE_URL . '/' . $THIS_FILE; ?>?id=' + encodeURIComponent(jid);
         var copyText = title + '\n\n' + content + '\n\n' + shareUrl + '\n#HorizonV #AIニュース動画';

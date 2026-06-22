@@ -121,9 +121,9 @@ def _find_resumable_job(tweet_url: str) -> str | None:
 
 def _job_views(job: dict) -> int:
     try:
-        return int(job.get("views", 9999))
+        return int(job.get("views", 0))
     except Exception:
-        return 9999
+        return 0
 
 
 @app.post("/generate")
