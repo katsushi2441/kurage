@@ -251,25 +251,43 @@ if (isset($_GET['proxy']) && $_GET['proxy'] === 'video' && !empty($_GET['job_id'
         $req_headers[] = 'Range: ' . $_SERVER['HTTP_RANGE'];
     }
     curl_setopt($ch, CURLOPT_HTTPHEADER, $req_headers);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HEADER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-    $response = curl_exec($ch);
-    $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    $resp_headers = substr($response, 0, $header_size);
-    $data = substr($response, $header_size);
-    http_response_code($code);
-    header('Content-Type: video/mp4');
-    header('Accept-Ranges: bytes');
-    header('Content-Disposition: inline; filename="kurage_' . $jid . '.mp4"');
-    foreach (explode("\r\n", $resp_headers) as $line) {
-        if (preg_match('/^(Content-Range|Content-Length):\s*(.+)$/i', $line, $m)) {
-            header($m[0]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, false);
+    curl_setopt($ch, CURLOPT_HEADER, false);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 0);
+    curl_setopt($ch, CURLOPT_BUFFERSIZE, 1024 * 256);
+    curl_setopt($ch, CURLOPT_HEADERFUNCTION, function($curl, $line) use ($jid) {
+        $trimmed = trim($line);
+        if ($trimmed === '') { return strlen($line); }
+        if (preg_match('#^HTTP/\S+\s+(\d+)#i', $trimmed, $m)) {
+            http_response_code((int)$m[1]);
+            header('Content-Type: video/mp4');
+            header('Accept-Ranges: bytes');
+            header('Content-Disposition: inline; filename="kurage_' . $jid . '.mp4"');
+            return strlen($line);
         }
+        if (preg_match('/^(Content-Range|Content-Length|Accept-Ranges|Last-Modified|ETag):\s*(.+)$/i', $trimmed)) {
+            header($trimmed);
+        }
+        return strlen($line);
+    });
+    curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($curl, $chunk) {
+        echo $chunk;
+        if (function_exists('ob_flush')) { @ob_flush(); }
+        flush();
+        return strlen($chunk);
+    });
+    while (ob_get_level() > 0) { @ob_end_flush(); }
+    $ok = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $err = curl_error($ch);
+    curl_close($ch);
+    if (!$ok && $code <= 0) {
+        http_response_code(502);
+        header('Content-Type: text/plain; charset=UTF-8');
+        echo 'Video proxy failed: ' . $err;
     }
-    echo $data;
     exit;
 }
 
