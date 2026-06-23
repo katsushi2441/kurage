@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from config import JOBS_DIR, PORT, ERNIE_URL, NVM_NODE, HYPERFRAMES_VERSION, OLLAMA_URL, OLLAMA_MODEL, WAN_API, WAN_TEST_MODE
 from tts_gen import TTS_VOICE, TTS_RATE, TTS_PITCH
-from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, run_pipeline_from_entertainment_short, load_job, update_job
+from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, run_pipeline_from_entertainment_short, run_pipeline_from_script, load_job, update_job
 from video_styles import STYLE_PRESETS, resolve_video_style, style_names
 from typing import Any
 
@@ -55,6 +55,18 @@ class EntertainmentShortRequest(BaseModel):
     source_url: str = ""
     source_name: str = "Kurage Entertainment"
     celebrity_names: list[str] = []
+    vtuber_mode: bool = False
+    video_style: str = "auto"
+
+
+class ScriptVideoRequest(BaseModel):
+    title: str = ""
+    script: dict[str, Any]
+    source_url: str = ""
+    source_title: str = ""
+    source_name: str = "Kurage Montage"
+    source_platform: str = ""
+    source: str = "kmontage"
     vtuber_mode: bool = False
     video_style: str = "auto"
 
@@ -190,6 +202,43 @@ def generate_from_news(req: NewsRequest):
                tweet_author_name=req.title or tweet_text[:50],
                created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
     t = threading.Thread(target=run_pipeline_from_news, args=(job_id, _request_data(req), req.vtuber_mode, resolved_style), daemon=True)
+    t.start()
+    return {"ok": True, "job_id": job_id}
+
+
+@app.post("/generate_from_script")
+def generate_from_script(req: ScriptVideoRequest):
+    """Start a video generation job from a completed script JSON.
+
+    This endpoint intentionally skips Kurage's generic news LLM step. It is for
+    upstream tools that already performed faithful source analysis and need
+    Kurage to render exactly that plan.
+    """
+    script = req.script or {}
+    scenes = script.get("scenes") if isinstance(script, dict) else None
+    if not isinstance(scenes, list) or not scenes:
+        raise HTTPException(status_code=400, detail="script.scenes is required")
+    job_id = str(uuid.uuid4()).replace("-", "")[:16]
+    JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    source_title = req.source_title or req.title or script.get("title") or "参照動画"
+    resolved_style = resolve_video_style(req.video_style, content_type="reference_script", vtuber_mode=req.vtuber_mode, title=source_title)
+    data = _request_data(req)
+    data["video_style"] = resolved_style
+    update_job(job_id, status="queued", progress=0, source=req.source or "kmontage",
+               content_type="reference_video_summary",
+               vtuber_mode=req.vtuber_mode,
+               video_style=resolved_style,
+               tweet_url=req.source_url,
+               original_url=req.source_url,
+               source_title=source_title,
+               source_platform=req.source_platform,
+               tweet_text=" ".join(str(s.get("narration") or "") for s in scenes[:3])[:240],
+               tweet_author=req.source_name or "Kurage Montage",
+               tweet_author_name=source_title,
+               title=script.get("title") or source_title,
+               script=script,
+               created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
+    t = threading.Thread(target=run_pipeline_from_script, args=(job_id, data, req.vtuber_mode, resolved_style), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
 

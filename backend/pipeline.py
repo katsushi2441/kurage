@@ -10,7 +10,7 @@ from tweet_fetch import fetch_tweet
 from script_gen import generate_script, generate_news_script, generate_blog_script, generate_entertainment_short_script
 from image_gen import generate_scene_images, generate_image
 from video_gen import generate_video, generate_thumbnail
-from video_styles import resolve_video_style
+from video_styles import apply_video_style, resolve_video_style
 import wan_gen
 
 
@@ -52,6 +52,105 @@ def script_summary_text(script: dict, limit: int = 220) -> str:
     if len(text) <= limit:
         return text
     return text[:limit].rstrip() + "…"
+
+
+def normalize_provided_script(script: dict, video_style: str = "auto", scene_duration: int = 10) -> dict:
+    """Validate a caller-provided script without asking the LLM to rewrite it.
+
+    This is used by tools such as kmontage where the upstream analysis already
+    produced a faithful reference-video script. Kurage should render it, not
+    dilute it through the generic news-script generator.
+    """
+    if not isinstance(script, dict):
+        raise ValueError("script must be a JSON object")
+    scenes = script.get("scenes")
+    if not isinstance(scenes, list) or not scenes:
+        raise ValueError("script.scenes is required")
+    out = {
+        "title": str(script.get("title") or "Kurage動画").strip()[:80],
+        "scenes": [],
+    }
+    for i, scene in enumerate(scenes):
+        if not isinstance(scene, dict):
+            continue
+        narration = str(scene.get("narration") or "").strip()
+        if not narration:
+            continue
+        prompt = str(scene.get("image_prompt") or "clean vertical explainer visual, 9:16").strip()
+        out["scenes"].append({
+            "index": len(out["scenes"]),
+            "narration": narration,
+            "image_prompt": prompt,
+            "duration": int(scene.get("duration") or scene_duration),
+        })
+    if not out["scenes"]:
+        raise ValueError("script.scenes has no usable narration")
+    return apply_video_style(out, video_style)
+
+
+def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = False, video_style: str = "auto"):
+    """Render a caller-provided script directly.
+
+    Unlike run_pipeline_from_news, this path does not call Ollama for script
+    generation. It preserves concrete facts and workflow details extracted by
+    upstream reference-analysis tools.
+    """
+    job_dir = JOBS_DIR / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        source_url = request.get("source_url") or request.get("url") or ""
+        source_title = request.get("source_title") or request.get("title") or "参照動画"
+        resolved_style = resolve_video_style(video_style, content_type="reference_script", vtuber_mode=vtuber_mode, title=source_title)
+        script = normalize_provided_script(request.get("script") or {}, resolved_style)
+        summary = script_summary_text(script)
+
+        update_job(job_id, status="imaging", progress=35, source=request.get("source") or "kmontage",
+                   content_type="reference_video_summary",
+                   vtuber_mode=vtuber_mode,
+                   video_style=resolved_style,
+                   tweet_url=source_url,
+                   original_url=source_url,
+                   source_title=source_title,
+                   source_platform=request.get("source_platform") or "",
+                   tweet_text=summary,
+                   tweet_author=request.get("source_name") or "Kurage Montage",
+                   tweet_author_name=source_title,
+                   script=script,
+                   title=script.get("title"),
+                   display_title=script.get("title"),
+                   summary_title=script.get("title"),
+                   summary=summary,
+                   display_summary=summary)
+        print(f"[{job_id}] provided script: {script.get('title')} ({len(script.get('scenes', []))} scenes)", flush=True)
+
+        scenes = script.get("scenes") or []
+        assets_dir = job_dir / "assets"
+        assets_dir.mkdir(parents=True, exist_ok=True)
+
+        image_paths = []
+        for scene in scenes:
+            idx = scene.get("index", len(image_paths))
+            out = assets_dir / f"scene_{idx:02d}.png"
+            prompt = scene.get("image_prompt", "clean vertical explainer visual, 9:16")
+            print(f"  [script image] scene {idx}: {prompt[:60]}...", flush=True)
+            if idx > 0:
+                time.sleep(3)
+            path = generate_image(prompt, out)
+            image_paths.append(path)
+        update_job(job_id, image_count=len(image_paths))
+
+        update_job(job_id, status="rendering", progress=75)
+        video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
+        thumb_path = job_dir / "thumbnail.jpg"
+        update_job(job_id, status="done", progress=100, video_file=str(video_path),
+                   thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
+        print(f"[{job_id}] script done: {video_path}", flush=True)
+
+    except Exception as exc:
+        tb = traceback.format_exc()
+        print(f"[{job_id}] ERROR: {exc}\n{tb}", flush=True)
+        update_job(job_id, status="error", error=str(exc), traceback=tb)
 
 
 def run_pipeline_from_news(job_id: str, news: dict, vtuber_mode: bool = False, video_style: str = "auto"):
