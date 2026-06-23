@@ -4,6 +4,7 @@ import json
 import re
 import requests
 from config import OLLAMA_URL, OLLAMA_MODEL
+from video_styles import apply_video_style, resolve_video_style, style_prompt
 
 
 SYSTEM_PROMPT = """You are a short vertical video scriptwriter. Based on an X (Twitter) post, generate an 8-scene short drama script with image prompts.
@@ -112,7 +113,7 @@ def normalize_script(script: dict, scene_duration: int = 10, force_title: str = 
     return script
 
 
-def generate_script(tweet: dict) -> dict:
+def generate_script(tweet: dict, video_style: str = "auto") -> dict:
     """Generate script JSON from tweet data using Ollama.
 
     Args:
@@ -121,11 +122,14 @@ def generate_script(tweet: dict) -> dict:
     Returns:
         {"title": "...", "scenes": [...]}
     """
+    resolved_style = resolve_video_style(video_style, content_type="tweet", title=tweet.get("text", "")[:80])
     user_prompt = f"""以下のXの投稿から短編動画を作ってください。
 
 投稿者: {tweet['author_name']} ({tweet['author']})
 投稿内容:
 {tweet['text']}
+
+{style_prompt(resolved_style)}
 
 JSONのみ返してください。"""
 
@@ -162,7 +166,7 @@ JSONのみ返してください。"""
 
     script = parse_json_from_response(response_text)
 
-    return normalize_script(script, scene_duration=5)
+    return apply_video_style(normalize_script(script, scene_duration=5), resolved_style)
 
 
 NEWS_SYSTEM_PROMPT = """You are a news video scriptwriter. Based on multiple news articles, generate a 12-scene news broadcast script with image prompts.
@@ -183,7 +187,7 @@ Rules:
 """
 
 
-def generate_news_script(news_items: list) -> dict:
+def generate_news_script(news_items: list, video_style: str = "auto") -> dict:
     """Generate 12-scene news broadcast script from multiple news articles.
 
     Args:
@@ -199,11 +203,16 @@ def generate_news_script(news_items: list) -> dict:
             items_text += f"   {item['content'][:300]}\n"
         items_text += "\n"
 
+    title_hint = "、".join((item.get("title") or "") for item in news_items[:3])
+    resolved_style = resolve_video_style(video_style, content_type="news", title=title_hint)
     user_prompt = f"""以下の{len(news_items)}本のニュース記事をもとに、ニュース番組風の動画脚本を作成してください。
 
 【記事一覧】
 {items_text}
 各記事の重要度・分量に応じてシーンを配分してください（合計12シーン）。
+
+{style_prompt(resolved_style)}
+
 JSONのみ返してください。"""
 
     payload = {
@@ -237,7 +246,7 @@ JSONのみ返してください。"""
 
     script = parse_json_from_response(response_text)
 
-    return normalize_script(script, scene_duration=10)
+    return apply_video_style(normalize_script(script, scene_duration=10), resolved_style)
 
 
 BLOG_SYSTEM_PROMPT = """You are a thoughtful Japanese video essay scriptwriter. Based on one blog article, generate a 12-scene vertical video script for a 2-minute commentary video.
@@ -263,11 +272,12 @@ Rules:
 """
 
 
-def generate_blog_script(article: dict) -> dict:
+def generate_blog_script(article: dict, video_style: str = "auto", vtuber_mode: bool = False) -> dict:
     """Generate 12-scene blog commentary script from one article."""
     title = (article.get("title") or "").strip()
     content = (article.get("content") or "").strip()
     source_name = article.get("source_name") or "Blog"
+    resolved_style = resolve_video_style(video_style, content_type="blog", vtuber_mode=vtuber_mode, title=title)
     user_prompt = f"""以下のブログ記事をもとに、2分の人物・ビジネス考察動画の脚本を作成してください。
 
 【ブログタイトル】
@@ -278,6 +288,8 @@ def generate_blog_script(article: dict) -> dict:
 
 【本文】
 {content[:2500]}
+
+{style_prompt(resolved_style)}
 
 重要:
 - 動画タイトルはブログタイトルにできるだけ合わせる。
@@ -316,7 +328,7 @@ JSONのみ返してください。"""
         pass
 
     script = parse_json_from_response(response_text)
-    return normalize_script(script, scene_duration=10, force_title=title)
+    return apply_video_style(normalize_script(script, scene_duration=10, force_title=title), resolved_style)
 
 
 ENTERTAINMENT_SHORT_SYSTEM_PROMPT = """You are a Japanese short video editor for safe entertainment news commentary.
@@ -338,7 +350,7 @@ Rules:
 """
 
 
-def generate_entertainment_short_script(article: dict) -> dict:
+def generate_entertainment_short_script(article: dict, video_style: str = "auto", vtuber_mode: bool = False) -> dict:
     """Generate a 30-second short video script for entertainment SEO articles."""
     title = (article.get("title") or "").strip()
     summary = (article.get("summary") or article.get("content") or "").strip()
@@ -346,6 +358,7 @@ def generate_entertainment_short_script(article: dict) -> dict:
     kurage_url = article.get("url") or "https://kurage.exbridge.jp/entertainment.php"
     source_url = article.get("source_url") or ""
 
+    resolved_style = resolve_video_style(video_style, content_type="entertainment_short", vtuber_mode=vtuber_mode, title=title)
     user_prompt = f"""以下の芸能ニュース考察記事を、30秒の安全なショート動画にしてください。
 
 【記事タイトル】
@@ -362,6 +375,8 @@ def generate_entertainment_short_script(article: dict) -> dict:
 
 【元ニュース・元動画URL】
 {source_url or "記事ページ内の参考リンク"}
+
+{style_prompt(resolved_style)}
 
 重要:
 - 本人が商品をおすすめした、愛用した、宣伝したとは言わない。
@@ -399,7 +414,7 @@ JSONのみ返してください。"""
         pass
 
     script = parse_json_from_response(response_text)
-    return normalize_script(script, scene_duration=5, force_title=title[:50])
+    return apply_video_style(normalize_script(script, scene_duration=5, force_title=title[:50]), resolved_style)
 
 
 if __name__ == "__main__":

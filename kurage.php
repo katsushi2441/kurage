@@ -244,6 +244,15 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
           <option value="hyperframes" selected>ERNIE静止画 + HyperFrames（8画像・40秒）</option>
           <option value="wan">Wan2.1 AI動画生成（実験）</option>
         </select>
+        <label class="mode-label" for="video-style">演出</label>
+        <select id="video-style" class="mode-select">
+          <option value="auto" selected>自動選択</option>
+          <option value="faceless_documentary">Faceless Documentary</option>
+          <option value="ai_avatar_explainer">AI Avatar Explainer</option>
+          <option value="saas_launch">SaaS Launch</option>
+          <option value="course_promo">Course Promo</option>
+          <option value="podcast_visual">Podcast Visual</option>
+        </select>
       </div>
       <label class="vtuber-toggle">
         <input type="checkbox" id="vtuber-mode">
@@ -323,6 +332,11 @@ function selectedMode() {
     return el ? el.value : 'hyperframes';
 }
 
+function selectedVideoStyle() {
+    var el = document.getElementById('video-style');
+    return el ? el.value : 'auto';
+}
+
 function updateModeText() {
     var mode = selectedMode();
     var cfg = serviceConfig || {};
@@ -357,11 +371,12 @@ function startGenerate() {
     btn.classList.add('loading');
 
     var mode = selectedMode();
+    var videoStyle = selectedVideoStyle();
     var vtuberMode = !!(document.getElementById('vtuber-mode') && document.getElementById('vtuber-mode').checked);
     fetch(PROXY + '?proxy=generate', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({tweet_url: url, mode: mode, vtuber_mode: vtuberMode}),
+        body: JSON.stringify({tweet_url: url, mode: mode, vtuber_mode: vtuberMode, video_style: videoStyle}),
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {

@@ -138,6 +138,9 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
 .btn-primary:hover { background:var(--accent-h); }
 .btn:disabled { opacity:.45; cursor:not-allowed; }
 .hint { font-size:.78rem; color:var(--muted); margin-top:.6rem; line-height:1.75; }
+.mode-row { margin-top:.9rem; display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; }
+.mode-label { font-size:.78rem; font-weight:800; color:var(--muted); }
+.mode-select { min-width:260px; max-width:100%; border:1px solid var(--border2); border-radius:8px; padding:.58rem .75rem; background:#fff; color:var(--text); font-size:.86rem; font-weight:700; }
 .vtuber-toggle { margin-top:.8rem; display:flex; align-items:flex-start; gap:.65rem; padding:.75rem .85rem; border:1px solid #bfe9ef; border-radius:12px; background:linear-gradient(135deg,#f2fdff,#fff); }
 .vtuber-toggle input { margin-top:.22rem; accent-color:var(--accent); }
 .vtuber-toggle strong { display:block; color:var(--text); font-size:.86rem; }
@@ -234,6 +237,17 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
         ブログ・ニュース記事のURLを貼り付けてください。約2分の動画を生成します。<br>
         <span id="hint-pipeline">読込中...</span>
       </div>
+      <div class="mode-row">
+        <label class="mode-label" for="video-style">演出</label>
+        <select id="video-style" class="mode-select">
+          <option value="auto" selected>自動選択</option>
+          <option value="faceless_documentary">Faceless Documentary</option>
+          <option value="ai_avatar_explainer">AI Avatar Explainer</option>
+          <option value="saas_launch">SaaS Launch</option>
+          <option value="course_promo">Course Promo</option>
+          <option value="podcast_visual">Podcast Visual</option>
+        </select>
+      </div>
       <label class="vtuber-toggle">
         <input type="checkbox" id="vtuber-mode" checked>
         <span>
@@ -305,6 +319,11 @@ var PROXY = '<?php echo h($THIS_FILE); ?>';
 var currentJobId = null;
 var pollTimer = null;
 
+function selectedVideoStyle() {
+    var el = document.getElementById('video-style');
+    return el ? el.value : 'auto';
+}
+
 function startGenerate() {
     var url = document.getElementById('tweet-url').value.trim();
     if (!url) { alert('URLを入力してください'); return; }
@@ -313,11 +332,12 @@ function startGenerate() {
     btn.disabled = true;
     btn.classList.add('loading');
     var vtuberMode = !!(document.getElementById('vtuber-mode') && document.getElementById('vtuber-mode').checked);
+    var videoStyle = selectedVideoStyle();
 
     fetch(PROXY + '?proxy=generate_url', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({url: url, vtuber_mode: vtuberMode}),
+        body: JSON.stringify({url: url, vtuber_mode: vtuberMode, video_style: videoStyle}),
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {

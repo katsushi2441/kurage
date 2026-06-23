@@ -10,6 +10,7 @@ from tweet_fetch import fetch_tweet
 from script_gen import generate_script, generate_news_script, generate_blog_script, generate_entertainment_short_script
 from image_gen import generate_scene_images, generate_image
 from video_gen import generate_video, generate_thumbnail
+from video_styles import resolve_video_style
 import wan_gen
 
 
@@ -53,7 +54,7 @@ def script_summary_text(script: dict, limit: int = 220) -> str:
     return text[:limit].rstrip() + "…"
 
 
-def run_pipeline_from_news(job_id: str, news: dict, vtuber_mode: bool = False):
+def run_pipeline_from_news(job_id: str, news: dict, vtuber_mode: bool = False, video_style: str = "auto"):
     """Run pipeline from multiple news articles (skip tweet fetch)."""
     job_dir = JOBS_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -62,9 +63,11 @@ def run_pipeline_from_news(job_id: str, news: dict, vtuber_mode: bool = False):
         news_items = news.get("news_items") or []
         first = news_items[0] if news_items else {}
         tweet_text = "、".join(i.get("title", "") for i in news_items[:3])[:120]
+        resolved_style = resolve_video_style(video_style, content_type="news", vtuber_mode=vtuber_mode, title=news.get("title", tweet_text[:50]))
 
         update_job(job_id, status="scripting", progress=25, source="horizon",
                    vtuber_mode=vtuber_mode,
+                   video_style=resolved_style,
                    tweet_url=first.get("url", ""),
                    tweet_text=tweet_text,
                    tweet_author="Horizon",
@@ -72,7 +75,7 @@ def run_pipeline_from_news(job_id: str, news: dict, vtuber_mode: bool = False):
         print(f"[{job_id}] news: {len(news_items)}件 {tweet_text[:60]}", flush=True)
 
         NEWS_EXPECTED_SCENES = 12
-        script = generate_news_script(news_items)
+        script = generate_news_script(news_items, video_style=resolved_style)
         summary = script_summary_text(script)
         update_job(
             job_id,
@@ -116,7 +119,7 @@ def run_pipeline_from_news(job_id: str, news: dict, vtuber_mode: bool = False):
         update_job(job_id, status="error", error=str(exc), traceback=tb)
 
 
-def run_pipeline_from_blog(job_id: str, article: dict, vtuber_mode: bool = False):
+def run_pipeline_from_blog(job_id: str, article: dict, vtuber_mode: bool = False, video_style: str = "auto"):
     """Run 2-minute commentary video pipeline from one blog article."""
     job_dir = JOBS_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -125,16 +128,18 @@ def run_pipeline_from_blog(job_id: str, article: dict, vtuber_mode: bool = False
         article_title = article.get("title") or "ブログ考察動画"
         article_url = article.get("url") or ""
         article_text = article.get("content") or ""
+        resolved_style = resolve_video_style(video_style, content_type="blog", vtuber_mode=vtuber_mode, title=article_title)
 
         update_job(job_id, status="scripting", progress=25, source="blog",
                    vtuber_mode=vtuber_mode,
+                   video_style=resolved_style,
                    tweet_url=article_url,
                    tweet_text=article_text[:240],
                    tweet_author=article.get("source_name") or "Blog",
                    tweet_author_name=article_title)
         print(f"[{job_id}] blog: {article_title[:80]}", flush=True)
 
-        script = generate_blog_script(article)
+        script = generate_blog_script(article, video_style=resolved_style, vtuber_mode=vtuber_mode)
         update_job(job_id, script=script, title=script.get("title") or article_title)
         print(f"[{job_id}] blog script: {script.get('title')} ({len(script.get('scenes', []))} scenes)", flush=True)
 
@@ -168,7 +173,7 @@ def run_pipeline_from_blog(job_id: str, article: dict, vtuber_mode: bool = False
         update_job(job_id, status="error", error=str(exc), traceback=tb)
 
 
-def run_pipeline_from_entertainment_short(job_id: str, article: dict, vtuber_mode: bool = False):
+def run_pipeline_from_entertainment_short(job_id: str, article: dict, vtuber_mode: bool = False, video_style: str = "auto"):
     """Run a 30-second safe entertainment-news short video pipeline."""
     job_dir = JOBS_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
@@ -177,10 +182,12 @@ def run_pipeline_from_entertainment_short(job_id: str, article: dict, vtuber_mod
         article_title = article.get("title") or "芸能ニュース考察"
         article_url = article.get("url") or ""
         article_text = article.get("summary") or article.get("content") or ""
+        resolved_style = resolve_video_style(video_style, content_type="entertainment_short", vtuber_mode=vtuber_mode, title=article_title)
 
         update_job(job_id, status="scripting", progress=25, source="entertainment",
                    content_type="entertainment_short",
                    vtuber_mode=vtuber_mode,
+                   video_style=resolved_style,
                    tweet_url=article_url,
                    article_url=article_url,
                    source_url=article.get("source_url") or "",
@@ -189,7 +196,7 @@ def run_pipeline_from_entertainment_short(job_id: str, article: dict, vtuber_mod
                    tweet_author_name=article_title)
         print(f"[{job_id}] entertainment short: {article_title[:80]}", flush=True)
 
-        script = generate_entertainment_short_script(article)
+        script = generate_entertainment_short_script(article, video_style=resolved_style, vtuber_mode=vtuber_mode)
         update_job(job_id, script=script, title=script.get("title") or article_title)
         print(f"[{job_id}] entertainment script: {script.get('title')} ({len(script.get('scenes', []))} scenes)", flush=True)
 
@@ -223,13 +230,15 @@ def run_pipeline_from_entertainment_short(job_id: str, article: dict, vtuber_mod
         update_job(job_id, status="error", error=str(exc), traceback=tb)
 
 
-def run_pipeline(job_id: str, tweet_url: str, mode: str = "hyperframes", vtuber_mode: bool = False):
+def run_pipeline(job_id: str, tweet_url: str, mode: str = "hyperframes", vtuber_mode: bool = False, video_style: str = "auto"):
     """Run the full pipeline. Resumes from last successful step if data exists."""
     job_dir = JOBS_DIR / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
 
     try:
         saved = load_job(job_id) or {}
+        resolved_style = resolve_video_style(video_style or saved.get("video_style"), content_type="tweet", vtuber_mode=vtuber_mode, title=saved.get("tweet_text", ""))
+        update_job(job_id, video_style=resolved_style)
 
         # Step 1: Fetch tweet（保存済みならスキップ）
         if saved.get("tweet_text"):
@@ -259,7 +268,7 @@ def run_pipeline(job_id: str, tweet_url: str, mode: str = "hyperframes", vtuber_
                 print(f"[{job_id}] script: cached has {cached_scenes_count} scenes (expected {EXPECTED_SCENES}), regenerating", flush=True)
             print(f"[{job_id}] generating script...", flush=True)
             update_job(job_id, status="scripting", progress=25)
-            script = generate_script(tweet)
+            script = generate_script(tweet, video_style=resolved_style)
             update_job(job_id, script=script, title=script.get("title"))
             print(f"[{job_id}] script: {script.get('title')} ({len(script.get('scenes', []))} scenes)", flush=True)
             # スクリプトが変わったので画像キャッシュをクリア
