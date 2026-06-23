@@ -134,14 +134,9 @@ def _find_resumable_job(tweet_url: str) -> str | None:
 
 def _job_views(job: dict) -> int:
     try:
-        views = int(job.get("views", 0))
+        return max(0, int(job.get("views", 0)))
     except Exception:
         return 0
-    # Older generated jobs sometimes carried a cosmetic +9999 boost.
-    # Public ranking and API consumers must use the real count.
-    if views >= 9999:
-        return max(0, views - 9999)
-    return max(0, views)
 
 
 @app.post("/generate")
