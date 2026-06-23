@@ -1,0 +1,28 @@
+{
+  "description": "Kurage products shared Japanese TTS pronunciation dictionary. Display text stays unchanged; only speech text is normalized.",
+  "entries": [
+    {"surface": "Kurage", "reading": "クラゲ"},
+    {"surface": "Kurage AI VTuber", "reading": "クラゲ エーアイ ブイチューバー"},
+    {"surface": "Kurage Voice Pro", "reading": "クラゲ ボイス プロ"},
+    {"surface": "Kurage Work Protocol", "reading": "クラゲ ワーク プロトコル"},
+    {"surface": "VWork", "reading": "ブイワーク"},
+    {"surface": "kdeck", "reading": "ケーデック"},
+    {"surface": "kvtuber", "reading": "ケーブイチューバー"},
+    {"surface": "kuragevp", "reading": "クラゲ ブイピー"},
+    {"surface": "kargov", "reading": "カーゴブイ"},
+    {"surface": "rqdb4ai", "reading": "アールキューディービー フォー エーアイ"},
+    {"surface": "AgentReach", "reading": "エージェントリーチ"},
+    {"surface": "AIxSNS", "reading": "エーアイエックス エスエヌエス"},
+    {"surface": "AIxEC", "reading": "エーアイエックス イーシー"},
+    {"surface": "AIxTube", "reading": "エーアイエックス チューブ"},
+    {"surface": "VOICEVOX", "reading": "ボイスボックス"},
+    {"surface": "Live2D", "reading": "ライブツーディー"},
+    {"surface": "Inochi2D", "reading": "イノチツーディー"},
+    {"surface": "VRM", "reading": "ブイアールエム"},
+    {"surface": "HyperFrames", "reading": "ハイパーフレームズ"},
+    {"surface": "browser-use", "reading": "ブラウザ ユース"},
+    {"surface": "OpenLLMVTuber", "reading": "オープン エルエルエム ブイチューバー"},
+    {"surface": "AITuber OnAir", "reading": "エーアイチューバー オンエア"},
+    {"surface": "Superpowers", "reading": "スーパーパワーズ"}
+  ]
+}

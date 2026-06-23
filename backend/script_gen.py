@@ -4,6 +4,7 @@ import json
 import re
 import requests
 from config import OLLAMA_URL, OLLAMA_MODEL
+from tts_normalizer import normalize_tts_text
 from video_styles import apply_video_style, resolve_video_style, style_prompt
 
 
@@ -87,16 +88,7 @@ def parse_json_from_response(text: str) -> dict:
 
 def normalize_narration_text(value: str) -> str:
     """Avoid TTS misreadings and awkward repeated phrases."""
-    value = value or ""
-    replacements = {
-        "深堀り": "詳しい考察",
-        "深掘り": "詳しい考察",
-        "深堀": "詳しい考察",
-        "ふかぼり": "詳しい考察",
-    }
-    for src, dst in replacements.items():
-        value = value.replace(src, dst)
-    return value
+    return normalize_tts_text(value or "")
 
 
 def normalize_script(script: dict, scene_duration: int = 10, force_title: str = "") -> dict:
