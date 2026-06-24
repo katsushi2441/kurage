@@ -468,6 +468,12 @@ function uploadToYoutube(item) {
   const tags = stringEnv('KURAGE_SHORTS_UPLOAD_TAGS', 'AI,Kurage,Shorts,AI動画生成,エクスブリッジ');
   const privacy = stringEnv('KURAGE_SHORTS_UPLOAD_PRIVACY', 'public');
   const python = stringEnv('YOUTUBE_UPLOAD_PYTHON', 'python3');
+  const uploadEnv = { ...process.env };
+  if (stringEnv('KURAGE_SHORTS_UPLOAD_CLEAN_PYTHONPATH', '1') !== '0') {
+    // rqdb4ai workers may carry mixed Python 3.10/3.11 PYTHONPATH entries.
+    // The YouTube uploader runs as python3, so let Python resolve its own site-packages.
+    delete uploadEnv.PYTHONPATH;
+  }
   const result = run(
     python,
     [
@@ -486,7 +492,7 @@ function uploadToYoutube(item) {
       '--json-out',
       jsonOut,
     ],
-    { cwd: uploadCwd, timeout: numberEnv('KURAGE_SHORTS_UPLOAD_TIMEOUT_MS', 30 * 60 * 1000) },
+    { cwd: uploadCwd, timeout: numberEnv('KURAGE_SHORTS_UPLOAD_TIMEOUT_MS', 30 * 60 * 1000), env: uploadEnv },
   );
   if (result.status !== 0) {
     throw new Error((result.stderr || result.stdout || 'YouTube upload failed').slice(-2000));
@@ -513,7 +519,7 @@ function markJobUploaded(item, upload) {
     youtube_video_id: upload.youtubeVideoId,
     youtube_uploaded_at: nowText.replace('T', ' ').slice(0, 19),
     youtube_shorts_auto_uploaded_at: nowText,
-    youtube_shorts_auto_source: 'kvtuber-watch-kurage-shorts-upload',
+    youtube_shorts_auto_source: 'kurage-watch-kurage-shorts-upload',
   };
   saveJson(item.jobFile, next);
 }
