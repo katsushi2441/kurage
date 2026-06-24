@@ -39,6 +39,21 @@ Kurage/Horizonで生成した動画をYouTubeへ投稿する場合は、`docs/yo
 
 kdeck.phpでスマホから作業するときも同じ。YouTube投稿ツール本体は `airadio-scripted-mv` リポジトリにあり、認証が失効している場合は `youtube_auth_paste.py` のURL貼り付け方式で再認証する。
 
+## YouTube Shorts自動投稿
+
+アクセス数の多いKurage縦型ショート動画をYouTube Shortsへ投稿する本番コードは、このリポジトリで管理する。
+
+- 実行スクリプト: `scripts/watch-kurage-shorts-upload.mjs`
+- RQDB4AIジョブ入口: `kurage_shorts_upload_jobs.run_kurage_shorts_upload_job`
+- kdeckゴール: `kurage-shorts-youtube-upload`
+- 投稿条件: `status=done`、縦型、180秒以下、`youtube_url` / `youtube_video_id` 未登録
+- 選定順: `views` 降順、同点なら新しい動画
+- 実行間隔: 8時間ごとに1本
+- 上限: JSTで1日3本
+- 告知: AIxSNSは有効、X自動投稿は無効
+
+古い `kvtuber-youtube-shorts-upload-watcher.service` は二重投稿防止のため使わない。
+
 ## Kurage と Horizon の使い分け
 
 ユーザーが「Kurageで生成して」と言った場合は、`kurage.php` の通常生成ルートを使う。
