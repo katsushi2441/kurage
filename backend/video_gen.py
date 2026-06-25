@@ -125,22 +125,8 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
         )
         t += 0.28
 
-    bob_js = []
-    t = 1.6
-    while t < total_dur:
-        bob_js.append(
-            f'    tl.to(".vtuber-avatar-wrap", {{y:-8, duration:1.65, ease:"sine.inOut"}}, {t:.2f})'
-            f'.to(".vtuber-avatar-wrap", {{y:0, duration:1.65, ease:"sine.inOut"}}, {t + 1.65:.2f});'
-        )
-        bob_js.append(
-            f'    tl.to(".vtuber-glow", {{scale:1.08, opacity:0.82, duration:1.35, ease:"sine.inOut"}}, {t:.2f})'
-            f'.to(".vtuber-glow", {{scale:1, opacity:1, duration:1.35, ease:"sine.inOut"}}, {t + 1.35:.2f});'
-        )
-        t += 3.3
-
     overlay_js = f"""
     tl.from("#vtuber-layer", {{opacity:0, y:38, scale:0.96, duration:0.55, ease:"power3.out"}}, 1.15);
-{chr(10).join(bob_js)}
 {chr(10).join(mouth_js)}"""
 
     return overlay_html, overlay_css, overlay_js
