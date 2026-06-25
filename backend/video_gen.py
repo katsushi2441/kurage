@@ -13,13 +13,12 @@ from tts_gen import generate_scene_narration_audio
 
 HF_TEMPLATE = ROOT / "hyperframes" / "aixec-health-book" / "hyperframes.json"
 AVATAR_IDLE = ROOT / "images" / "kurage_avatar_idle.png"
-AVATAR_TALK = ROOT / "images" / "kurage_avatar_talk_open.png"
 AVATAR_SMILE = ROOT / "images" / "kurage_avatar_smile.png"
 
 
 def _avatar_asset_paths() -> list[Path]:
     """Return avatar assets when the local PNG-tuber set is available."""
-    return [p for p in (AVATAR_IDLE, AVATAR_TALK, AVATAR_SMILE) if p.exists()]
+    return [p for p in (AVATAR_IDLE, AVATAR_SMILE) if p.exists()]
 
 
 def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
@@ -36,7 +35,7 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
         <div class="vtuber-avatar-wrap">
           <div class="vtuber-glow"></div>
           <img id="vtuber-idle" class="vtuber-avatar" src="assets/avatar_idle.png" alt="Kurage avatar">
-          <img id="vtuber-talk" class="vtuber-avatar" src="assets/avatar_talk.png" alt="">
+          <div id="vtuber-talk" class="vtuber-mouth-shape" aria-hidden="true"></div>
         </div>
       </div>
     </div>"""
@@ -96,11 +95,22 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
       object-fit: contain; filter: drop-shadow(0 16px 22px rgba(49, 121, 139, 0.22));
       transform-origin: 54% 66%;
     }
-    #vtuber-talk {
+    .vtuber-mouth-shape {
+      position: absolute;
+      left: 50%;
+      top: 50.5%;
+      width: 7.2%;
+      height: 4.6%;
+      border-radius: 999px;
+      background:
+        radial-gradient(ellipse at 50% 58%, rgba(255, 170, 178, 0.65) 0 28%, transparent 30%),
+        linear-gradient(180deg, #62191e 0%, #2a080b 100%);
+      box-shadow:
+        inset 0 1px 2px rgba(255, 255, 255, 0.22),
+        0 1px 2px rgba(42, 8, 11, 0.14);
       opacity: 0;
-      clip-path: inset(49% 39% 36% 39%);
-      filter: none;
-      transform-origin: 50% 56%;
+      transform: translate(-50%, -50%);
+      transform-origin: 50% 50%;
     }
     body.vtuber-enabled .scene-text {
       bottom: 292px; padding: 0 30px;
@@ -327,13 +337,11 @@ def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path], vtub
         shutil.copy(img, dest)
 
     if vtuber_mode:
-        avatar_assets = _avatar_asset_paths()
-        if len(avatar_assets) < 2:
+        if not AVATAR_IDLE.exists():
             print("  [video] vtuber_mode requested but avatar PNGs are missing; rendering without avatar", flush=True)
             vtuber_mode = False
         else:
             shutil.copy(AVATAR_IDLE, assets_dir / "avatar_idle.png")
-            shutil.copy(AVATAR_TALK, assets_dir / "avatar_talk.png")
             if AVATAR_SMILE.exists():
                 shutil.copy(AVATAR_SMILE, assets_dir / "avatar_smile.png")
 
