@@ -96,7 +96,12 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
       object-fit: contain; filter: drop-shadow(0 16px 22px rgba(49, 121, 139, 0.22));
       transform-origin: 54% 66%;
     }
-    #vtuber-talk { opacity: 0; }
+    #vtuber-talk {
+      opacity: 0;
+      clip-path: inset(45% 32% 28% 32%);
+      filter: none;
+      transform-origin: 50% 58%;
+    }
     body.vtuber-enabled .scene-text {
       bottom: 292px; padding: 0 30px;
     }"""
