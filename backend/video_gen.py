@@ -98,9 +98,9 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
     }
     #vtuber-talk {
       opacity: 0;
-      clip-path: inset(45% 32% 28% 32%);
+      clip-path: inset(49% 39% 36% 39%);
       filter: none;
-      transform-origin: 50% 58%;
+      transform-origin: 50% 56%;
     }
     body.vtuber-enabled .scene-text {
       bottom: 292px; padding: 0 30px;
