@@ -12,13 +12,13 @@ from tts_gen import generate_scene_narration_audio
 
 
 HF_TEMPLATE = ROOT / "hyperframes" / "aixec-health-book" / "hyperframes.json"
-AVATAR_IDLE = ROOT / "images" / "kurage_avatar_idle.png"
-AVATAR_SMILE = ROOT / "images" / "kurage_avatar_smile.png"
+AVATAR_LIPSYNC_DIR = ROOT / "images" / "avatar_lipsync"
+AVATAR_FRAMES = [AVATAR_LIPSYNC_DIR / f"kurage_mouth_{i}.png" for i in range(5)]
 
 
 def _avatar_asset_paths() -> list[Path]:
     """Return avatar assets when the local PNG-tuber set is available."""
-    return [p for p in (AVATAR_IDLE, AVATAR_SMILE) if p.exists()]
+    return [p for p in AVATAR_FRAMES if p.exists()]
 
 
 def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
@@ -34,8 +34,11 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
         </div>
         <div class="vtuber-avatar-wrap">
           <div class="vtuber-glow"></div>
-          <img id="vtuber-idle" class="vtuber-avatar" src="assets/avatar_idle.png" alt="Kurage avatar">
-          <div id="vtuber-talk" class="vtuber-mouth-shape" aria-hidden="true"></div>
+          <img id="vtuber-frame-0" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_0.png" alt="Kurage avatar">
+          <img id="vtuber-frame-1" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_1.png" alt="">
+          <img id="vtuber-frame-2" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_2.png" alt="">
+          <img id="vtuber-frame-3" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_3.png" alt="">
+          <img id="vtuber-frame-4" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_4.png" alt="">
         </div>
       </div>
     </div>"""
@@ -95,22 +98,12 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
       object-fit: contain; filter: drop-shadow(0 16px 22px rgba(49, 121, 139, 0.22));
       transform-origin: 54% 66%;
     }
-    .vtuber-mouth-shape {
-      position: absolute;
-      left: 50%;
-      top: 50.5%;
-      width: 7.2%;
-      height: 4.6%;
-      border-radius: 999px;
-      background:
-        radial-gradient(ellipse at 50% 58%, rgba(255, 170, 178, 0.65) 0 28%, transparent 30%),
-        linear-gradient(180deg, #62191e 0%, #2a080b 100%);
-      box-shadow:
-        inset 0 1px 2px rgba(255, 255, 255, 0.22),
-        0 1px 2px rgba(42, 8, 11, 0.14);
+    .vtuber-avatar-frame {
       opacity: 0;
-      transform: translate(-50%, -50%);
-      transform-origin: 50% 50%;
+      transition: none;
+    }
+    #vtuber-frame-0 {
+      opacity: 1;
     }
     body.vtuber-enabled .scene-text {
       bottom: 292px; padding: 0 30px;
@@ -119,11 +112,13 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
     mouth_js = []
     t = 2.0
     while t < total_dur:
+        level = int((round(t * 100) // 28) % 5)
         mouth_js.append(
-            f'    tl.set("#vtuber-talk", {{opacity:1}}, {t:.2f})'
-            f'.set("#vtuber-talk", {{opacity:0}}, {t + 0.10:.2f});'
+            f'    tl.set(".vtuber-avatar-frame", {{opacity:0}}, {t:.2f})'
+            f'.set("#vtuber-frame-{level}", {{opacity:1}}, {t:.2f});'
         )
         t += 0.28
+    mouth_js.append(f'    tl.set(".vtuber-avatar-frame", {{opacity:0}}, {total_dur:.2f}).set("#vtuber-frame-0", {{opacity:1}}, {total_dur:.2f});')
 
     overlay_js = f"""
     tl.from("#vtuber-layer", {{opacity:0, y:38, scale:0.96, duration:0.55, ease:"power3.out"}}, 1.15);
@@ -323,13 +318,13 @@ def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path], vtub
         shutil.copy(img, dest)
 
     if vtuber_mode:
-        if not AVATAR_IDLE.exists():
+        avatar_paths = _avatar_asset_paths()
+        if len(avatar_paths) != len(AVATAR_FRAMES):
             print("  [video] vtuber_mode requested but avatar PNGs are missing; rendering without avatar", flush=True)
             vtuber_mode = False
         else:
-            shutil.copy(AVATAR_IDLE, assets_dir / "avatar_idle.png")
-            if AVATAR_SMILE.exists():
-                shutil.copy(AVATAR_SMILE, assets_dir / "avatar_smile.png")
+            for i, src in enumerate(avatar_paths):
+                shutil.copy(src, assets_dir / f"avatar_lipsync_{i}.png")
 
     # Total duration
     scenes = script.get("scenes") or []
