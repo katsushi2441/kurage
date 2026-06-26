@@ -93,7 +93,7 @@ def normalize_narration_text(value: str) -> str:
 
 def normalize_script(script: dict, scene_duration: int = 10, force_title: str = "") -> dict:
     if force_title:
-        script["title"] = force_title[:60]
+        script["title"] = force_title[:80]
     if "scenes" not in script or not script["scenes"]:
         raise ValueError("Script missing scenes")
     for i, scene in enumerate(script["scenes"]):
@@ -101,7 +101,9 @@ def normalize_script(script: dict, scene_duration: int = 10, force_title: str = 
         scene["index"] = i
         scene["duration"] = int(scene.get("duration") or scene_duration)
         scene["narration"] = normalize_narration_text(scene.get("narration") or "")
-    script["title"] = normalize_narration_text(script.get("title") or "")
+    # Titles are display metadata, not TTS text. Keep product names such as
+    # "Kurage AI VTuber Radio" in their original branded form.
+    script["title"] = str(script.get("title") or "").strip()
     return script
 
 
