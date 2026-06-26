@@ -12,7 +12,9 @@ from tts_gen import generate_scene_narration_audio
 
 
 HF_TEMPLATE = ROOT / "hyperframes" / "aixec-health-book" / "hyperframes.json"
-AVATAR_LIPSYNC_DIR = ROOT / "images" / "avatar_lipsync"
+# kvtuber owns the canonical Kurage avatar. Other Kurage products reference it
+# directly instead of carrying stale copies.
+AVATAR_LIPSYNC_DIR = Path(os.environ.get("KURAGE_AVATAR_LIPSYNC_DIR", "/home/kojima/work/kvtuber/public/avatar/lipsync"))
 AVATAR_FRAMES = [AVATAR_LIPSYNC_DIR / f"kurage_mouth_{i}.png" for i in range(5)]
 
 
