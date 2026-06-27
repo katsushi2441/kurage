@@ -184,9 +184,18 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
         end = start + dur
         fade_in = start
         fade_out = end - 0.5
+        direction = -1 if i % 2 else 1
+        start_x = -18 * direction
+        end_x = 18 * direction
+        start_y = -10 if i % 3 == 0 else 8
+        end_y = 10 if i % 3 == 0 else -8
         gsap_scenes.append(f"""
   // Scene {i}
   tl.to("#scene-{i}", {{opacity:1, duration:0.5}}, {fade_in:.2f})
+    .fromTo("#scene-{i} .scene-bg",
+      {{scale:1.035, x:{start_x}, y:{start_y}}},
+      {{scale:1.12, x:{end_x}, y:{end_y}, duration:{dur:.2f}, ease:"none"}},
+      {fade_in:.2f})
     .to("#scene-{i} .scene-text", {{opacity:1, y:0, duration:0.4}}, {fade_in + 0.3:.2f})
     .to("#scene-{i}", {{opacity:0, duration:0.5}}, {fade_out:.2f});""")
 
@@ -238,6 +247,8 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
     .scene-bg {{
       width: 100%; height: 100%; object-fit: cover; display: block;
       filter: saturate(0.96) brightness(1.08);
+      transform-origin: center center;
+      will-change: transform;
     }}
     .scene::after {{
       content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
