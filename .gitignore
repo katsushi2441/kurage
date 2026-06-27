@@ -7,3 +7,7 @@ __pycache__/
 
 # Runtime-generated content data
 data/*.json
+
+# Local upstream/reference checkouts and heavy voice model outputs
+vendor/voicebox/
+voicebox-output/
