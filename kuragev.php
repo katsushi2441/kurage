@@ -47,6 +47,53 @@ function is_entertainment_job($job) {
         || (strpos((string)($job['tweet_url'] ?? ''), '/entertainment.php') !== false);
 }
 
+function job_tool_key($job) {
+    $source = strtolower(trim((string)($job['source'] ?? '')));
+    $content_type = strtolower(trim((string)($job['content_type'] ?? '')));
+    if (is_voice_pro_job($job)) { return 'kuragevp'; }
+    if ($source === 'kmontage') { return 'kmontage'; }
+    if ($source === 'blog' || $content_type === 'blog') { return 'blog'; }
+    if ($source === 'horizon') { return 'horizon'; }
+    if (is_entertainment_job($job)) { return 'entertainment'; }
+    if ($source !== '') { return $source; }
+    return 'kurage';
+}
+
+function job_tool_label($job_or_key) {
+    $key = is_array($job_or_key) ? job_tool_key($job_or_key) : strtolower(trim((string)$job_or_key));
+    $labels = array(
+        'kurage' => 'Kurage',
+        'tweet' => 'Kurage',
+        'horizon' => 'Horizon',
+        'blog' => 'Kurage Blog',
+        'kuragevp' => 'Kurage Voice Pro',
+        'kmontage' => 'Kurage Montage',
+        'entertainment' => 'Kurage Entertainment',
+    );
+    return $labels[$key] ?? ($key !== '' ? $key : 'Kurage');
+}
+
+function job_author_key($job) {
+    $author = trim((string)($job['tweet_author'] ?? ''));
+    if ($author !== '') { return $author; }
+    return job_tool_label($job);
+}
+
+function current_query_url($overrides = array()) {
+    global $THIS_FILE;
+    $params = $_GET;
+    unset($params['id']);
+    foreach ($overrides as $key => $value) {
+        if ($value === null || $value === '') {
+            unset($params[$key]);
+        } else {
+            $params[$key] = $value;
+        }
+    }
+    $query = http_build_query($params);
+    return $THIS_FILE . ($query ? ('?' . $query) : '');
+}
+
 function related_article_url($job) {
     foreach (array('article_url', 'tweet_url') as $key) {
         $url = trim((string)($job[$key] ?? ''));
@@ -341,6 +388,11 @@ if ($detail_id) {
 
 /* ── 一覧データ（詳細以外） ──────────────────────────── */
 $videos = [];
+$tool_filter = isset($_GET['tool']) ? strtolower(trim((string)$_GET['tool'])) : '';
+$author_filter = isset($_GET['author']) ? trim((string)$_GET['author']) : '';
+$tool_options = [];
+$author_options = [];
+$total_done_videos = 0;
 if (!$detail_id) {
     $jobs_res = kurage_get('/jobs?limit=0');
     $all_jobs = (!empty($jobs_res['jobs'])) ? $jobs_res['jobs'] : [];
@@ -348,13 +400,29 @@ if (!$detail_id) {
     /* done の全動画を無限スクロール対象にする */
     foreach ($all_jobs as $j) {
         if (($j['status'] ?? '') !== 'done') continue;
+        $total_done_videos++;
+        $tool_key = job_tool_key($j);
+        $tool_options[$tool_key] = job_tool_label($tool_key);
+        $author_key = job_author_key($j);
+        if ($author_key !== '') { $author_options[$author_key] = $author_key; }
+        if ($tool_filter !== '' && $tool_key !== $tool_filter) continue;
+        if ($author_filter !== '' && $author_key !== $author_filter) continue;
+        $j['tool_key'] = $tool_key;
+        $j['tool_label'] = job_tool_label($tool_key);
+        $j['author_filter_key'] = $author_key;
         $videos[] = $j;
     }
+    asort($tool_options, SORT_NATURAL | SORT_FLAG_CASE);
+    ksort($author_options, SORT_NATURAL | SORT_FLAG_CASE);
     foreach ($videos as $idx => $video) {
         if (is_voice_pro_job($video) && empty($video['translated_text']) && empty($video['script'])) {
             $full_job = kurage_get('/status/' . urlencode($video['job_id'] ?? ''), 8);
             if (is_array($full_job)) {
-                $videos[$idx] = array_merge($full_job, $video);
+                $merged = array_merge($full_job, $video);
+                $merged['tool_key'] = job_tool_key($merged);
+                $merged['tool_label'] = job_tool_label($merged);
+                $merged['author_filter_key'] = job_author_key($merged);
+                $videos[$idx] = $merged;
             }
         }
     }
@@ -480,7 +548,14 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 .sorts{display:flex;gap:6px;align-items:center;}
 .sort-link{border:1px solid #d6e3e8;border-radius:999px;padding:5px 10px;color:#53636b;text-decoration:none;font-size:12px;font-weight:800;background:#fff;}
 .sort-link.active{background:#007f96;border-color:#007f96;color:#fff;}
+.filter-bar{padding:12px 20px;border-bottom:1px solid #f0f0f0;background:linear-gradient(180deg,#fbfeff,#fff);display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;}
+.filter-field{display:flex;flex-direction:column;gap:5px;font-size:11px;color:#64748b;font-weight:900;letter-spacing:.04em;}
+.filter-field select{width:100%;border:1px solid #d6e3e8;border-radius:10px;background:#fff;color:#132329;padding:8px 10px;font-size:13px;font-family:inherit;}
+.filter-clear{border:1px solid #d6e3e8;border-radius:10px;background:#fff;color:#007f96;text-decoration:none;padding:8px 12px;font-size:12px;font-weight:900;white-space:nowrap;text-align:center;}
+.filter-clear:hover{background:#e0f5f8;border-color:#007f96;}
+.tool-badge{display:inline-flex;align-items:center;width:max-content;border:1px solid #b2dde8;background:#e8f8fb;color:#007f96;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:900;margin-bottom:6px;}
 .views{display:inline-flex;align-items:center;gap:4px;color:#007f96;font-weight:900;}
+@media (max-width:640px){.filter-bar{grid-template-columns:1fr;}.filter-clear{display:block;}}
 
 /* ── カード ── */
 .post-card{border-bottom:1px solid #f0f0f0;padding:20px;transition:background .15s;}
@@ -665,12 +740,32 @@ $detail_body_text = job_body_text($detail_job);
 <!-- ============ 一覧ページ ============ -->
 <div class="container">
   <div class="count-bar">
-    <span><?php echo count($videos); ?> 件の動画</span>
+    <span><?php echo count($videos); ?> / <?php echo (int)$total_done_videos; ?> 件の動画</span>
     <span class="sorts">
-      <a class="sort-link <?php echo $sort === 'created' ? 'active' : ''; ?>" href="<?php echo h($THIS_FILE . '?sort=created'); ?>">作成日順</a>
-      <a class="sort-link <?php echo $sort === 'views' ? 'active' : ''; ?>" href="<?php echo h($THIS_FILE . '?sort=views'); ?>">表示回数順</a>
+      <a class="sort-link <?php echo $sort === 'created' ? 'active' : ''; ?>" href="<?php echo h(current_query_url(array('sort' => 'created'))); ?>">作成日順</a>
+      <a class="sort-link <?php echo $sort === 'views' ? 'active' : ''; ?>" href="<?php echo h(current_query_url(array('sort' => 'views'))); ?>">表示回数順</a>
     </span>
   </div>
+  <form class="filter-bar" method="get" action="<?php echo h($THIS_FILE); ?>">
+    <input type="hidden" name="sort" value="<?php echo h($sort); ?>">
+    <label class="filter-field">生成ツール
+      <select name="tool" onchange="this.form.submit()">
+        <option value="">すべて</option>
+        <?php foreach ($tool_options as $key => $label): ?>
+        <option value="<?php echo h($key); ?>" <?php echo $tool_filter === $key ? 'selected' : ''; ?>><?php echo h($label); ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
+    <label class="filter-field">AIxSNS投稿者 / 元投稿者
+      <select name="author" onchange="this.form.submit()">
+        <option value="">すべて</option>
+        <?php foreach ($author_options as $key => $label): ?>
+        <option value="<?php echo h($key); ?>" <?php echo $author_filter === $key ? 'selected' : ''; ?>><?php echo h($label); ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
+    <a class="filter-clear" href="<?php echo h(current_query_url(array('tool' => null, 'author' => null))); ?>">絞込解除</a>
+  </form>
   <div id="post-list"></div>
   <div id="load-sentinel" style="height:1px;"></div>
   <div id="load-indicator" style="display:none;text-align:center;padding:16px;font-size:13px;color:#888;">読み込み中…</div>
@@ -734,6 +829,18 @@ function isVoiceProJob(v) {
 
 function isEntertainmentJob(v) {
     return (v.source === 'entertainment') || (v.content_type === 'entertainment_short') || String(v.tweet_url || '').indexOf('/entertainment.php') !== -1;
+}
+
+function toolLabelForJob(v) {
+    var source = String(v.source || '').toLowerCase();
+    var contentType = String(v.content_type || '').toLowerCase();
+    if (isVoiceProJob(v)) return 'Kurage Voice Pro';
+    if (source === 'kmontage') return 'Kurage Montage';
+    if (source === 'blog' || contentType === 'blog') return 'Kurage Blog';
+    if (source === 'horizon') return 'Horizon';
+    if (isEntertainmentJob(v)) return 'Kurage Entertainment';
+    if (v.tool_label) return String(v.tool_label);
+    return 'Kurage';
 }
 
 function isLocalSourcePath(url) {
@@ -896,6 +1003,7 @@ function renderCards(from, to) {
         var title  = displayTitleForJob(v);
         var author = v.tweet_author || '';
         var tweet  = bodyTextForJob(v);
+        var tool   = toolLabelForJob(v);
         var turl   = sourceUrlForJob(v);
         var date   = v.created_at || '';
         var views  = Number.isFinite(Number(v.views)) ? Number(v.views) : 0;
@@ -924,6 +1032,7 @@ function renderCards(from, to) {
             + '<div class="card-video-play">▶</div>'
             + '</div>'
             + '<div class="card-content">'
+            + '<div class="tool-badge">' + esc(tool) + '</div>'
             + '<div class="post-meta" style="margin-bottom:6px;">'
             + '<div class="post-title">' + esc(title) + '</div>'
             + '<div class="post-time">' + esc(date) + '<br><span class="views">表示' + esc(views) + '</span></div>'
