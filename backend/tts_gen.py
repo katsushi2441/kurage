@@ -1,15 +1,23 @@
-"""TTS narration generation using edge-tts."""
+"""TTS narration generation."""
 from __future__ import annotations
 import asyncio
+import os
 import re
 import subprocess
+import time
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from tts_normalizer import normalize_tts_text as normalize_text_for_tts, numerals_to_jp
 
 TTS_VOICE = "ja-JP-NanamiNeural"
 TTS_RATE  = "+10%"
 TTS_PITCH = "-15Hz"
+TTS_BACKEND = os.environ.get("KURAGE_TTS_BACKEND", "edge").strip().lower()
+VOICEBOX_API = os.environ.get("VOICEBOX_API", "http://127.0.0.1:17493").rstrip("/")
+VOICEBOX_PROFILE_ID = os.environ.get("VOICEBOX_PROFILE_ID", "74276a0b-243f-4527-8b64-1636bc464ade")
+VOICEBOX_ENGINE = os.environ.get("VOICEBOX_ENGINE", "chatterbox")
+VOICEBOX_TIMEOUT = int(os.environ.get("VOICEBOX_TIMEOUT", "900"))
 
 
 def prepare_prosody_text(text: str) -> str:
@@ -44,6 +52,16 @@ def get_audio_duration(path: Path) -> float:
 
 
 def run_tts(text: str, output_path: Path) -> float:
+    """Generate narration audio. Returns duration seconds, or 0.0 on failure."""
+    if TTS_BACKEND == "voicebox":
+        duration = run_voicebox_tts(text, output_path)
+        if duration > 0:
+            return duration
+        print("  [tts] voicebox failed; falling back to edge-tts", flush=True)
+    return run_edge_tts(text, output_path)
+
+
+def run_edge_tts(text: str, output_path: Path) -> float:
     """edge-tts でナレーション音声を生成。成功時は秒数、失敗時は 0.0 を返す"""
     import edge_tts
 
@@ -63,6 +81,95 @@ def run_tts(text: str, output_path: Path) -> float:
     duration = get_audio_duration(output_path)
     print(f"  [tts] {output_path.name} ({duration:.1f}s)", flush=True)
     return duration
+
+
+def run_voicebox_tts(text: str, output_path: Path) -> float:
+    """Voicebox cloned-voice TTS, converted to the requested output format."""
+    import requests
+
+    text = prepare_prosody_text(text)
+    if not text:
+        return 0.0
+
+    print(
+        f"  [tts] generating (voicebox:{VOICEBOX_ENGINE}, profile={VOICEBOX_PROFILE_ID[:8]}...): {text[:60]}...",
+        flush=True,
+    )
+    payload = {
+        "profile_id": VOICEBOX_PROFILE_ID,
+        "text": text,
+        "language": "ja",
+        "engine": VOICEBOX_ENGINE,
+        "personality": False,
+        "max_chunk_chars": 800,
+        "crossfade_ms": 50,
+        "normalize": True,
+    }
+
+    try:
+        response = requests.post(f"{VOICEBOX_API}/generate", json=payload, timeout=60)
+        response.raise_for_status()
+        generation = response.json()
+        generation_id = generation.get("id")
+        if not generation_id:
+            print(f"  [tts] voicebox failed: missing generation id: {generation}", flush=True)
+            return 0.0
+
+        deadline = time.time() + VOICEBOX_TIMEOUT
+        history = generation
+        while time.time() < deadline:
+            status = history.get("status")
+            if status == "completed":
+                break
+            if status == "failed":
+                print(f"  [tts] voicebox failed: {history.get('error')}", flush=True)
+                return 0.0
+            time.sleep(2.0)
+            history_response = requests.get(f"{VOICEBOX_API}/history/{generation_id}", timeout=30)
+            history_response.raise_for_status()
+            history = history_response.json()
+        else:
+            print(f"  [tts] voicebox timed out after {VOICEBOX_TIMEOUT}s: {generation_id}", flush=True)
+            return 0.0
+
+        audio_response = requests.get(f"{VOICEBOX_API}/audio/{generation_id}", timeout=60)
+        audio_response.raise_for_status()
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with NamedTemporaryFile(suffix=".wav", dir=str(output_path.parent), delete=False) as tmp:
+            tmp.write(audio_response.content)
+            tmp_path = Path(tmp.name)
+
+        try:
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-i",
+                    str(tmp_path),
+                    "-codec:a",
+                    "libmp3lame",
+                    "-q:a",
+                    "2",
+                    str(output_path),
+                ],
+                check=True,
+            )
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+        if not output_path.exists():
+            print("  [tts] voicebox failed: output not created", flush=True)
+            return 0.0
+        duration = get_audio_duration(output_path)
+        print(f"  [tts] {output_path.name} ({duration:.1f}s, voicebox)", flush=True)
+        return duration
+    except Exception as exc:
+        print(f"  [tts] voicebox exception: {exc}", flush=True)
+        return 0.0
 
 
 def normalize_tts_text(text: str) -> str:

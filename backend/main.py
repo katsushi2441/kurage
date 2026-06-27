@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from config import JOBS_DIR, PORT, ERNIE_URL, NVM_NODE, HYPERFRAMES_VERSION, OLLAMA_URL, OLLAMA_MODEL, WAN_API, WAN_TEST_MODE
-from tts_gen import TTS_VOICE, TTS_RATE, TTS_PITCH
+from tts_gen import TTS_BACKEND, TTS_VOICE, TTS_RATE, TTS_PITCH, VOICEBOX_ENGINE, VOICEBOX_PROFILE_ID
 from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, run_pipeline_from_entertainment_short, run_pipeline_from_script, load_job, update_job
 from video_styles import STYLE_PRESETS, resolve_video_style, style_names
 from typing import Any
@@ -102,8 +102,16 @@ def config():
             "api": _mask_url(ERNIE_URL),
         },
         "tts": {
-            "label": f"edge-tts ({TTS_VOICE})",
-            "api": f"rate={TTS_RATE} pitch={TTS_PITCH}",
+            "label": (
+                f"voicebox ({VOICEBOX_ENGINE}, profile={VOICEBOX_PROFILE_ID[:8]}...)"
+                if TTS_BACKEND == "voicebox"
+                else f"edge-tts ({TTS_VOICE})"
+            ),
+            "api": (
+                "Voicebox /generate -> /audio"
+                if TTS_BACKEND == "voicebox"
+                else f"rate={TTS_RATE} pitch={TTS_PITCH}"
+            ),
         },
         "video": {
             "label": f"HyperFrames v{HYPERFRAMES_VERSION}",
