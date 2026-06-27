@@ -16,6 +16,7 @@ HF_TEMPLATE = ROOT / "hyperframes" / "aixec-health-book" / "hyperframes.json"
 # directly instead of carrying stale copies.
 AVATAR_LIPSYNC_DIR = Path(os.environ.get("KURAGE_AVATAR_LIPSYNC_DIR", "/home/kojima/work/kvtuber/public/avatar/lipsync"))
 AVATAR_FRAMES = [AVATAR_LIPSYNC_DIR / f"kurage_mouth_{i}.png" for i in range(5)]
+AVATAR_OVERLAY_DEFAULT = os.environ.get("KURAGE_AVATAR_OVERLAY_DEFAULT", "1").lower() not in {"0", "false", "no", "off"}
 
 
 def _avatar_asset_paths() -> list[Path]:
@@ -23,12 +24,17 @@ def _avatar_asset_paths() -> list[Path]:
     return [p for p in AVATAR_FRAMES if p.exists()]
 
 
+def _should_show_avatar(vtuber_mode: bool) -> bool:
+    """Kurage/Horizon videos show the canonical Kurage avatar by default."""
+    return bool(vtuber_mode or AVATAR_OVERLAY_DEFAULT)
+
+
 def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
     """HTML/CSS/GSAP snippets for the branded Kurage VTuber explainer layer."""
     safe_title = html.escape(title)
     overlay_html = f"""
     <div id="vtuber-layer" aria-label="Kurage VTuber explainer overlay">
-      <div class="vtuber-badge">VTuber解説モード</div>
+      <div class="vtuber-badge">Kurage解説</div>
       <div class="vtuber-card">
         <div class="vtuber-copy">
           <div class="vtuber-name">Kurage AI Navigator</div>
@@ -311,6 +317,7 @@ def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path], vtub
     """Create a HyperFrames project directory ready for rendering."""
     project_dir = job_dir / "hf_project"
     project_dir.mkdir(parents=True, exist_ok=True)
+    show_avatar = _should_show_avatar(vtuber_mode)
 
     # Copy assets
     assets_dir = project_dir / "assets"
@@ -319,11 +326,11 @@ def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path], vtub
         dest = assets_dir / f"scene_{i:02d}.png"
         shutil.copy(img, dest)
 
-    if vtuber_mode:
+    if show_avatar:
         avatar_paths = _avatar_asset_paths()
         if len(avatar_paths) != len(AVATAR_FRAMES):
-            print("  [video] vtuber_mode requested but avatar PNGs are missing; rendering without avatar", flush=True)
-            vtuber_mode = False
+            print("  [video] Kurage avatar overlay requested but avatar PNGs are missing; rendering without avatar", flush=True)
+            show_avatar = False
         else:
             for i, src in enumerate(avatar_paths):
                 shutil.copy(src, assets_dir / f"avatar_lipsync_{i}.png")
@@ -341,7 +348,7 @@ def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path], vtub
         total_dur = scene_dur
 
     # Write index.html
-    html_content = build_html(script, image_paths, total_dur, narration_duration, vtuber_mode=vtuber_mode)
+    html_content = build_html(script, image_paths, total_dur, narration_duration, vtuber_mode=show_avatar)
     (project_dir / "index.html").write_text(html_content, encoding="utf-8")
 
     # Copy hyperframes.json template
