@@ -73,16 +73,11 @@ function job_tool_label($job_or_key) {
     return $labels[$key] ?? ($key !== '' ? $key : 'Kurage');
 }
 
-function job_author_key($job) {
-    $author = trim((string)($job['tweet_author'] ?? ''));
-    if ($author !== '') { return $author; }
-    return job_tool_label($job);
-}
-
 function current_query_url($overrides = array()) {
     global $THIS_FILE;
     $params = $_GET;
     unset($params['id']);
+    unset($params['author']);
     foreach ($overrides as $key => $value) {
         if ($value === null || $value === '') {
             unset($params[$key]);
@@ -389,9 +384,7 @@ if ($detail_id) {
 /* ── 一覧データ（詳細以外） ──────────────────────────── */
 $videos = [];
 $tool_filter = isset($_GET['tool']) ? strtolower(trim((string)$_GET['tool'])) : '';
-$author_filter = isset($_GET['author']) ? trim((string)$_GET['author']) : '';
 $tool_options = [];
-$author_options = [];
 $total_done_videos = 0;
 if (!$detail_id) {
     $jobs_res = kurage_get('/jobs?limit=0');
@@ -403,17 +396,12 @@ if (!$detail_id) {
         $total_done_videos++;
         $tool_key = job_tool_key($j);
         $tool_options[$tool_key] = job_tool_label($tool_key);
-        $author_key = job_author_key($j);
-        if ($author_key !== '') { $author_options[$author_key] = $author_key; }
         if ($tool_filter !== '' && $tool_key !== $tool_filter) continue;
-        if ($author_filter !== '' && $author_key !== $author_filter) continue;
         $j['tool_key'] = $tool_key;
         $j['tool_label'] = job_tool_label($tool_key);
-        $j['author_filter_key'] = $author_key;
         $videos[] = $j;
     }
     asort($tool_options, SORT_NATURAL | SORT_FLAG_CASE);
-    ksort($author_options, SORT_NATURAL | SORT_FLAG_CASE);
     foreach ($videos as $idx => $video) {
         if (is_voice_pro_job($video) && empty($video['translated_text']) && empty($video['script'])) {
             $full_job = kurage_get('/status/' . urlencode($video['job_id'] ?? ''), 8);
@@ -421,7 +409,6 @@ if (!$detail_id) {
                 $merged = array_merge($full_job, $video);
                 $merged['tool_key'] = job_tool_key($merged);
                 $merged['tool_label'] = job_tool_label($merged);
-                $merged['author_filter_key'] = job_author_key($merged);
                 $videos[$idx] = $merged;
             }
         }
@@ -548,14 +535,16 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 .sorts{display:flex;gap:6px;align-items:center;}
 .sort-link{border:1px solid #d6e3e8;border-radius:999px;padding:5px 10px;color:#53636b;text-decoration:none;font-size:12px;font-weight:800;background:#fff;}
 .sort-link.active{background:#007f96;border-color:#007f96;color:#fff;}
-.filter-bar{padding:12px 20px;border-bottom:1px solid #f0f0f0;background:linear-gradient(180deg,#fbfeff,#fff);display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;}
-.filter-field{display:flex;flex-direction:column;gap:5px;font-size:11px;color:#64748b;font-weight:900;letter-spacing:.04em;}
-.filter-field select{width:100%;border:1px solid #d6e3e8;border-radius:10px;background:#fff;color:#132329;padding:8px 10px;font-size:13px;font-family:inherit;}
-.filter-clear{border:1px solid #d6e3e8;border-radius:10px;background:#fff;color:#007f96;text-decoration:none;padding:8px 12px;font-size:12px;font-weight:900;white-space:nowrap;text-align:center;}
-.filter-clear:hover{background:#e0f5f8;border-color:#007f96;}
+.tool-filter{padding:12px 20px;border-bottom:1px solid #f0f0f0;background:linear-gradient(180deg,#fbfeff,#fff);}
+.tool-filter-title{font-size:11px;color:#64748b;font-weight:900;letter-spacing:.04em;margin-bottom:8px;}
+.tool-filter-list{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;}
+.tool-filter-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid #d6e3e8;border-radius:999px;background:#fff;color:#53636b;text-decoration:none;padding:7px 12px;font-size:12px;font-weight:900;white-space:nowrap;}
+.tool-filter-chip::before{content:"";width:8px;height:8px;border-radius:50%;background:#b9cbd2;}
+.tool-filter-chip.active{background:#007f96;border-color:#007f96;color:#fff;box-shadow:0 8px 18px rgba(0,127,150,.18);}
+.tool-filter-chip.active::before{background:#fff;}
 .tool-badge{display:inline-flex;align-items:center;width:max-content;border:1px solid #b2dde8;background:#e8f8fb;color:#007f96;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:900;margin-bottom:6px;}
 .views{display:inline-flex;align-items:center;gap:4px;color:#007f96;font-weight:900;}
-@media (max-width:640px){.filter-bar{grid-template-columns:1fr;}.filter-clear{display:block;}}
+@media (max-width:640px){.tool-filter{padding-right:0;}.tool-filter-list{padding-right:20px;}}
 
 /* ── カード ── */
 .post-card{border-bottom:1px solid #f0f0f0;padding:20px;transition:background .15s;}
@@ -746,26 +735,15 @@ $detail_body_text = job_body_text($detail_job);
       <a class="sort-link <?php echo $sort === 'views' ? 'active' : ''; ?>" href="<?php echo h(current_query_url(array('sort' => 'views'))); ?>">表示回数順</a>
     </span>
   </div>
-  <form class="filter-bar" method="get" action="<?php echo h($THIS_FILE); ?>">
-    <input type="hidden" name="sort" value="<?php echo h($sort); ?>">
-    <label class="filter-field">生成ツール
-      <select name="tool" onchange="this.form.submit()">
-        <option value="">すべて</option>
-        <?php foreach ($tool_options as $key => $label): ?>
-        <option value="<?php echo h($key); ?>" <?php echo $tool_filter === $key ? 'selected' : ''; ?>><?php echo h($label); ?></option>
-        <?php endforeach; ?>
-      </select>
-    </label>
-    <label class="filter-field">AIxSNS投稿者 / 元投稿者
-      <select name="author" onchange="this.form.submit()">
-        <option value="">すべて</option>
-        <?php foreach ($author_options as $key => $label): ?>
-        <option value="<?php echo h($key); ?>" <?php echo $author_filter === $key ? 'selected' : ''; ?>><?php echo h($label); ?></option>
-        <?php endforeach; ?>
-      </select>
-    </label>
-    <a class="filter-clear" href="<?php echo h(current_query_url(array('tool' => null, 'author' => null))); ?>">絞込解除</a>
-  </form>
+  <div class="tool-filter" aria-label="生成ツールで絞り込み">
+    <div class="tool-filter-title">生成ツール</div>
+    <div class="tool-filter-list">
+      <a class="tool-filter-chip <?php echo $tool_filter === '' ? 'active' : ''; ?>" href="<?php echo h(current_query_url(array('tool' => null))); ?>">すべて</a>
+      <?php foreach ($tool_options as $key => $label): ?>
+      <a class="tool-filter-chip <?php echo $tool_filter === $key ? 'active' : ''; ?>" href="<?php echo h(current_query_url(array('tool' => $key))); ?>"><?php echo h($label); ?></a>
+      <?php endforeach; ?>
+    </div>
+  </div>
   <div id="post-list"></div>
   <div id="load-sentinel" style="height:1px;"></div>
   <div id="load-indicator" style="display:none;text-align:center;padding:16px;font-size:13px;color:#888;">読み込み中…</div>
