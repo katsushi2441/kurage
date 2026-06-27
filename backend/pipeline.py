@@ -1,6 +1,7 @@
 """Core pipeline: tweet URL → script → images → video."""
 from __future__ import annotations
 import json
+import re
 import time
 import traceback
 from pathlib import Path
@@ -70,6 +71,40 @@ def normalize_provided_script(script: dict, video_style: str = "auto", scene_dur
         "title": str(script.get("title") or "Kurage動画").strip()[:80],
         "scenes": [],
     }
+
+    def _split_long_narration(text: str, max_chars: int = 75) -> list[str]:
+        """Keep externally supplied scripts watchable by avoiding one giant scene."""
+        text = str(text or "").strip()
+        if len(text) <= max_chars:
+            return [text] if text else []
+
+        # Prefer semantic breaks first, then fall back to fixed-size chunks.
+        parts = [
+            " ".join(p.split())
+            for p in re.split(r"(?<=[。！？!?])\s*|[\n\r]+", text)
+            if p.strip()
+        ]
+        if len(parts) <= 1:
+            parts = [p.strip() for p in re.split(r"\s+", text) if p.strip()]
+
+        chunks: list[str] = []
+        current = ""
+        for part in parts:
+            if not current:
+                current = part
+            elif len(current) + len(part) + 1 <= max_chars:
+                current = f"{current} {part}"
+            else:
+                chunks.append(current)
+                current = part
+
+            while len(current) > max_chars:
+                chunks.append(current[:max_chars].rstrip())
+                current = current[max_chars:].lstrip()
+        if current:
+            chunks.append(current)
+        return chunks
+
     for i, scene in enumerate(scenes):
         if not isinstance(scene, dict):
             continue
@@ -77,12 +112,13 @@ def normalize_provided_script(script: dict, video_style: str = "auto", scene_dur
         if not narration:
             continue
         prompt = str(scene.get("image_prompt") or "clean vertical explainer visual, 9:16").strip()
-        out["scenes"].append({
-            "index": len(out["scenes"]),
-            "narration": narration,
-            "image_prompt": prompt,
-            "duration": int(scene.get("duration") or scene_duration),
-        })
+        for chunk in _split_long_narration(narration):
+            out["scenes"].append({
+                "index": len(out["scenes"]),
+                "narration": chunk,
+                "image_prompt": prompt,
+                "duration": int(scene.get("duration") or scene_duration),
+            })
     if not out["scenes"]:
         raise ValueError("script.scenes has no usable narration")
     return apply_video_style(out, video_style)

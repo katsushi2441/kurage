@@ -7,7 +7,7 @@ from pathlib import Path
 from tts_normalizer import normalize_tts_text as normalize_text_for_tts, numerals_to_jp
 
 TTS_VOICE = "ja-JP-NanamiNeural"
-TTS_RATE  = "+10%"
+TTS_RATE  = "+0%"
 TTS_PITCH = "-15Hz"
 
 
