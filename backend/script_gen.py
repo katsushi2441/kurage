@@ -107,6 +107,164 @@ def normalize_script(script: dict, scene_duration: int = 10, force_title: str = 
     return script
 
 
+KMONTAGE_QUALITY_RULES = """
+Kurage Montage quality rules:
+- Do not produce generic summaries. Extract the concrete claim, numbers, tools, workflow, risks, and why it matters.
+- Build scenes in this order when possible: hook, context, key evidence, workflow, implications, caveats, action insight, closing.
+- Every narration must be natural Japanese. Proper nouns and tool names may stay in English, but explanations must be Japanese.
+- Avoid thin phrases like 「注目です」「話題です」「詳しく見ます」 unless followed by a concrete point.
+- For each scene, image_prompt must be English and describe a concrete ERNIE-friendly visual: subject, setting, camera, lighting, readable cards, vertical 9:16.
+- Use bright White Studio / pale aqua / clean explainer visuals. Avoid black backgrounds and generic cyberpunk.
+- Keep source facts faithful. If information is not in the source, do not invent it.
+""".strip()
+
+
+def _json_source_excerpt(value, limit: int = 5200) -> str:
+    if isinstance(value, str):
+        text = value
+    else:
+        text = json.dumps(value, ensure_ascii=False)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:limit]
+
+
+def _japanese_signal(text: str) -> int:
+    return len(re.findall(r"[\u3040-\u30ff\u3400-\u9fff]", text or ""))
+
+
+def _script_needs_repair(script: dict, expected_scenes: int) -> bool:
+    scenes = script.get("scenes") if isinstance(script, dict) else []
+    if not isinstance(scenes, list) or len(scenes) < max(4, expected_scenes // 2):
+        return True
+    narrations = " ".join(str(s.get("narration") or "") for s in scenes if isinstance(s, dict))
+    if _japanese_signal(narrations) < max(40, len(narrations) // 4):
+        return True
+    weak = 0
+    for scene in scenes:
+        if not isinstance(scene, dict):
+            weak += 1
+            continue
+        narration = str(scene.get("narration") or "").strip()
+        image_prompt = str(scene.get("image_prompt") or "").strip()
+        if len(narration) < 16:
+            weak += 1
+        if len(image_prompt) < 35 or "vertical" not in image_prompt.lower():
+            weak += 1
+    return weak >= max(2, len(scenes) // 3)
+
+
+def _repair_script_with_kmontage_quality(script: dict, *, source_type: str, source_material, expected_scenes: int,
+                                         scene_duration: int, force_title: str = "",
+                                         video_style: str = "auto") -> dict:
+    previous = json.dumps(script, ensure_ascii=False)[:7000]
+    source_excerpt = _json_source_excerpt(source_material)
+    prompt = f"""次のKurage動画台本を、Kurage Montageと同等の品質へ修復してください。
+
+対象: {source_type}
+期待シーン数: {expected_scenes}
+各シーン秒数: {scene_duration}
+固定タイトル: {force_title or "なし"}
+
+元資料:
+{source_excerpt}
+
+現在の台本:
+{previous}
+
+{KMONTAGE_QUALITY_RULES}
+
+必須:
+- JSONのみ返す
+- title は自然な日本語
+- scenes はちょうど {expected_scenes} 件
+- scenes[].narration は日本語で、具体的な事実・手順・数字・示唆を入れる
+- scenes[].image_prompt は英語で、ERNIE-Image-Turboが作りやすい明確な映像指示にする
+- image_prompt は vertical 9:16, bright white studio, clean explainer, data cards の方向を優先
+- 黒背景、暗いサイバー背景、抽象的すぎる絵は避ける
+- 元資料にない事実は足さない
+
+形式:
+{{"title":"日本語タイトル","scenes":[{{"index":0,"narration":"日本語ナレーション","image_prompt":"English vertical 9:16 bright explainer visual","duration":{scene_duration}}}]}}
+"""
+    payload = {
+        "model": OLLAMA_MODEL,
+        "prompt": prompt,
+        "stream": False,
+        "options": {"temperature": 0.08, "num_predict": 8192},
+    }
+    try:
+        resp = requests.post(f"{OLLAMA_URL}/api/generate", json=payload, timeout=300)
+        resp.raise_for_status()
+        repaired = parse_json_from_response(resp.json().get("response") or "")
+        return normalize_script(repaired, scene_duration=scene_duration, force_title=force_title)
+    except Exception as exc:
+        print(f"  [script_quality] repair skipped: {exc}", flush=True)
+        return script
+
+
+def _deterministic_quality_polish(script: dict, *, source_type: str, expected_scenes: int, scene_duration: int,
+                                  force_title: str = "") -> dict:
+    script = normalize_script(script, scene_duration=scene_duration, force_title=force_title)
+    scenes = script.get("scenes") or []
+    if len(scenes) > expected_scenes:
+        scenes = scenes[:expected_scenes]
+    while scenes and len(scenes) < expected_scenes:
+        base = scenes[-1].copy()
+        base["index"] = len(scenes)
+        base["narration"] = f"{base.get('narration', '')} ここから実践上の意味を整理します。".strip()
+        scenes.append(base)
+    for i, scene in enumerate(scenes):
+        scene["index"] = i
+        scene["duration"] = int(scene.get("duration") or scene_duration)
+        narration = normalize_narration_text(str(scene.get("narration") or "").strip())
+        narration = narration.replace("深堀り", "掘り下げ").replace("深掘り", "掘り下げ")
+        scene["narration"] = narration
+        prompt = str(scene.get("image_prompt") or "").strip()
+        if not prompt:
+            prompt = "clean Japanese vertical explainer, data cards"
+        if "vertical" not in prompt.lower():
+            prompt += ", vertical 9:16"
+        if "black" not in prompt.lower() and "dark" not in prompt.lower():
+            prompt += ", bright white studio, pale aqua accents"
+        if "card" not in prompt.lower() and source_type in {"news", "blog", "entertainment_short", "tweet"}:
+            prompt += ", readable data cards"
+        scene["image_prompt"] = prompt[:180].strip()
+    script["scenes"] = scenes
+    if not script.get("title"):
+        script["title"] = "Kurage解説動画"
+    return script
+
+
+def quality_boost_script(script: dict, *, source_type: str, source_material, expected_scenes: int,
+                         scene_duration: int, force_title: str = "", video_style: str = "auto") -> dict:
+    script = _deterministic_quality_polish(
+        script,
+        source_type=source_type,
+        expected_scenes=expected_scenes,
+        scene_duration=scene_duration,
+        force_title=force_title,
+    )
+    if _script_needs_repair(script, expected_scenes):
+        script = _repair_script_with_kmontage_quality(
+            script,
+            source_type=source_type,
+            source_material=source_material,
+            expected_scenes=expected_scenes,
+            scene_duration=scene_duration,
+            force_title=force_title,
+            video_style=video_style,
+        )
+        script = _deterministic_quality_polish(
+            script,
+            source_type=source_type,
+            expected_scenes=expected_scenes,
+            scene_duration=scene_duration,
+            force_title=force_title,
+        )
+    script["quality_profile"] = "kmontage"
+    return script
+
+
 def generate_script(tweet: dict, video_style: str = "auto") -> dict:
     """Generate script JSON from tweet data using Ollama.
 
@@ -124,6 +282,8 @@ def generate_script(tweet: dict, video_style: str = "auto") -> dict:
 {tweet['text']}
 
 {style_prompt(resolved_style)}
+
+{KMONTAGE_QUALITY_RULES}
 
 JSONのみ返してください。"""
 
@@ -159,8 +319,15 @@ JSONのみ返してください。"""
         pass
 
     script = parse_json_from_response(response_text)
-
-    return apply_video_style(normalize_script(script, scene_duration=5), resolved_style)
+    script = quality_boost_script(
+        script,
+        source_type="tweet",
+        source_material=tweet,
+        expected_scenes=8,
+        scene_duration=5,
+        video_style=resolved_style,
+    )
+    return apply_video_style(script, resolved_style)
 
 
 NEWS_SYSTEM_PROMPT = """You are a news video scriptwriter. Based on multiple news articles, generate a 12-scene news broadcast script with image prompts.
@@ -207,6 +374,8 @@ def generate_news_script(news_items: list, video_style: str = "auto") -> dict:
 
 {style_prompt(resolved_style)}
 
+{KMONTAGE_QUALITY_RULES}
+
 JSONのみ返してください。"""
 
     payload = {
@@ -239,8 +408,15 @@ JSONのみ返してください。"""
         pass
 
     script = parse_json_from_response(response_text)
-
-    return apply_video_style(normalize_script(script, scene_duration=10), resolved_style)
+    script = quality_boost_script(
+        script,
+        source_type="news",
+        source_material=news_items,
+        expected_scenes=12,
+        scene_duration=10,
+        video_style=resolved_style,
+    )
+    return apply_video_style(script, resolved_style)
 
 
 BLOG_SYSTEM_PROMPT = """You are a thoughtful Japanese video essay scriptwriter. Based on one blog article, generate a 12-scene vertical video script for a 2-minute commentary video.
@@ -285,6 +461,8 @@ def generate_blog_script(article: dict, video_style: str = "auto", vtuber_mode: 
 
 {style_prompt(resolved_style)}
 
+{KMONTAGE_QUALITY_RULES}
+
 重要:
 - 動画タイトルはブログタイトルにできるだけ合わせる。
 - タイトルに人物名がある場合、その人物名を必ず動画タイトルと冒頭ナレーションに入れる。
@@ -322,7 +500,16 @@ JSONのみ返してください。"""
         pass
 
     script = parse_json_from_response(response_text)
-    return apply_video_style(normalize_script(script, scene_duration=10, force_title=title), resolved_style)
+    script = quality_boost_script(
+        script,
+        source_type="blog",
+        source_material=article,
+        expected_scenes=12,
+        scene_duration=10,
+        force_title=title,
+        video_style=resolved_style,
+    )
+    return apply_video_style(script, resolved_style)
 
 
 ENTERTAINMENT_SHORT_SYSTEM_PROMPT = """You are a Japanese short video editor for safe entertainment news commentary.
@@ -372,6 +559,8 @@ def generate_entertainment_short_script(article: dict, video_style: str = "auto"
 
 {style_prompt(resolved_style)}
 
+{KMONTAGE_QUALITY_RULES}
+
 重要:
 - 本人が商品をおすすめした、愛用した、宣伝したとは言わない。
 - 人物の顔写真を使う前提にしない。
@@ -408,7 +597,16 @@ JSONのみ返してください。"""
         pass
 
     script = parse_json_from_response(response_text)
-    return apply_video_style(normalize_script(script, scene_duration=5, force_title=title[:50]), resolved_style)
+    script = quality_boost_script(
+        script,
+        source_type="entertainment_short",
+        source_material=article,
+        expected_scenes=6,
+        scene_duration=5,
+        force_title=title[:50],
+        video_style=resolved_style,
+    )
+    return apply_video_style(script, resolved_style)
 
 
 if __name__ == "__main__":
