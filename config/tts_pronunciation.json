@@ -23,6 +23,16 @@
     {"surface": "browser-use", "reading": "ブラウザ ユース"},
     {"surface": "OpenLLMVTuber", "reading": "オープン エルエルエム ブイチューバー"},
     {"surface": "AITuber OnAir", "reading": "エーアイチューバー オンエア"},
-    {"surface": "Superpowers", "reading": "スーパーパワーズ"}
+    {"surface": "Superpowers", "reading": "スーパーパワーズ"},
+    {"surface": "OpenMontage", "reading": "オープンモンタージュ"},
+    {"surface": "Openmontage", "reading": "オープンモンタージュ"},
+    {"surface": "OpenMountage", "reading": "オープンモンタージュ"},
+    {"surface": "Cursor", "reading": "カーソル"},
+    {"surface": "Copilot", "reading": "コパイロット"},
+    {"surface": "Windsurf", "reading": "ウィンドサーフ"},
+    {"surface": "Flux", "reading": "フラックス"},
+    {"surface": "Kling", "reading": "クリング"},
+    {"surface": "ElevenLabs", "reading": "イレブンラボ"},
+    {"surface": "Piper", "reading": "パイパー"}
   ]
 }
