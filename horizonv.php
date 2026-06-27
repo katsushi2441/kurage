@@ -163,11 +163,13 @@ if ($detail_job) {
     $page_url   = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($detail_id);
     $thumb_ver  = urlencode($detail_job['updated_at'] ?? $detail_job['created_at'] ?? '1');
     $page_image = $BASE_URL . '/' . $THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($detail_id) . '&v=' . $thumb_ver;
+    $page_video = $BASE_URL . '/' . $THIS_FILE . '?proxy=video&job_id=' . urlencode($detail_id);
 } else {
     $page_title = $SITE_NAME;
     $page_desc  = 'Horizonが収集したニュースをAIが縦型ショート動画に自動生成。毎日更新。';
     $page_url   = $BASE_URL . '/' . $THIS_FILE;
     $page_image = $BASE_URL . '/images/kurage.png';
+    $page_video = '';
 }
 ?><!DOCTYPE html>
 <html lang="ja">
@@ -189,6 +191,11 @@ if ($detail_job) {
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Horizonv — AIが作るニュースショート動画">
+<?php if ($detail_job && $page_video !== ''): ?>
+<meta property="og:video" content="<?php echo h($page_video); ?>">
+<meta property="og:video:secure_url" content="<?php echo h($page_video); ?>">
+<meta property="og:video:type" content="video/mp4">
+<?php endif; ?>
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="@xb_bittensor">
 <meta name="twitter:title" content="<?php echo h($page_title); ?>">
@@ -205,8 +212,13 @@ $jsonld = [
     'publisher'   => ['@type' => 'Organization', 'name' => '株式会社エクスブリッジ', 'url' => 'https://exbridge.jp/'],
 ];
 if ($detail_job && !empty($detail_job['created_at'])) {
-    $jsonld['thumbnailUrl'] = $page_image;
-    $jsonld['uploadDate']   = $detail_job['created_at'];
+    $jsonld['thumbnailUrl'] = array($page_image);
+    $jsonld['contentUrl'] = $page_video;
+    $jsonld['embedUrl'] = $page_url;
+    $jsonld['inLanguage'] = 'ja-JP';
+    $jsonld['isFamilyFriendly'] = true;
+    $ts = strtotime((string)$detail_job['created_at']);
+    $jsonld['uploadDate'] = $ts ? date('c', $ts) : (string)$detail_job['created_at'];
 }
 echo json_encode($jsonld, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 ?>
