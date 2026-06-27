@@ -4,7 +4,7 @@ require_once __DIR__ . '/auth_common.php';
 date_default_timezone_set('Asia/Tokyo');
 
 $THIS_FILE     = 'kmontage.php';
-$SITE_NAME     = 'Kurage Montage — 動画要約ショート生成';
+$SITE_NAME     = 'Kurage Montage — URL要約ショート生成';
 $KMONTAGE_API  = rtrim(getenv('KMONTAGE_API') ?: 'http://exbridge.ddns.net:18305', '/');
 
 if (isset($_GET['kmontage_logout'])) {
@@ -100,7 +100,7 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
 <header>
   <div class="brand">
     <img src="images/kurage-icon.png" alt="Kurage">
-    <div><strong>Kurage Montage</strong><span>X・YouTube動画からショート動画生成</span></div>
+    <div><strong>Kurage Montage</strong><span>X・YouTube・ブログ・PDFからショート動画生成</span></div>
   </div>
   <div class="userbar">
     <span class="badge <?php echo $api_ok ? 'api-ok' : 'api-err'; ?>"><?php echo $api_ok ? 'API ●' : 'API ×'; ?></span>
@@ -116,27 +116,27 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
   <section class="hero">
     <div class="hero-card">
       <div class="eyebrow">Kurage Montage</div>
-      <h1>X・YouTube動画から、要点が伝わるショート動画を生成。</h1>
-      <p class="lead">URLを貼るだけで、動画の内容を読み取り、日本語のKurageショート動画を作成します。長い解説動画や話題の投稿を、見やすい短尺コンテンツに変換できます。</p>
+      <h1>URLから、要点が伝わるショート動画を生成。</h1>
+      <p class="lead">X記事、YouTube動画、ブログ記事、PDF資料のURLを貼るだけで、内容を読み取り、日本語のKurageショート動画を作成します。長い資料や話題の投稿を、見やすい短尺コンテンツに変換できます。</p>
     </div>
   </section>
 
   <?php if (!$logged_in): ?>
   <section class="panel login">
     <h2>ログインが必要です</h2>
-    <p>X・YouTube動画からショート動画を生成するにはログインしてください。</p>
+    <p>X・YouTube・ブログ・PDFからショート動画を生成するにはログインしてください。</p>
     <a class="btn btn-primary" href="?kmontage_login=1">Xでログインして始める</a>
   </section>
   <?php else: ?>
 
   <section class="panel">
-    <div class="panel-head"><span>要約ショート生成</span><small>X URL / YouTube URL</small></div>
+    <div class="panel-head"><span>要約ショート生成</span><small>X / YouTube / ブログ / PDF URL</small></div>
     <div class="panel-body">
       <div class="input-row">
-        <input id="source-url" type="url" placeholder="https://x.com/... または https://www.youtube.com/watch?v=...">
+        <input id="source-url" type="url" placeholder="https://x.com/... または https://example.com/article.pdf">
         <button id="generate" class="btn-primary">生成する</button>
       </div>
-      <div class="hint">長い動画は、取得・文字起こし・分析に数分かかることがあります。生成完了後、Kurageの動画として表示されます。</div>
+      <div class="hint">長い動画や資料は、取得・文字起こし・本文解析に数分かかることがあります。生成完了後、Kurageの動画として表示されます。</div>
       <div id="message" class="toast"></div>
     </div>
   </section>
