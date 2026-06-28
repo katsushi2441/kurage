@@ -16,9 +16,10 @@ TTS_RATE  = "+10%"
 TTS_PITCH = "-15Hz"
 TTS_BACKEND = os.environ.get("KURAGE_TTS_BACKEND", "edge").strip().lower()
 VOICEBOX_API = os.environ.get("VOICEBOX_API", "http://192.168.0.11:17493").rstrip("/")
-VOICEBOX_PROFILE_ID = os.environ.get("VOICEBOX_PROFILE_ID", "4b7e23b6-fc37-4354-ad26-d37d41692356")
-VOICEBOX_ENGINE = os.environ.get("VOICEBOX_ENGINE", "chatterbox")
+VOICEBOX_PROFILE_ID = os.environ.get("VOICEBOX_PROFILE_ID", "1fe9e00c-cc81-4b07-8884-24acf639ef5e")
+VOICEBOX_ENGINE = os.environ.get("VOICEBOX_ENGINE", "qwen")
 VOICEBOX_TIMEOUT = int(os.environ.get("VOICEBOX_TIMEOUT", "900"))
+VOICEBOX_GENERATION_TIMEOUT = int(os.environ.get("VOICEBOX_GENERATION_TIMEOUT", "180"))
 
 
 def prepare_prosody_text(text: str) -> str:
@@ -116,7 +117,7 @@ def run_voicebox_tts(text: str, output_path: Path) -> float:
             print(f"  [tts] voicebox failed: missing generation id: {generation}", flush=True)
             return 0.0
 
-        deadline = time.time() + VOICEBOX_TIMEOUT
+        deadline = time.time() + min(VOICEBOX_TIMEOUT, VOICEBOX_GENERATION_TIMEOUT)
         history = generation
         while time.time() < deadline:
             status = history.get("status")

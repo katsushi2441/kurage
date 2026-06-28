@@ -136,6 +136,33 @@ def normalize_numeric_ranges(text: str) -> str:
     )
 
 
+def normalize_native_counters(text: str) -> str:
+    """Normalize common native Japanese counters before Arabic numerals."""
+    readings = {
+        "1": "ひとつ",
+        "2": "ふたつ",
+        "3": "みっつ",
+        "4": "よっつ",
+        "5": "いつつ",
+        "6": "むっつ",
+        "7": "ななつ",
+        "8": "やっつ",
+        "9": "ここのつ",
+    }
+
+    def repl(match: re.Match[str]) -> str:
+        return readings.get(match.group(1), match.group(0))
+
+    return re.sub(r"(?<![A-Za-z_])([1-9])つ", repl, text)
+
+
+def normalize_duration_phrases(text: str) -> str:
+    """Avoid TTS engines hanging or misreading common duration phrases."""
+    text = re.sub(r"(?<![A-Za-z_])90\s*日間", "三か月間", text)
+    text = re.sub(r"(?<![A-Za-z_])90\s*日", "三か月", text)
+    return text
+
+
 def _load_user_dictionary(path: Path | None = None) -> dict[str, str]:
     path = path or Path(os.environ.get("KURAGE_TTS_DICTIONARY", DEFAULT_DICTIONARY_PATH))
     if not path.exists():
@@ -184,6 +211,8 @@ def normalize_tts_text(text: str, *, dictionary_path: Path | None = None, conver
     for surface, reading in _compile_entries(user_dict):
         normalized = _replace_surface(normalized, surface, reading)
     normalized = normalize_numeric_ranges(normalized)
+    normalized = normalize_native_counters(normalized)
+    normalized = normalize_duration_phrases(normalized)
     if convert_numbers:
         normalized = numerals_to_jp(normalized)
     # Edge-TTS handles punctuation, but long ASCII separators often sound odd.
