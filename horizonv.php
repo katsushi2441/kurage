@@ -34,6 +34,27 @@ if (isset($_POST['delete_job']) && $is_admin) {
 
 function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
+function static_media_url_for_job($job, $job_id, $kind) {
+    global $BASE_URL, $THIS_FILE;
+    $jid = preg_replace('/[^a-zA-Z0-9]/', '', (string)$job_id);
+    if ($jid === '') { return ''; }
+    if ($kind === 'video') {
+        $saved = trim((string)($job['static_video_url'] ?? ''));
+        if ($saved !== '') { return $saved; }
+        if (is_file(__DIR__ . '/videos/' . $jid . '.mp4')) {
+            return $BASE_URL . '/videos/' . rawurlencode($jid) . '.mp4';
+        }
+        return $BASE_URL . '/' . $THIS_FILE . '?proxy=video&job_id=' . rawurlencode($jid);
+    }
+    $saved = trim((string)($job['static_thumbnail_url'] ?? ''));
+    if ($saved !== '') { return $saved; }
+    if (is_file(__DIR__ . '/thumbs/' . $jid . '.jpg')) {
+        return $BASE_URL . '/thumbs/' . rawurlencode($jid) . '.jpg';
+    }
+    $thumb_ver = rawurlencode((string)($job['updated_at'] ?? $job['created_at'] ?? '1'));
+    return $BASE_URL . '/' . $THIS_FILE . '?proxy=thumbnail&job_id=' . rawurlencode($jid) . '&v=' . $thumb_ver;
+}
+
 /* ── 動画プロキシ（Range リクエスト対応） ────────────── */
 if (isset($_GET['proxy']) && $_GET['proxy'] === 'thumbnail' && !empty($_GET['job_id'])) {
     $jid = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['job_id']);
@@ -161,9 +182,8 @@ if ($detail_job) {
     $page_title = ($detail_job['title'] ?? 'Horizonvニュース動画') . ' | ' . $SITE_NAME;
     $page_desc  = mb_substr(str_replace("\n", ' ', $detail_job['tweet_text'] ?? ''), 0, 160);
     $page_url   = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($detail_id);
-    $thumb_ver  = urlencode($detail_job['updated_at'] ?? $detail_job['created_at'] ?? '1');
-    $page_image = $BASE_URL . '/' . $THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($detail_id) . '&v=' . $thumb_ver;
-    $page_video = $BASE_URL . '/' . $THIS_FILE . '?proxy=video&job_id=' . urlencode($detail_id);
+    $page_image = static_media_url_for_job($detail_job, $detail_id, 'thumbnail');
+    $page_video = static_media_url_for_job($detail_job, $detail_id, 'video');
 } else {
     $page_title = $SITE_NAME;
     $page_desc  = 'Horizonが収集したニュースをAIが縦型ショート動画に自動生成。毎日更新。';
@@ -369,8 +389,8 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
   <div class="detail-body">
 
     <div class="video-wrap">
-      <video src="<?php echo h($THIS_FILE . '?proxy=video&job_id=' . urlencode($detail_id)); ?>"
-             poster="<?php echo h($THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($detail_id) . '&v=' . urlencode($detail_job['updated_at'] ?? $detail_job['created_at'] ?? '1')); ?>"
+      <video src="<?php echo h($page_video); ?>"
+             poster="<?php echo h($page_image); ?>"
              controls playsinline preload="metadata"></video>
     </div>
 

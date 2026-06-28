@@ -37,6 +37,27 @@ $SITE_NAME  = 'Kurage';
 
 function h($s) { return str_replace("\xEF\xBF\xBD", '', htmlspecialchars((string)$s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')); }
 
+function static_media_url_for_job($job, $job_id, $kind) {
+    global $BASE_URL, $THIS_FILE;
+    $jid = preg_replace('/[^a-zA-Z0-9]/', '', (string)$job_id);
+    if ($jid === '') { return ''; }
+    if ($kind === 'video') {
+        $saved = trim((string)($job['static_video_url'] ?? ''));
+        if ($saved !== '') { return $saved; }
+        if (is_file(__DIR__ . '/videos/' . $jid . '.mp4')) {
+            return $BASE_URL . '/videos/' . rawurlencode($jid) . '.mp4';
+        }
+        return $BASE_URL . '/' . $THIS_FILE . '?proxy=video&job_id=' . rawurlencode($jid);
+    }
+    $saved = trim((string)($job['static_thumbnail_url'] ?? ''));
+    if ($saved !== '') { return $saved; }
+    if (is_file(__DIR__ . '/thumbs/' . $jid . '.jpg')) {
+        return $BASE_URL . '/thumbs/' . rawurlencode($jid) . '.jpg';
+    }
+    $thumb_ver = rawurlencode((string)($job['updated_at'] ?? $job['created_at'] ?? '1'));
+    return $BASE_URL . '/' . $THIS_FILE . '?proxy=thumbnail&job_id=' . rawurlencode($jid) . '&v=' . $thumb_ver;
+}
+
 function is_voice_pro_job($job) {
     return (($job['source'] ?? '') === 'kuragevp') || (($job['content_type'] ?? '') === 'voice_pro_translation') || !empty($job['kuragevp_job_id']);
 }
@@ -435,9 +456,8 @@ if ($detail_job) {
     $page_title = job_display_title($detail_job) . ' | ' . $SITE_NAME;
     $page_desc  = mb_substr(str_replace("\n", ' ', job_body_text($detail_job)), 0, 160);
     $page_url   = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($detail_id);
-    $thumb_ver  = urlencode($detail_job['updated_at'] ?? $detail_job['created_at'] ?? '1');
-    $page_image = $BASE_URL . '/' . $THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($detail_id) . '&v=' . $thumb_ver;
-    $page_video = $BASE_URL . '/' . $THIS_FILE . '?proxy=video&job_id=' . urlencode($detail_id);
+    $page_image = static_media_url_for_job($detail_job, $detail_id, 'thumbnail');
+    $page_video = static_media_url_for_job($detail_job, $detail_id, 'video');
 } else {
     $page_title = $SITE_NAME . ' — AIショート動画';
     $page_desc  = 'AIで生成・翻訳した短編縦型動画を公開しています。';
@@ -676,8 +696,8 @@ $detail_body_text = job_body_text($detail_job);
   <div class="detail-body">
 
     <div class="video-wrap">
-      <video src="<?php echo h($THIS_FILE . '?proxy=video&job_id=' . urlencode($detail_id)); ?>"
-             poster="<?php echo h($THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($detail_id) . '&v=' . urlencode($detail_job['updated_at'] ?? $detail_job['created_at'] ?? '1')); ?>"
+      <video src="<?php echo h($page_video); ?>"
+             poster="<?php echo h($page_image); ?>"
              controls playsinline preload="metadata"></video>
     </div>
 

@@ -12,6 +12,7 @@ from script_gen import generate_script, generate_news_script, generate_blog_scri
 from image_gen import generate_scene_images, generate_image
 from video_gen import generate_video, generate_thumbnail
 from video_styles import apply_video_style, resolve_video_style
+from static_media import publish_static_media
 import wan_gen
 
 
@@ -35,6 +36,22 @@ def update_job(job_id: str, **kwargs):
     data.update(kwargs)
     data["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
     p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def mark_job_done(job_id: str, video_path: Path, thumb_path: Path):
+    """Mark a job complete and best-effort publish SEO-friendly static media."""
+    update_job(job_id, status="done", progress=100, video_file=str(video_path),
+               thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
+    try:
+        result = publish_static_media(job_id)
+        if result.get("ok"):
+            update_job(job_id, static_media_status="synced")
+        else:
+            update_job(job_id, static_media_status="error", static_media_error=str(result.get("error") or result))
+            print(f"[{job_id}] static media sync skipped/failed: {result}", flush=True)
+    except Exception as exc:
+        update_job(job_id, static_media_status="error", static_media_error=str(exc))
+        print(f"[{job_id}] static media sync failed: {exc}", flush=True)
 
 
 def script_summary_text(script: dict, limit: int = 220) -> str:
@@ -179,8 +196,7 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
         update_job(job_id, status="rendering", progress=75)
         video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
         thumb_path = job_dir / "thumbnail.jpg"
-        update_job(job_id, status="done", progress=100, video_file=str(video_path),
-                   thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
+        mark_job_done(job_id, video_path, thumb_path)
         print(f"[{job_id}] script done: {video_path}", flush=True)
 
     except Exception as exc:
@@ -244,8 +260,7 @@ def run_pipeline_from_news(job_id: str, news: dict, vtuber_mode: bool = False, v
         update_job(job_id, status="rendering", progress=75)
         video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
         thumb_path = job_dir / "thumbnail.jpg"
-        update_job(job_id, status="done", progress=100, video_file=str(video_path),
-                   thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
+        mark_job_done(job_id, video_path, thumb_path)
         print(f"[{job_id}] done: {video_path}", flush=True)
 
     except Exception as exc:
@@ -298,8 +313,7 @@ def run_pipeline_from_blog(job_id: str, article: dict, vtuber_mode: bool = False
         update_job(job_id, status="rendering", progress=75)
         video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
         thumb_path = job_dir / "thumbnail.jpg"
-        update_job(job_id, status="done", progress=100, video_file=str(video_path),
-                   thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
+        mark_job_done(job_id, video_path, thumb_path)
         print(f"[{job_id}] blog done: {video_path}", flush=True)
 
     except Exception as exc:
@@ -355,8 +369,7 @@ def run_pipeline_from_entertainment_short(job_id: str, article: dict, vtuber_mod
         update_job(job_id, status="rendering", progress=75)
         video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
         thumb_path = job_dir / "thumbnail.jpg"
-        update_job(job_id, status="done", progress=100, video_file=str(video_path),
-                   thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
+        mark_job_done(job_id, video_path, thumb_path)
         print(f"[{job_id}] entertainment done: {video_path}", flush=True)
 
     except Exception as exc:
@@ -441,8 +454,7 @@ def run_pipeline(job_id: str, tweet_url: str, mode: str = "hyperframes", vtuber_
                 generate_thumbnail(output_path, thumb_path, title=script.get("title"))
             except Exception as exc:
                 print(f"[{job_id}] thumbnail skipped: {exc}", flush=True)
-            update_job(job_id, status="done", progress=100, video_file=str(output_path),
-                       thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
+            mark_job_done(job_id, output_path, thumb_path)
             print(f"[{job_id}] done (wan): {output_path}", flush=True)
 
         else:
@@ -489,8 +501,7 @@ def run_pipeline(job_id: str, tweet_url: str, mode: str = "hyperframes", vtuber_
             video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
             thumb_path = job_dir / "thumbnail.jpg"
 
-            update_job(job_id, status="done", progress=100, video_file=str(video_path),
-                       thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
+            mark_job_done(job_id, video_path, thumb_path)
             print(f"[{job_id}] done: {video_path}", flush=True)
 
     except Exception as exc:
