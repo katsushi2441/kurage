@@ -213,7 +213,7 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
         duration = run_voicebox_tts(text, part_path)
         if duration <= 0:
             raise RuntimeError(f"Voicebox TTS failed for scene {i}; refusing fallback for voicebox mode")
-        min_duration = max(2.5, len(text) / 16.0)
+        min_duration = max(1.5 if len(text) <= 18 else 2.5, len(text) / 16.0)
         if duration < min_duration:
             raise RuntimeError(
                 f"Voicebox TTS output is too short for scene {i}: "

@@ -127,6 +127,15 @@ def numerals_to_jp(text: str) -> str:
     return re.sub(r"(?<![A-Za-z_])(?:\d{1,3}(?:,\d{3})+|\d+)", repl, text)
 
 
+def normalize_numeric_ranges(text: str) -> str:
+    """Make numeric ranges explicit before number reading conversion."""
+    return re.sub(
+        r"(?<![A-Za-z_])(\d{1,3}(?:,\d{3})*|\d+)\s*[〜～~\-－]\s*(\d{1,3}(?:,\d{3})*|\d+)",
+        r"\1から\2",
+        text,
+    )
+
+
 def _load_user_dictionary(path: Path | None = None) -> dict[str, str]:
     path = path or Path(os.environ.get("KURAGE_TTS_DICTIONARY", DEFAULT_DICTIONARY_PATH))
     if not path.exists():
@@ -174,6 +183,7 @@ def normalize_tts_text(text: str, *, dictionary_path: Path | None = None, conver
     user_dict = _load_user_dictionary(dictionary_path)
     for surface, reading in _compile_entries(user_dict):
         normalized = _replace_surface(normalized, surface, reading)
+    normalized = normalize_numeric_ranges(normalized)
     if convert_numbers:
         normalized = numerals_to_jp(normalized)
     # Edge-TTS handles punctuation, but long ASCII separators often sound odd.
