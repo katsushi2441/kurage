@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -178,6 +179,9 @@ def normalize_tts_text(text: str) -> str:
 
 def generate_scene_narration_audio(scenes: list[dict], project_dir: Path) -> float:
     """全シーンのナレーションを連結して1つのmp3を生成。秒数を返す"""
+    if TTS_BACKEND == "voicebox":
+        return generate_scene_narration_audio_voicebox(scenes, project_dir)
+
     narration_text = "\n".join(
         prepare_prosody_text(scene.get("narration", "")) for scene in scenes if scene.get("narration")
     )
@@ -186,3 +190,68 @@ def generate_scene_narration_audio(scenes: list[dict], project_dir: Path) -> flo
 
     output_path = project_dir / "narration.mp3"
     return run_tts(narration_text, output_path)
+
+
+def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Path) -> float:
+    """Generate Voicebox narration per scene, then concatenate.
+
+    Chatterbox can become unnaturally compressed on long Japanese text. Per-scene
+    generation keeps pacing closer to the script and makes failures local.
+    """
+    output_path = project_dir / "narration.mp3"
+    parts_dir = project_dir / "narration_parts"
+    if parts_dir.exists():
+        shutil.rmtree(parts_dir)
+    parts_dir.mkdir(parents=True, exist_ok=True)
+
+    part_paths: list[Path] = []
+    for i, scene in enumerate(scenes):
+        text = str(scene.get("narration") or "").strip()
+        if not text:
+            continue
+        part_path = parts_dir / f"scene_{i:02d}.mp3"
+        duration = run_voicebox_tts(text, part_path)
+        if duration <= 0:
+            raise RuntimeError(f"Voicebox TTS failed for scene {i}; refusing fallback for voicebox mode")
+        min_duration = max(2.5, len(text) / 16.0)
+        if duration < min_duration:
+            raise RuntimeError(
+                f"Voicebox TTS output is too short for scene {i}: "
+                f"{duration:.1f}s for {len(text)} chars (minimum {min_duration:.1f}s)"
+            )
+        part_paths.append(part_path)
+
+    if not part_paths:
+        return 0.0
+
+    concat_list = parts_dir / "concat.txt"
+    concat_list.write_text(
+        "\n".join(f"file '{p.as_posix()}'" for p in part_paths) + "\n",
+        encoding="utf-8",
+    )
+    tmp_output = output_path.with_suffix(".concat.mp3")
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            str(concat_list),
+            "-c:a",
+            "libmp3lame",
+            "-q:a",
+            "2",
+            str(tmp_output),
+        ],
+        check=True,
+    )
+    tmp_output.replace(output_path)
+    duration = get_audio_duration(output_path)
+    print(f"  [tts] {output_path.name} ({duration:.1f}s, voicebox scenes={len(part_paths)})", flush=True)
+    return duration
