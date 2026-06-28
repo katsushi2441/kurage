@@ -11,6 +11,10 @@ Environment=OLLAMA_MODEL=gemma4:e4b
 Environment=ERNIE_URL=http://192.168.0.3:8010/image/generate
 Environment=WAN_API=http://192.168.0.14:8091
 Environment=WAN_TEST_MODE=1
+Environment=KURAGE_TTS_BACKEND=voicebox
+Environment=VOICEBOX_API=http://192.168.0.11:17493
+Environment=VOICEBOX_PROFILE_ID=4b7e23b6-fc37-4354-ad26-d37d41692356
+Environment=VOICEBOX_ENGINE=chatterbox
 ExecStart=/home/kojima/work/kurage/.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 18303
 Restart=always
 RestartSec=5

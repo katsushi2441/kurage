@@ -15,8 +15,8 @@ TTS_VOICE = "ja-JP-NanamiNeural"
 TTS_RATE  = "+10%"
 TTS_PITCH = "-15Hz"
 TTS_BACKEND = os.environ.get("KURAGE_TTS_BACKEND", "edge").strip().lower()
-VOICEBOX_API = os.environ.get("VOICEBOX_API", "http://127.0.0.1:17493").rstrip("/")
-VOICEBOX_PROFILE_ID = os.environ.get("VOICEBOX_PROFILE_ID", "74276a0b-243f-4527-8b64-1636bc464ade")
+VOICEBOX_API = os.environ.get("VOICEBOX_API", "http://192.168.0.11:17493").rstrip("/")
+VOICEBOX_PROFILE_ID = os.environ.get("VOICEBOX_PROFILE_ID", "4b7e23b6-fc37-4354-ad26-d37d41692356")
 VOICEBOX_ENGINE = os.environ.get("VOICEBOX_ENGINE", "chatterbox")
 VOICEBOX_TIMEOUT = int(os.environ.get("VOICEBOX_TIMEOUT", "900"))
 
