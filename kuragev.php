@@ -271,6 +271,34 @@ function copy_text_for_job($job, $share_url) {
     return "タイトル:\n" . $title . $voice_pro_note . "\n\n詳細:\n" . $detail . "\n\nURL:\n" . $share_url;
 }
 
+function list_text_excerpt($value, $limit = 240) {
+    $text = trim((string)$value);
+    if ($text === '') { return ''; }
+    $text = preg_replace('/\s+/u', ' ', $text);
+    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+        return mb_strlen($text, 'UTF-8') > $limit ? mb_substr($text, 0, $limit, 'UTF-8') . '…' : $text;
+    }
+    return strlen($text) > $limit ? substr($text, 0, $limit) . '...' : $text;
+}
+
+function client_video_for_list($job) {
+    $keys = [
+        'job_id', 'source', 'content_type', 'kuragevp_job_id', 'tool_key', 'tool_label',
+        'display_title', 'summary_title', 'article_title', 'title', 'source_title',
+        'voice_pro_label', 'target_lang', 'audio_mode', 'source_url', 'original_url',
+        'tweet_url', 'source_platform', 'created_at', 'updated_at', 'views',
+        'article_url', 'related_article_url', 'tweet_author'
+    ];
+    $out = [];
+    foreach ($keys as $key) {
+        if (array_key_exists($key, $job)) { $out[$key] = $job[$key]; }
+    }
+    foreach (['display_summary', 'summary', 'tweet_text'] as $key) {
+        if (!empty($job[$key])) { $out[$key] = list_text_excerpt($job[$key]); }
+    }
+    return $out;
+}
+
 /* ── 動画プロキシ（Range リクエスト対応） ────────────── */
 if (isset($_GET['proxy']) && $_GET['proxy'] === 'thumbnail' && !empty($_GET['job_id'])) {
     $jid = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['job_id']);
@@ -338,6 +366,13 @@ if (isset($_GET['proxy']) && $_GET['proxy'] === 'video' && !empty($_GET['job_id'
         echo 'Video proxy failed: ' . $err;
     }
     exit;
+}
+
+if (!headers_sent()
+    && extension_loaded('zlib')
+    && !ini_get('zlib.output_compression')
+    && strpos((string)($_SERVER['HTTP_ACCEPT_ENCODING'] ?? ''), 'gzip') !== false) {
+    ob_start('ob_gzhandler');
 }
 
 /* ── API ヘルパー ────────────────────────────────────── */
@@ -409,17 +444,6 @@ if (!$detail_id) {
         $videos[] = $j;
     }
     asort($tool_options, SORT_NATURAL | SORT_FLAG_CASE);
-    foreach ($videos as $idx => $video) {
-        if (is_voice_pro_job($video) && empty($video['translated_text']) && empty($video['script'])) {
-            $full_job = kurage_get('/status/' . urlencode($video['job_id'] ?? ''), 8);
-            if (is_array($full_job)) {
-                $merged = array_merge($full_job, $video);
-                $merged['tool_key'] = job_tool_key($merged);
-                $merged['tool_label'] = job_tool_label($merged);
-                $videos[$idx] = $merged;
-            }
-        }
-    }
 }
 
 $sort = isset($_GET['sort']) ? (string)$_GET['sort'] : 'created';
@@ -436,6 +460,7 @@ if (!$detail_id && $videos) {
         return strcmp($bd, $ad);
     });
 }
+$client_videos = (!$detail_id && $videos) ? array_map('client_video_for_list', $videos) : [];
 
 /* ── SEO ─────────────────────────────────────────────── */
 if ($detail_job) {
@@ -579,7 +604,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 .tweet-block::after{content:'';position:absolute;bottom:0;left:0;right:0;height:24px;background:linear-gradient(transparent,#e8f8fb);pointer-events:none;}
 .card-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
 .card-video-wrap{position:relative;width:80px;height:142px;flex-shrink:0;border-radius:8px;overflow:hidden;background:#000;cursor:pointer;}
-.card-video-wrap video{width:100%;height:100%;object-fit:cover;display:block;}
+.card-video-wrap img{width:100%;height:100%;object-fit:cover;display:block;}
 .card-video-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);font-size:22px;transition:background .15s;}
 .card-video-wrap:hover .card-video-play{background:rgba(0,0,0,.15);}
 .card-video-wrap.playing .card-video-play{display:none;}
@@ -773,38 +798,7 @@ $detail_body_text = job_body_text($detail_job);
 <!-- ============ リールオーバーレイ ============ -->
 <div class="reel-overlay" id="reel-overlay">
   <button class="reel-close" onclick="closeReel()">✕ 一覧に戻る</button>
-  <div class="reel-feed" id="reel-feed">
-    <?php foreach ($videos as $ri => $v): ?>
-    <?php
-      $r_vid    = h($THIS_FILE . '?proxy=video&job_id=' . urlencode($v['job_id']));
-      $r_thumb  = h($THIS_FILE . '?proxy=thumbnail&job_id=' . urlencode($v['job_id']) . '&v=' . urlencode($v['updated_at'] ?? $v['created_at'] ?? '1'));
-      $r_title  = h(job_display_title($v));
-      $r_author = h($v['tweet_author'] ?? '');
-      $r_share  = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($v['job_id']);
-      $r_copy_raw = copy_text_for_job($v, $r_share);
-      $r_xtext  = urlencode($r_copy_raw);
-      $r_copy   = h($r_copy_raw);
-    ?>
-    <div class="reel-slide" data-job="<?php echo h($v['job_id']); ?>">
-      <video src="<?php echo $r_vid; ?>"
-             poster="<?php echo $r_thumb; ?>"
-             playsinline muted loop preload="<?php echo $ri === 0 ? 'metadata' : 'none'; ?>"></video>
-      <div class="reel-grad"></div>
-      <div class="reel-info">
-        <div class="reel-title"><?php echo $r_title; ?></div>
-        </div>
-      <div class="reel-side">
-        <button class="reel-side-btn reel-mute-btn" onclick="reelMuteToggle()">🔇<span>音声</span></button>
-        <button class="reel-side-btn reel-copy-btn" data-text="<?php echo $r_copy; ?>">📋<span>コピー</span></button>
-        <a class="reel-side-btn" style="text-decoration:none;"
-           href="https://twitter.com/intent/tweet?text=<?php echo $r_xtext; ?>"
-           target="_blank" rel="noopener">𝕏<span>投稿</span></a>
-        <a class="reel-side-btn" style="text-decoration:none;"
-           href="<?php echo h($THIS_FILE . '?id=' . urlencode($v['job_id'])); ?>">📄<span>詳細</span></a>
-      </div>
-    </div>
-    <?php endforeach; ?>
-  </div>
+  <div class="reel-feed" id="reel-feed"></div>
 </div>
 <?php endif; ?>
 
@@ -814,7 +808,7 @@ $detail_body_text = job_body_text($detail_job);
 /* ──────────────────────────────────────────
    一覧データ（PHPから）
 ────────────────────────────────────────── */
-var kvVideos = <?php echo json_encode(array_values($videos), JSON_UNESCAPED_UNICODE); ?>;
+var kvVideos = <?php echo json_encode(array_values($client_videos), JSON_UNESCAPED_UNICODE); ?>;
 var IS_ADMIN = <?php echo $is_admin ? 'true' : 'false'; ?>;
 var PAGE_SIZE = 20;
 var curPage = 0;
@@ -973,18 +967,7 @@ function copyTextForJob(v, shareUrl) {
 }
 
 function primeThumbVideos(root) {
-    (root || document).querySelectorAll('video.thumb-video').forEach(function(v) {
-        if (v.dataset.thumbReady) return;
-        v.dataset.thumbReady = '1';
-        v.muted = true;
-        v.addEventListener('loadedmetadata', function() {
-            try {
-                var t = Math.min(1, Math.max(0, (v.duration || 2) - 0.1));
-                if (isFinite(t)) v.currentTime = t;
-            } catch (e) {}
-        }, { once: true });
-        v.addEventListener('seeked', function() { v.pause(); }, { once: true });
-    });
+    // Thumbnails are static images on the list page. Avoid loading video metadata for speed.
 }
 
 function esc(s) {
@@ -1018,7 +1001,6 @@ function renderCards(from, to) {
             ? '<a class="kv-link" href="' + esc(turl) + '" target="_blank" rel="noopener">' + LINK_ICON + '&nbsp;' + esc(sourceButtonLabel(v)) + '</a>'
             : '';
 
-        var videoSrc = 'kuragev.php?proxy=video&job_id=' + encodeURIComponent(jid);
         var thumbVer = encodeURIComponent(v.updated_at || v.created_at || '1');
         var thumbSrc = 'kuragev.php?proxy=thumbnail&job_id=' + encodeURIComponent(jid) + '&v=' + thumbVer;
         var detailUrl = 'kuragev.php?id=' + encodeURIComponent(jid);
@@ -1029,7 +1011,7 @@ function renderCards(from, to) {
         var html = '<div class="post-card" data-detail-url="' + detailUrl + '">'
             + '<div style="display:flex;gap:12px;align-items:flex-start;">'
             + '<div class="card-video-wrap" data-jid="' + esc(jid) + '" data-detail-url="' + detailUrl + '" title="詳細を見る">'
-            + '<video class="thumb-video" src="' + videoSrc + '" poster="' + thumbSrc + '" playsinline muted preload="metadata" loop></video>'
+            + '<img class="thumb-img" src="' + thumbSrc + '" loading="lazy" decoding="async" alt="">'
             + '<div class="card-video-play">▶</div>'
             + '</div>'
             + '<div class="card-content">'
@@ -1164,6 +1146,35 @@ var reelObs     = null;
 var reelTimers  = new WeakMap();
 var reelReady   = false;
 
+function reelSlideHtml(v) {
+    var jid = v.job_id || '';
+    var title = displayTitleForJob(v);
+    var shareUrl = '<?php echo $BASE_URL . '/' . $THIS_FILE; ?>?id=' + encodeURIComponent(jid);
+    var copyText = copyTextForJob(v, shareUrl);
+    var xText = encodeURIComponent(copyText);
+    var videoSrc = 'kuragev.php?proxy=video&job_id=' + encodeURIComponent(jid);
+    var thumbVer = encodeURIComponent(v.updated_at || v.created_at || '1');
+    var thumbSrc = 'kuragev.php?proxy=thumbnail&job_id=' + encodeURIComponent(jid) + '&v=' + thumbVer;
+    var detailUrl = 'kuragev.php?id=' + encodeURIComponent(jid);
+    return '<div class="reel-slide" data-job="' + esc(jid) + '">'
+        + '<video src="' + videoSrc + '" poster="' + thumbSrc + '" playsinline muted loop preload="none"></video>'
+        + '<div class="reel-grad"></div>'
+        + '<div class="reel-info"><div class="reel-title">' + esc(title) + '</div></div>'
+        + '<div class="reel-side">'
+        + '<button class="reel-side-btn reel-mute-btn" onclick="reelMuteToggle()">🔇<span>音声</span></button>'
+        + '<button class="reel-side-btn reel-copy-btn" data-text="' + esc(copyText) + '">📋<span>コピー</span></button>'
+        + '<a class="reel-side-btn" style="text-decoration:none;" href="https://twitter.com/intent/tweet?text=' + xText + '" target="_blank" rel="noopener">𝕏<span>投稿</span></a>'
+        + '<a class="reel-side-btn" style="text-decoration:none;" href="' + detailUrl + '">📄<span>詳細</span></a>'
+        + '</div></div>';
+}
+
+function buildReelSlides() {
+    var feed = document.getElementById('reel-feed');
+    if (!feed || feed.dataset.built) return;
+    feed.innerHTML = kvVideos.map(reelSlideHtml).join('');
+    feed.dataset.built = '1';
+}
+
 function openReel(idx) {
     var overlay = document.getElementById('reel-overlay');
     if (!overlay) return;
@@ -1171,6 +1182,7 @@ function openReel(idx) {
     document.body.style.overflow = 'hidden';
 
     if (!reelReady) {
+        buildReelSlides();
         reelReady  = true;
         reelSlides = Array.from(overlay.querySelectorAll('.reel-slide'));
 
@@ -1258,9 +1270,7 @@ document.addEventListener('keydown', function(e) {
     if (!v) return;
     var overlay = document.getElementById('reel-overlay');
     if (!overlay) return;
-    var slides = overlay.querySelectorAll('.reel-slide');
-    var idx = -1;
-    slides.forEach(function(s, i) { if (s.dataset.job === v) idx = i; });
+    var idx = kvVideos.findIndex(function(job) { return String(job.job_id || '') === v; });
     if (idx >= 0) setTimeout(function() { openReel(idx); }, 200);
 })();
 </script>
