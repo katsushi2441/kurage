@@ -15,6 +15,7 @@ Environment=KURAGE_TTS_BACKEND=voicebox
 Environment=VOICEBOX_API=http://192.168.0.11:17493
 Environment=VOICEBOX_PROFILE_ID=1fe9e00c-cc81-4b07-8884-24acf639ef5e
 Environment=VOICEBOX_ENGINE=qwen
+Environment=VOICEBOX_GENERATION_TIMEOUT=600
 ExecStart=/home/kojima/work/kurage/.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 18303
 Restart=always
 RestartSec=5

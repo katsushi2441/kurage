@@ -19,7 +19,10 @@ VOICEBOX_API = os.environ.get("VOICEBOX_API", "http://192.168.0.11:17493").rstri
 VOICEBOX_PROFILE_ID = os.environ.get("VOICEBOX_PROFILE_ID", "1fe9e00c-cc81-4b07-8884-24acf639ef5e")
 VOICEBOX_ENGINE = os.environ.get("VOICEBOX_ENGINE", "qwen")
 VOICEBOX_TIMEOUT = int(os.environ.get("VOICEBOX_TIMEOUT", "900"))
-VOICEBOX_GENERATION_TIMEOUT = int(os.environ.get("VOICEBOX_GENERATION_TIMEOUT", "180"))
+# Cold start: the qwen voice-clone model takes ~200-240s to load on first use
+# (e.g. RTX 3080); warm generations are ~9s. 180s was too tight and timed out on
+# scene 0. 600s absorbs the cold load; later scenes stay fast.
+VOICEBOX_GENERATION_TIMEOUT = int(os.environ.get("VOICEBOX_GENERATION_TIMEOUT", "600"))
 
 
 def prepare_prosody_text(text: str) -> str:
