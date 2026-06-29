@@ -585,7 +585,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 .post-card:hover{background:#fafafa;}
 .post-meta{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
 .avatar{width:40px;height:40px;background:linear-gradient(135deg,#007f96,#00bcd4);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;color:#fff;flex-shrink:0;}
-.post-title{font-weight:700;color:#111;font-size:14px;margin-bottom:2px;cursor:pointer;}
+.post-title{display:block;font-weight:700;color:#111;font-size:14px;margin-bottom:2px;cursor:pointer;text-decoration:none;}
 .post-title:hover{text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:3px;}
 .post-author{color:#888;font-size:12px;}
 .post-time{color:#aaa;font-size:12px;margin-left:auto;white-space:nowrap;}
@@ -855,6 +855,17 @@ function toolLabelForJob(v) {
     return 'Kurage';
 }
 
+function toolHomeUrlForJob(v) {
+    var source = String(v.source || '').toLowerCase();
+    var contentType = String(v.content_type || '').toLowerCase();
+    if (isVoiceProJob(v)) return 'kuragevp.php';
+    if (source === 'kmontage') return 'kmontage.php';
+    if (source === 'horizon') return 'horizon.php';
+    if (isEntertainmentJob(v)) return 'entertainment.php';
+    if (source === 'blog' || contentType === 'blog') return 'kurage.php';
+    return '';
+}
+
 function isLocalSourcePath(url) {
     url = String(url || '').trim();
     return !url || url.indexOf('/home/') === 0 || url.indexOf('file:') === 0;
@@ -1037,6 +1048,10 @@ function renderCards(from, to) {
         var thumbVer = encodeURIComponent(v.updated_at || v.created_at || '1');
         var thumbSrc = 'kuragev.php?proxy=thumbnail&job_id=' + encodeURIComponent(jid) + '&v=' + thumbVer;
         var detailUrl = 'kuragev.php?id=' + encodeURIComponent(jid);
+        var toolHomeUrl = toolHomeUrlForJob(v);
+        var titleHtml = toolHomeUrl
+            ? '<a class="post-title" href="' + esc(toolHomeUrl) + '">' + esc(title) + '</a>'
+            : '<div class="post-title">' + esc(title) + '</div>';
         var html = '<div class="post-card" data-detail-url="' + detailUrl + '">'
             + '<div style="display:flex;gap:12px;align-items:flex-start;">'
             + '<div class="card-video-wrap" data-jid="' + esc(jid) + '" data-detail-url="' + detailUrl + '" title="詳細を見る">'
@@ -1046,7 +1061,7 @@ function renderCards(from, to) {
             + '<div class="card-content">'
             + '<div class="tool-badge">' + esc(tool) + '</div>'
             + '<div class="post-meta" style="margin-bottom:6px;">'
-            + '<div class="post-title">' + esc(title) + '</div>'
+            + titleHtml
             + '<div class="post-time">' + esc(date) + '<br><span class="views">表示' + esc(views) + '</span></div>'
             + '</div>'
             + tweetHtml
