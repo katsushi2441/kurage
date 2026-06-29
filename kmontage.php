@@ -148,6 +148,12 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
         <input id="source-url" type="url" placeholder="https://x.com/... または https://example.com/article.pdf">
         <button id="generate" class="btn-primary">生成する</button>
       </div>
+      <div class="input-row" style="margin-top:.6rem;">
+        <select id="history-select" style="flex:1;border:1px solid #bdd4da;border-radius:14px;background:#fff;padding:.8rem .9rem;font-size:.9rem;">
+          <option value="">最近の生成から選択</option>
+        </select>
+        <button id="reload" class="btn-muted" type="button">履歴更新</button>
+      </div>
       <div class="hint">長い動画や資料は、取得・文字起こし・本文解析に数分かかることがあります。生成完了後、Kurageの動画として表示されます。</div>
       <div id="message" class="toast"></div>
     </div>
@@ -168,11 +174,6 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
         <button id="delete" class="btn-danger" disabled>削除</button>
       </div>
     </div>
-  </section>
-
-  <section class="panel">
-    <div class="panel-head"><span>最近の生成</span><button id="reload" class="btn-muted" style="padding:.38rem .7rem;">更新</button></div>
-    <div class="panel-body"><div id="history" class="history"></div></div>
   </section>
 
   <?php endif; ?>
@@ -226,8 +227,30 @@ $('copy').addEventListener('click', async () => { const text = shareText(); awai
 $('post-x').addEventListener('click', () => { const text = shareText(); window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener'); });
 $('delete').addEventListener('click', async () => { if (!currentJobId || !confirm('この生成ジョブとKurage動画を削除しますか？')) return; await fetchJson(`<?php echo h($THIS_FILE); ?>?proxy=delete&job_id=${encodeURIComponent(currentJobId)}`, {method:'POST'}); currentJobId = null; currentJobUrl = ''; $('job-id').textContent='削除済み'; $('status').textContent='deleted'; $('title').textContent='タイトルはここに表示されます'; $('summary').textContent='動画の要点と生成された台本がここに表示されます。'; $('script').innerHTML=''; $('player').style.display='none'; setActions(false); await loadHistory(); });
 async function openJob(job){ currentJobId = job.id; await poll(job.id); clearInterval(pollTimer); if (!['done','error'].includes(job.status)) pollTimer = setInterval(() => poll(job.id), 5000); }
-async function loadHistory(){ const data = await fetchJson('<?php echo h($THIS_FILE); ?>?proxy=jobs&limit=20'); const box = $('history'); box.innerHTML = ''; for (const job of data.jobs || []) { const div = document.createElement('div'); div.className = 'job'; const kurage = job.kurage_job_id ? `<small>Kurage: ${esc(job.kurage_status || '-')} / ${esc(job.kurage_progress ?? '-')}%</small>` : ''; div.innerHTML = `<button class="job-main" data-id="${esc(job.id)}" type="button"><strong>${esc(jobTitle(job))}</strong><small>${esc(statusLabel(job))} / ${esc(job.progress ?? 0)}% / ${esc(job.url || '')}</small>${kurage}</button>`; div.querySelector('button').addEventListener('click', async () => openJob(job)); box.appendChild(div); } if (!box.innerHTML) box.innerHTML = '<div class="hint">まだ生成履歴がありません。</div>'; }
+async function loadHistory(){
+  const data = await fetchJson('<?php echo h($THIS_FILE); ?>?proxy=jobs&limit=20');
+  const select = $('history-select');
+  const selected = select.value;
+  select.innerHTML = '<option value="">最近の生成から選択</option>';
+  for (const job of data.jobs || []) {
+    const option = document.createElement('option');
+    option.value = job.id;
+    option.textContent = `${statusLabel(job)} / ${jobTitle(job)} / ${job.url || ''}`;
+    option.dataset.job = JSON.stringify(job);
+    select.appendChild(option);
+  }
+  if (selected) select.value = selected;
+}
 $('reload').addEventListener('click', loadHistory);
+$('history-select').addEventListener('change', async () => {
+  const option = $('history-select').selectedOptions[0];
+  if (!option || !option.value) return;
+  const job = JSON.parse(option.dataset.job || '{}');
+  currentJobId = job.id;
+  await poll(job.id);
+  clearInterval(pollTimer);
+  if (!['done','error'].includes(job.status)) pollTimer = setInterval(() => poll(job.id), 5000);
+});
 $('source-url').addEventListener('input', () => { if ($('source-url').value.trim() !== currentJobUrl) currentJobId = null; });
 async function openInitialJob(){ await loadHistory(); const jobId = new URLSearchParams(location.search).get('job'); if (jobId) { await poll(jobId); clearInterval(pollTimer); pollTimer = setInterval(() => poll(jobId), 5000); } }
 openInitialJob().catch(e => message(e.message || String(e)));
