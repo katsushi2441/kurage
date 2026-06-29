@@ -30,7 +30,13 @@ Kurageの動画生成APIは `video_style` を受け取る。
 
 新しいスタイルを追加するときは、`STYLE_PRESETS` に `label`、`best_for`、`system`、`image_suffixes` を追加し、必要なら `resolve_video_style()` の自動選択ルールも更新する。
 
-画面反映が必要な場合は、`kurage.php` と `horizon.php` を公開サーバへFTPアップロードする。API変更は `kurage-api.service` の再起動が必要。
+画面反映が必要な場合は、公開PHPを必ず公開サーバへFTPアップロードする。対象例は `kurage.php`、`horizon.php`、`kuragev.php`、`kmontage.php`、`entertainment.php`、`index.php`。ローカルGit更新だけでは完了ではない。
+
+- 公開先: `/web/kurage_exbridge_jp`
+- FTP後に `https://kurage.exbridge.jp/<対象PHP>` を `curl` などで取得し、変更を示す文字列が公開HTMLに反映されていることを確認する
+- ログイン後だけ出るJS/HTMLを変更した場合も、PHPファイル自体のアップロードと公開URLのHTTP 200確認は必須
+- API変更は該当serviceを再起動する。例: kmontageは `kmontage-api.service`、Kurage本体は `kurage-api.service`
+- 完了報告では、FTPアップロード済みか、公開URLで何を確認したかを明記する
 
 
 ## YouTube投稿
