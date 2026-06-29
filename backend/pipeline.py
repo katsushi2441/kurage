@@ -89,7 +89,7 @@ def normalize_provided_script(script: dict, video_style: str = "auto", scene_dur
         "scenes": [],
     }
 
-    def _split_long_narration(text: str, max_chars: int = 75) -> list[str]:
+    def _split_long_narration(text: str, max_chars: int = 75, min_chars: int = 18) -> list[str]:
         """Keep externally supplied scripts watchable by avoiding one giant scene."""
         text = str(text or "").strip()
         if len(text) <= max_chars:
@@ -120,7 +120,23 @@ def normalize_provided_script(script: dict, video_style: str = "auto", scene_dur
                 current = current[max_chars:].lstrip()
         if current:
             chunks.append(current)
-        return chunks
+
+        # Do not leave tiny fragments like "です。" as standalone scenes. They
+        # produce broken lip-sync/TTS timing and are worse than a slightly
+        # longer neighboring scene.
+        merged: list[str] = []
+        for chunk in chunks:
+            chunk = chunk.strip()
+            if not chunk:
+                continue
+            if len(chunk) < min_chars and merged and len(merged[-1]) + len(chunk) + 1 <= max_chars + min_chars:
+                merged[-1] = f"{merged[-1]} {chunk}"
+            else:
+                merged.append(chunk)
+        if len(merged) >= 2 and len(merged[-1]) < min_chars:
+            tail = merged.pop()
+            merged[-1] = f"{merged[-1]} {tail}"
+        return merged
 
     for i, scene in enumerate(scenes):
         if not isinstance(scene, dict):
@@ -138,6 +154,19 @@ def normalize_provided_script(script: dict, video_style: str = "auto", scene_dur
             })
     if not out["scenes"]:
         raise ValueError("script.scenes has no usable narration")
+
+    normalized_scenes: list[dict] = []
+    for scene in out["scenes"]:
+        narration = str(scene.get("narration") or "").strip()
+        if len(narration) < 18 and normalized_scenes:
+            prev = normalized_scenes[-1]
+            prev["narration"] = f"{prev.get('narration', '')} {narration}".strip()
+            prev["duration"] = max(int(prev.get("duration") or scene_duration), int(scene.get("duration") or scene_duration))
+        else:
+            normalized_scenes.append(scene)
+    for idx, scene in enumerate(normalized_scenes):
+        scene["index"] = idx
+    out["scenes"] = normalized_scenes
     return apply_video_style(out, video_style)
 
 
