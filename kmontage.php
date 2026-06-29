@@ -95,6 +95,9 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
 :root{--bg:#f6fbfc;--surface:#fff;--ink:#132329;--muted:#667982;--line:#d8e8ec;--accent:#078aa6;--accent2:#f7b955;--green:#2f9d62;--red:#bd4b4b;--soft:#e9f8fb;}
 *{box-sizing:border-box;margin:0;padding:0}body{min-height:100vh;background:radial-gradient(circle at 14% 8%,rgba(105,210,230,.26),transparent 30%),radial-gradient(circle at 90% 0%,rgba(255,211,130,.36),transparent 28%),linear-gradient(180deg,#fff 0%,#f6fbfc 55%,#eaf7f9 100%);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;font-size:14px;}header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);padding:.75rem 1.2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem}.brand{display:flex;align-items:center;gap:.7rem}.brand img{width:42px;height:42px;border-radius:50%;object-fit:cover;box-shadow:0 6px 18px rgba(7,138,166,.16)}.brand strong{display:block;font-size:1rem;font-weight:900}.brand span{display:block;color:var(--muted);font-size:.74rem;margin-top:.1rem}.userbar{display:flex;align-items:center;gap:.55rem;color:var(--muted);font-size:.78rem}.badge{display:inline-flex;align-items:center;border-radius:999px;padding:.18rem .58rem;font-size:.72rem;font-weight:800;border:1px solid transparent}.api-ok{background:#e7f7ed;color:var(--green);border-color:#ccebd8}.api-err{background:#fff0f0;color:var(--red);border-color:#f2cccc}.btn-sm{color:var(--muted);text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:.25rem .7rem;background:#fff}.wrap{max-width:1040px;margin:0 auto;padding:1.2rem}.hero{margin:.5rem 0 1rem}.hero-card,.panel{background:rgba(255,255,255,.86);border:1px solid var(--line);border-radius:20px;box-shadow:0 12px 40px rgba(19,35,41,.07);overflow:hidden}.hero-card{padding:1.35rem 1.45rem}.eyebrow{font-size:.72rem;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:.6rem}.hero h1{font-size:clamp(1.65rem,4vw,2.8rem);line-height:1.08;letter-spacing:-.04em;margin-bottom:.8rem}.lead{color:var(--muted);line-height:1.85;font-size:.92rem}.mini{display:none}.panel{margin-bottom:1rem}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:.8rem;padding:.8rem 1rem;background:rgba(245,251,252,.9);border-bottom:1px solid var(--line);font-weight:900}.panel-head small{font-weight:700;color:var(--muted)}.panel-body{padding:1rem}.input-row{display:flex;gap:.6rem}input[type=url]{flex:1;border:1px solid #bdd4da;border-radius:14px;background:#fff;padding:.8rem .9rem;font-size:.9rem;outline:none}input[type=url]:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(7,138,166,.1)}button,.btn{border:0;border-radius:14px;padding:.78rem 1.15rem;font-weight:900;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:.45rem;font-family:inherit}.btn-primary{background:linear-gradient(135deg,var(--accent),#0a6f84);color:#fff;box-shadow:0 8px 20px rgba(7,138,166,.2)}.btn-muted{background:#eef7f9;color:#31525c;border:1px solid #cce5ea}.btn-danger{background:#fff0f0;color:var(--red);border:1px solid #efcaca}button:disabled{opacity:.5;cursor:not-allowed}.hint{margin-top:.6rem;color:var(--muted);font-size:.78rem;line-height:1.7}.status-line{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap}.progress{height:9px;background:#dcecef;border-radius:999px;overflow:hidden;margin:.8rem 0}.bar{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--green));transition:width .35s}.status-pill{background:var(--soft);color:var(--accent);border-color:#c7e9ef}.done{background:#e7f7ed;color:var(--green);border-color:#ccebd8}.error{background:#fff0f0;color:var(--red);border-color:#f2cccc}.summary{background:#f7fcfd;border:1px solid var(--line);border-radius:14px;padding:.8rem;margin-top:.8rem;color:#29464e;line-height:1.75;white-space:pre-wrap}.script{margin:.8rem 0 0 1.2rem;color:#304f57;line-height:1.7}.player{margin-top:.9rem;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#f9fdfe;min-height:360px}.player iframe{display:block;width:100%;height:620px;border:0}.actions{display:flex;gap:.55rem;flex-wrap:wrap;margin-top:.8rem}.history{display:grid;gap:.55rem}.job{display:grid;grid-template-columns:1fr auto;gap:.7rem;align-items:center;border:1px solid var(--line);background:#fff;border-radius:14px;padding:.75rem}.job strong{display:block;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.job small{display:block;margin-top:.18rem;color:var(--muted);font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.login{padding:2rem;text-align:center}.login p{color:var(--muted);margin:.7rem 0 1rem}.toast{min-height:1.2rem;color:var(--muted);font-size:.8rem;margin-top:.65rem}@media(max-width:760px){header{padding:.65rem .8rem}.wrap{padding:.8rem}.input-row{flex-direction:column}.player iframe{height:560px}.userbar .name{display:none}}
 </style>
+<style>
+.progress-detail{border:1px solid #d9edf7;background:linear-gradient(145deg,#f8fdff,#fff);border-radius:14px;padding:.75rem;margin-top:.75rem}.stage-row{display:flex;flex-wrap:wrap;gap:.45rem;margin-bottom:.65rem}.stage{border:1px solid var(--line);border-radius:999px;padding:.28rem .55rem;font-size:.72rem;font-weight:900;color:var(--muted);background:#fff}.stage.done{border-color:#8ed6be;background:#edfff8;color:#087351}.stage.active{border-color:#58bde0;background:#eefaff;color:#0f6d99;box-shadow:0 0 0 4px rgba(7,138,166,.1)}.stage.error{border-color:#f2cccc;background:#fff0f0;color:var(--red)}.job-meta{display:grid;grid-template-columns:1fr 1fr;gap:.45rem .75rem;margin:0}.job-meta div{min-width:0}.job-meta dt{font-size:.68rem;font-weight:900;color:var(--accent)}.job-meta dd{margin:.12rem 0 0;color:#29464e;font-size:.78rem;line-height:1.4;word-break:break-all}.job-meta a{color:var(--accent);font-weight:800}.job-main{display:block;width:100%;text-align:left;border:1px solid transparent;border-radius:12px;background:#fff;color:var(--ink);box-shadow:none;padding:.55rem}.job-main:hover{border-color:#b9d8e8;background:#f9fdfe}@media(max-width:760px){.job-meta{grid-template-columns:1fr}.job{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
 <header>
@@ -147,6 +150,7 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
       <div class="status-line"><span id="status" class="badge status-pill">idle</span><strong id="title">タイトルはここに表示されます</strong></div>
       <div class="progress"><div id="progress" class="bar"></div></div>
       <div id="summary" class="summary">動画の要点と生成された台本がここに表示されます。</div>
+      <div id="progress-detail" class="progress-detail"></div>
       <ol id="script" class="script"></ol>
       <div id="player" class="player" style="display:none;"></div>
       <div class="actions">
@@ -175,6 +179,32 @@ const esc = (s) => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&l
 function message(text){ $('message').textContent = text || ''; }
 function setActions(enabled){ $('copy').disabled = !enabled; $('post-x').disabled = !enabled; $('delete').disabled = !currentJobId; }
 function scriptLines(job){ const script = job.kurage_script || job.script || {}; const scenes = Array.isArray(script.scenes) ? script.scenes : []; if (scenes.length) return scenes.map(s => s.narration || '').filter(Boolean); return Array.isArray(job.script_outline) ? job.script_outline : []; }
+function jobTitle(job){ return job.kurage_title || job.title || job.source_title || job.url || '生成中'; }
+function statusLabel(job){ const labels = {queued:'待機中',analyzing:'URL解析中',downloading:'元動画取得中',transcribing:'文字起こし中',planning:'台本生成中',generating:'Kurage動画生成中',done:'完了',error:'エラー'}; return labels[job.status] || job.status || '不明'; }
+function stageClass(done, active, error){ if (error) return 'stage error'; if (done) return 'stage done'; if (active) return 'stage active'; return 'stage'; }
+function renderProgressDetail(job){
+  const st = job.status || 'unknown';
+  const progress = Number(job.progress || 0);
+  const stages = [
+    ['解析', progress >= 25 || ['downloading','transcribing','planning','generating','done'].includes(st)],
+    ['取得', progress >= 38 || ['transcribing','planning','generating','done'].includes(st)],
+    ['台本', progress >= 55 || ['generating','done'].includes(st)],
+    ['Kurage生成', progress >= 80 || st === 'done'],
+    ['完了', st === 'done']
+  ];
+  const activeIndex = st === 'error' ? -1 : st === 'queued' || st === 'analyzing' ? 0 : st === 'downloading' || st === 'transcribing' ? 1 : st === 'planning' ? 2 : st === 'generating' ? 3 : st === 'done' ? 4 : 0;
+  const rows = [
+    ['kmontage状態', `${statusLabel(job)} / ${progress}%`],
+    ['ジョブID', job.id || '-'],
+    ['元URL', job.url ? `<a href="${esc(job.url)}" target="_blank" rel="noopener">${esc(job.url)}</a>` : '-'],
+    ['元タイトル', esc(job.source_title || '-')]
+  ];
+  if (job.kurage_job_id) rows.push(['Kurageジョブ', `<a href="https://kurage.exbridge.jp/kuragev.php?id=${esc(job.kurage_job_id)}" target="_blank" rel="noopener">${esc(job.kurage_job_id)}</a>`]);
+  if (job.kurage_status) rows.push(['Kurage状態', `${esc(job.kurage_status)} / ${esc(job.kurage_progress ?? '-')}%`]);
+  if (job.reference_duration) rows.push(['元動画尺', `${Math.round(Number(job.reference_duration))}秒`]);
+  if (job.updated_at) rows.push(['最終更新', esc(job.updated_at)]);
+  $('progress-detail').innerHTML = `<div class="stage-row">${stages.map(([label, done], i) => `<span class="${stageClass(done, i === activeIndex, st === 'error' && i === activeIndex)}">${label}</span>`).join('')}</div><dl class="job-meta">${rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
+}
 function renderJob(job){
   currentJobId = job.id || currentJobId;
   $('job-id').textContent = currentJobId || '未開始';
@@ -182,8 +212,9 @@ function renderJob(job){
   $('status').textContent = `${st} ${job.progress ?? 0}%`;
   $('status').className = 'badge ' + (st === 'done' ? 'done' : st === 'error' ? 'error' : 'status-pill');
   $('progress').style.width = `${Math.max(0, Math.min(100, Number(job.progress || 0)))}%`;
-  $('title').textContent = job.kurage_title || job.title || '生成中';
+  $('title').textContent = jobTitle(job);
   $('summary').textContent = job.summary || job.reference_analysis?.core_claim || job.analysis?.reference_analysis?.core_claim || job.transcript_preview || '解析中です。';
+  renderProgressDetail(job);
   const list = $('script'); list.innerHTML = '';
   for (const line of scriptLines(job)) { const li = document.createElement('li'); li.textContent = line; list.appendChild(li); }
   const link = job.video_url || job.kurage_url || '#'; $('kurage-link').href = link;
@@ -196,7 +227,7 @@ function renderJob(job){
   } else { $('player').style.display = 'none'; $('player').innerHTML = ''; setActions(false); }
 }
 async function fetchJson(url, options){ const res = await fetch(url, options || {}); const data = await res.json(); if (!res.ok || data.ok === false) throw new Error(data.detail || data.error || 'request failed'); return data; }
-async function poll(jobId){ const job = await fetchJson(`<?php echo h($THIS_FILE); ?>?proxy=status&job_id=${encodeURIComponent(jobId)}`); renderJob(job); if (job.status === 'done' || job.status === 'error') { clearInterval(pollTimer); pollTimer = null; await loadHistory(); } }
+async function poll(jobId){ const job = await fetchJson(`<?php echo h($THIS_FILE); ?>?proxy=status&job_id=${encodeURIComponent(jobId)}`); renderJob(job); history.replaceState(null, '', `?job=${encodeURIComponent(jobId)}`); if (job.status === 'done' || job.status === 'error') { clearInterval(pollTimer); pollTimer = null; await loadHistory(); } }
 $('generate').addEventListener('click', async () => {
   const url = $('source-url').value.trim(); if (!url) return message('URLを入力してください');
   $('generate').disabled = true; message('生成ジョブを開始しています...');
@@ -204,12 +235,15 @@ $('generate').addEventListener('click', async () => {
   catch(e){ message(e.message || String(e)); }
   finally { $('generate').disabled = false; }
 });
-$('copy').addEventListener('click', async () => { const text = `${$('title').textContent}\n${$('summary').textContent}\n${$('kurage-link').href}`; await navigator.clipboard.writeText(text); message('コピーしました'); });
-$('post-x').addEventListener('click', () => { const text = `${$('title').textContent}\n${$('kurage-link').href}`; window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener'); });
+function shareText(){ return `${$('title').textContent}\n${$('summary').textContent}\n${$('kurage-link').href}`; }
+$('copy').addEventListener('click', async () => { const text = shareText(); await navigator.clipboard.writeText(text); message('コピーしました'); });
+$('post-x').addEventListener('click', () => { const text = shareText(); window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener'); });
 $('delete').addEventListener('click', async () => { if (!currentJobId || !confirm('この生成ジョブとKurage動画を削除しますか？')) return; await fetchJson(`<?php echo h($THIS_FILE); ?>?proxy=delete&job_id=${encodeURIComponent(currentJobId)}`, {method:'POST'}); currentJobId = null; $('job-id').textContent='削除済み'; $('status').textContent='deleted'; $('title').textContent='タイトルはここに表示されます'; $('summary').textContent='動画の要点と生成された台本がここに表示されます。'; $('script').innerHTML=''; $('player').style.display='none'; setActions(false); await loadHistory(); });
-async function loadHistory(){ const data = await fetchJson('<?php echo h($THIS_FILE); ?>?proxy=jobs&limit=20'); const box = $('history'); box.innerHTML = ''; for (const job of data.jobs || []) { const div = document.createElement('div'); div.className = 'job'; div.innerHTML = `<div><strong>${esc(job.kurage_title || job.title || job.url)}</strong><small>${esc(job.status)} / ${esc(job.url || '')}</small></div><button class="btn-muted" data-id="${esc(job.id)}">表示</button>`; div.querySelector('button').addEventListener('click', async () => { currentJobId = job.id; await poll(job.id); }); box.appendChild(div); } if (!box.innerHTML) box.innerHTML = '<div class="hint">まだ生成履歴がありません。</div>'; }
+async function openJob(job){ currentJobId = job.id; await poll(job.id); clearInterval(pollTimer); if (!['done','error'].includes(job.status)) pollTimer = setInterval(() => poll(job.id), 5000); }
+async function loadHistory(){ const data = await fetchJson('<?php echo h($THIS_FILE); ?>?proxy=jobs&limit=20'); const box = $('history'); box.innerHTML = ''; for (const job of data.jobs || []) { const div = document.createElement('div'); div.className = 'job'; const kurage = job.kurage_job_id ? `<small>Kurage: ${esc(job.kurage_status || '-')} / ${esc(job.kurage_progress ?? '-')}%</small>` : ''; div.innerHTML = `<button class="job-main" data-id="${esc(job.id)}" type="button"><strong>${esc(jobTitle(job))}</strong><small>${esc(statusLabel(job))} / ${esc(job.progress ?? 0)}% / ${esc(job.url || '')}</small>${kurage}</button><button class="btn-muted" data-id="${esc(job.id)}" type="button">経過を見る</button>`; div.querySelectorAll('button').forEach(btn => btn.addEventListener('click', async () => openJob(job))); box.appendChild(div); } if (!box.innerHTML) box.innerHTML = '<div class="hint">まだ生成履歴がありません。</div>'; }
 $('reload').addEventListener('click', loadHistory);
-loadHistory().catch(e => message(e.message || String(e)));
+async function openInitialJob(){ await loadHistory(); const jobId = new URLSearchParams(location.search).get('job'); if (jobId) { await poll(jobId); clearInterval(pollTimer); pollTimer = setInterval(() => poll(jobId), 5000); } }
+openInitialJob().catch(e => message(e.message || String(e)));
 </script>
 <?php endif; ?>
 </body>
