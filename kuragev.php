@@ -1004,10 +1004,7 @@ function renderCards(from, to) {
         var thumbVer = encodeURIComponent(v.updated_at || v.created_at || '1');
         var thumbSrc = 'kuragev.php?proxy=thumbnail&job_id=' + encodeURIComponent(jid) + '&v=' + thumbVer;
         var detailUrl = 'kuragev.php?id=' + encodeURIComponent(jid);
-        var toolHomeUrl = toolHomeUrlForJob(v);
-        var titleHtml = toolHomeUrl
-            ? '<a class="post-title" href="' + esc(toolHomeUrl) + '">' + esc(title) + '</a>'
-            : '<div class="post-title">' + esc(title) + '</div>';
+        var titleHtml = '<a class="post-title" href="' + detailUrl + '">' + esc(title) + '</a>';
         var html = '<div class="post-card" data-detail-url="' + detailUrl + '">'
             + '<div style="display:flex;gap:12px;align-items:flex-start;">'
             + '<div class="card-video-wrap" data-jid="' + esc(jid) + '" data-detail-url="' + detailUrl + '" title="詳細を見る">'
