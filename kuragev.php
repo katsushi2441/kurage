@@ -261,20 +261,6 @@ function shorten_share_detail($text, $limit = 90) {
     return strlen($text) > $limit ? substr($text, 0, $limit) . '...' : $text;
 }
 
-function share_text_for_job($job, $share_url) {
-    $title = trim((string)job_display_title($job));
-    if ($title === '') { $title = 'Kurage動画'; }
-    if (is_voice_pro_job($job)) {
-        $summary = shorten_share_detail(copy_detail_text_for_job($job));
-        $label = voice_pro_label_for_job($job);
-        $text = $title . "\nKurage Voice Pro: " . $label . "\n\n" . ($summary !== '' ? $summary . "\n\n" : "") . "動画: " . $share_url;
-        $article_url = related_article_url($job);
-        if ($article_url !== '') { $text .= "\n考察記事: " . $article_url; }
-        return $text;
-    }
-    return $title . "\n\n" . $share_url . "\n#Kurage #AI動画";
-}
-
 function copy_text_for_job($job, $share_url) {
     $title = trim((string)job_display_title($job));
     if ($title === '') { $title = 'Kurage動画'; }
@@ -733,7 +719,7 @@ $detail_body_text = job_body_text($detail_job);
     <?php
     $share_url_d = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($detail_id);
     $copy_d      = copy_text_for_job($detail_job, $share_url_d);
-    $x_text_d    = urlencode(share_text_for_job($detail_job, $share_url_d));
+    $x_text_d    = urlencode($copy_d);
     ?>
     <div class="action-row">
       <button id="detail-copy-btn" class="btn-primary"
@@ -795,8 +781,9 @@ $detail_body_text = job_body_text($detail_job);
       $r_title  = h(job_display_title($v));
       $r_author = h($v['tweet_author'] ?? '');
       $r_share  = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($v['job_id']);
-      $r_xtext  = urlencode(share_text_for_job($v, $r_share));
-      $r_copy   = h(copy_text_for_job($v, $r_share));
+      $r_copy_raw = copy_text_for_job($v, $r_share);
+      $r_xtext  = urlencode($r_copy_raw);
+      $r_copy   = h($r_copy_raw);
     ?>
     <div class="reel-slide" data-job="<?php echo h($v['job_id']); ?>">
       <video src="<?php echo $r_vid; ?>"
@@ -977,19 +964,6 @@ function shortenShareDetail(text, limit) {
     return text.length > limit ? text.slice(0, limit) + '…' : text;
 }
 
-function shareTextForJob(v, shareUrl) {
-    var title = displayTitleForJob(v);
-    if (isVoiceProJob(v)) {
-        var summary = shortenShareDetail(copyDetailTextForJob(v));
-        var label = voiceProLabelForJob(v);
-        var text = title + '\nKurage Voice Pro: ' + label + '\n\n' + (summary ? summary + '\n\n' : '') + '動画: ' + shareUrl;
-        var articleUrl = sourceUrlForJob({source_url: v.article_url || v.related_article_url || ''});
-        if (articleUrl) text += '\n考察記事: ' + articleUrl;
-        return text;
-    }
-    return title + '\n\n' + shareUrl + '\n#Kurage #AI動画';
-}
-
 function copyTextForJob(v, shareUrl) {
     var voiceProNote = isVoiceProJob(v) ? '\nKurage Voice Pro: ' + voiceProLabelForJob(v) : '';
     return 'タイトル:\n' + displayTitleForJob(v)
@@ -1034,7 +1008,7 @@ function renderCards(from, to) {
 
         var shareUrl  = '<?php echo $BASE_URL . '/' . $THIS_FILE; ?>?id=' + encodeURIComponent(jid);
         var copyText  = copyTextForJob(v, shareUrl);
-        var xText     = encodeURIComponent(shareTextForJob(v, shareUrl));
+        var xText     = encodeURIComponent(copyText);
 
         var tweetHtml = tweet
             ? '<div class="tweet-block">' + esc(tweet) + '</div>'
