@@ -7,7 +7,7 @@ Type=simple
 WorkingDirectory=/home/kojima/work/kurage/backend
 Environment=KURAGE_PORT=18303
 Environment=OLLAMA_URL=http://192.168.0.14:11434
-Environment=OLLAMA_MODEL=gemma4:e4b
+Environment=OLLAMA_MODEL=gemma4:12b-it-qat
 Environment=ERNIE_URL=http://192.168.0.3:8010/image/generate
 Environment=WAN_API=http://192.168.0.14:8091
 Environment=WAN_TEST_MODE=1
