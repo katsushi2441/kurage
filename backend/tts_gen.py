@@ -90,21 +90,32 @@ def run_edge_tts(text: str, output_path: Path) -> float:
 
 def run_voicebox_tts(text: str, output_path: Path) -> float:
     """Voicebox cloned-voice TTS, converted to the requested output format."""
-    import requests
-
     text = prepare_prosody_text(text)
     if not text:
         return 0.0
 
+    duration = _run_voicebox_tts_engine(text, output_path, VOICEBOX_ENGINE)
+    if duration > 0:
+        return duration
+    fallback_engine = "chatterbox"
+    if VOICEBOX_ENGINE != fallback_engine:
+        print(f"  [tts] voicebox:{VOICEBOX_ENGINE} failed; retrying voicebox:{fallback_engine}", flush=True)
+        return _run_voicebox_tts_engine(text, output_path, fallback_engine)
+    return 0.0
+
+
+def _run_voicebox_tts_engine(text: str, output_path: Path, engine: str) -> float:
+    import requests
+
     print(
-        f"  [tts] generating (voicebox:{VOICEBOX_ENGINE}, profile={VOICEBOX_PROFILE_ID[:8]}...): {text[:60]}...",
+        f"  [tts] generating (voicebox:{engine}, profile={VOICEBOX_PROFILE_ID[:8]}...): {text[:60]}...",
         flush=True,
     )
     payload = {
         "profile_id": VOICEBOX_PROFILE_ID,
         "text": text,
         "language": "ja",
-        "engine": VOICEBOX_ENGINE,
+        "engine": engine,
         "personality": False,
         "max_chunk_chars": 800,
         "crossfade_ms": 50,
@@ -134,7 +145,11 @@ def run_voicebox_tts(text: str, output_path: Path) -> float:
             history_response.raise_for_status()
             history = history_response.json()
         else:
-            print(f"  [tts] voicebox timed out after {VOICEBOX_TIMEOUT}s: {generation_id}", flush=True)
+            print(f"  [tts] voicebox:{engine} timed out after {min(VOICEBOX_TIMEOUT, VOICEBOX_GENERATION_TIMEOUT)}s: {generation_id}", flush=True)
+            try:
+                requests.post(f"{VOICEBOX_API}/generate/{generation_id}/cancel", timeout=10)
+            except Exception:
+                pass
             return 0.0
 
         audio_response = requests.get(f"{VOICEBOX_API}/audio/{generation_id}", timeout=60)
@@ -170,7 +185,7 @@ def run_voicebox_tts(text: str, output_path: Path) -> float:
             print("  [tts] voicebox failed: output not created", flush=True)
             return 0.0
         duration = get_audio_duration(output_path)
-        print(f"  [tts] {output_path.name} ({duration:.1f}s, voicebox)", flush=True)
+        print(f"  [tts] {output_path.name} ({duration:.1f}s, voicebox:{engine})", flush=True)
         return duration
     except Exception as exc:
         print(f"  [tts] voicebox exception: {exc}", flush=True)
