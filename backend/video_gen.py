@@ -136,7 +136,8 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
 
 
 def build_html(script: dict, image_paths: list[Path], total_dur: float,
-               narration_duration: float = 0.0, vtuber_mode: bool = False) -> str:
+               narration_duration: float = 0.0, vtuber_mode: bool = False,
+               scene_video_indexes: set[int] | None = None) -> str:
     """Build HyperFrames index.html for a short drama video (576x1024 vertical)."""
     scenes = script.get("scenes") or []
     raw_title = script.get("title") or "Kurage Video"
@@ -159,14 +160,33 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
 
     # Build scene HTML blocks
     scene_blocks = []
+    scene_video_indexes = scene_video_indexes or set()
     for i, (scene, (start, dur)) in enumerate(zip(scenes, scene_timing)):
         img_src = f"assets/scene_{i:02d}.png"
+        video_src = f"assets/scene_{i:02d}.mp4"
         narration = html.escape(scene.get("narration") or "")
+        media_html = (
+            f'<video class="scene-bg" src="{video_src}" muted playsinline preload="auto"></video>'
+            if i in scene_video_indexes
+            else f'<img class="scene-bg" src="{img_src}" alt="scene {i}">'
+        )
+        overlay_headline = html.escape(str(scene.get("overlay_headline") or "").strip())
+        overlay_subtitle = html.escape(str(scene.get("overlay_subtitle") or "").strip())
+        overlay_badge = html.escape(str(scene.get("overlay_badge") or "").strip())
+        overlay_html = ""
+        if overlay_headline or overlay_subtitle:
+            overlay_html = f"""
+      <div class="opening-card">
+        {f'<div class="opening-badge">{overlay_badge}</div>' if overlay_badge else ''}
+        {f'<div class="opening-headline">{overlay_headline}</div>' if overlay_headline else ''}
+        {f'<div class="opening-subtitle">{overlay_subtitle}</div>' if overlay_subtitle else ''}
+      </div>"""
         scene_blocks.append(f"""
     <!-- Scene {i} ({start:.1f}s - {start+dur:.1f}s) -->
     <div class="scene clip" id="scene-{i}"
          data-start="{start:.2f}" data-duration="{dur:.2f}">
-      <img class="scene-bg" src="{img_src}" alt="scene {i}">
+      {media_html}
+      {overlay_html}
       <div class="scene-text">{narration}</div>
     </div>""")
 
@@ -196,6 +216,7 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
       {{scale:1.035, x:{start_x}, y:{start_y}}},
       {{scale:1.12, x:{end_x}, y:{end_y}, duration:{dur:.2f}, ease:"none"}},
       {fade_in:.2f})
+    .to("#scene-{i} .opening-card", {{opacity:1, y:0, scale:1, duration:0.48, ease:"power3.out"}}, {fade_in + 0.18:.2f})
     .to("#scene-{i} .scene-text", {{opacity:1, y:0, duration:0.4}}, {fade_in + 0.3:.2f})
     .to("#scene-{i}", {{opacity:0, duration:0.5}}, {fade_out:.2f});""")
 
@@ -270,6 +291,29 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
       border: 1px solid rgba(7,138,166,0.18);
       box-shadow: 0 18px 48px rgba(49,121,139,0.18);
     }}
+    .opening-card {{
+      position: absolute; z-index: 5; top: 118px; left: 34px; right: 34px;
+      padding: 22px 22px 20px; border-radius: 28px;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid rgba(7,138,166,0.22);
+      box-shadow: 0 22px 60px rgba(49,121,139,0.2);
+      backdrop-filter: blur(10px); opacity: 0;
+      transform: translateY(18px) scale(0.98);
+    }}
+    .opening-badge {{
+      display: inline-flex; width: max-content; border-radius: 999px;
+      padding: 5px 11px; margin-bottom: 12px;
+      background: #e7f8fb; color: #007f96; border: 1px solid #bae4ec;
+      font-size: 15px; font-weight: 900; letter-spacing: 0.05em;
+    }}
+    .opening-headline {{
+      color: #102f38; font-size: 35px; font-weight: 1000; line-height: 1.25;
+      letter-spacing: -0.02em; text-shadow: 0 2px 0 rgba(255,255,255,0.95);
+    }}
+    .opening-subtitle {{
+      margin-top: 12px; color: #345a64; font-size: 20px; font-weight: 800;
+      line-height: 1.48;
+    }}
     #title-overlay {{
       position: absolute; top: 0; left: 0; width: 576px; height: 1024px;
       display: flex; align-items: center; justify-content: center;
@@ -302,6 +346,11 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
 
   <script>
   (function() {{
+    document.querySelectorAll("video.scene-bg").forEach((video) => {{
+      video.playbackRate = 1;
+      video.currentTime = 0;
+      video.play().catch(() => {{}});
+    }});
     const tl = gsap.timeline({{ paused: true }});
 
     // Title
@@ -336,6 +385,12 @@ def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path], vtub
     for i, img in enumerate(image_paths):
         dest = assets_dir / f"scene_{i:02d}.png"
         shutil.copy(img, dest)
+    scene_video_indexes: set[int] = set()
+    for i in range(len(image_paths)):
+        src_video = job_dir / "assets" / f"scene_{i:02d}.mp4"
+        if src_video.exists() and src_video.stat().st_size > 0:
+            shutil.copy(src_video, assets_dir / f"scene_{i:02d}.mp4")
+            scene_video_indexes.add(i)
 
     if show_avatar:
         avatar_paths = _avatar_asset_paths()
@@ -359,7 +414,7 @@ def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path], vtub
         total_dur = scene_dur
 
     # Write index.html
-    html_content = build_html(script, image_paths, total_dur, narration_duration, vtuber_mode=show_avatar)
+    html_content = build_html(script, image_paths, total_dur, narration_duration, vtuber_mode=show_avatar, scene_video_indexes=scene_video_indexes)
     (project_dir / "index.html").write_text(html_content, encoding="utf-8")
 
     # Copy hyperframes.json template

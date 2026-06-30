@@ -1,10 +1,12 @@
 """Core pipeline: tweet URL → script → images → video."""
 from __future__ import annotations
 import json
+import os
 import re
 import time
 import traceback
 from pathlib import Path
+import urllib.request
 
 from config import JOBS_DIR
 from tweet_fetch import fetch_tweet
@@ -14,6 +16,9 @@ from video_gen import generate_video, generate_thumbnail
 from video_styles import apply_video_style, resolve_video_style
 from static_media import publish_static_media
 import wan_gen
+
+WAN_OPENING_SCENES = int(os.environ.get("KURAGE_WAN_OPENING_SCENES", "2"))
+WAN_OPENING_ENABLED = os.environ.get("KURAGE_WAN_OPENING_ENABLED", "1").lower() not in {"0", "false", "no", "off"}
 
 
 def job_path(job_id: str) -> Path:
@@ -36,6 +41,88 @@ def update_job(job_id: str, **kwargs):
     data.update(kwargs)
     data["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
     p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def sanitize_image_prompt(prompt: str) -> str:
+    """Keep generated images text-free; readable text is rendered in HyperFrames."""
+    value = " ".join(str(prompt or "").replace("\n", " ").split())
+    replacements = [
+        (r"large readable Japanese headline cards?", "blank headline panels without text"),
+        (r"readable Japanese headline cards?", "blank headline panels without text"),
+        (r"Japanese headline cards?", "blank headline panels"),
+        (r"large readable text", "blank text-free panel"),
+        (r"readable text", "blank text-free panel"),
+        (r"floating numbers", "floating abstract UI blocks"),
+        (r"Card showing\s*'[^']*'", "blank UI card"),
+        (r'Card showing\s*"[^"]*"', "blank UI card"),
+        (r"card showing\s*'[^']*'", "blank UI card"),
+        (r'card showing\s*"[^"]*"', "blank UI card"),
+    ]
+    for pattern, replacement in replacements:
+        value = re.sub(pattern, replacement, value, flags=re.IGNORECASE)
+    value = re.sub(r"'[^']{2,80}'", "", value)
+    value = re.sub(r'"[^"]{2,80}"', "", value)
+    if "no text" not in value.lower():
+        value += ", no text, no letters, no numbers, blank cards only"
+    return value[:260].strip(" ,")
+
+
+def apply_opening_overlays(script: dict) -> dict:
+    """Add HyperFrames-rendered opening copy so ERNIE/Wan never has to draw text."""
+    scenes = script.get("scenes") if isinstance(script, dict) else []
+    if not isinstance(scenes, list) or not scenes:
+        return script
+    title = str(script.get("title") or "ニュース反応まとめ").strip()
+    first = scenes[0]
+    first.setdefault("overlay_headline", title[:28])
+    first.setdefault("overlay_subtitle", str(first.get("narration") or "")[:64])
+    first.setdefault("overlay_badge", "NEWS REACTION")
+    if len(scenes) > 1:
+        second = scenes[1]
+        second.setdefault("overlay_headline", "みんなの意見")
+        second.setdefault("overlay_subtitle", str(second.get("narration") or "")[:64])
+        second.setdefault("overlay_badge", "COMMENTARY")
+    return script
+
+
+def generate_wan_opening_assets(job_id: str, script: dict, assets_dir: Path, count: int = WAN_OPENING_SCENES) -> list[Path]:
+    """Generate only the opening scenes with Wan and save them as scene_XX.mp4."""
+    if not WAN_OPENING_ENABLED or count <= 0:
+        return []
+    scenes = script.get("scenes") or []
+    opening = []
+    for scene in scenes[:count]:
+        prompt = sanitize_image_prompt(scene.get("image_prompt") or "")
+        opening.append({
+            "index": scene.get("index", len(opening)),
+            "label": str(scene.get("index", len(opening))),
+            "image_prompt": (
+                "simple stickman explainer animation, expressive stick figure, "
+                "bright white studio, blank UI cards only, no text, no letters, "
+                "vertical 9:16, gentle camera motion, " + prompt
+            )[:360],
+        })
+    if not opening:
+        return []
+    try:
+        update_job(job_id, status="wan_opening", progress=55)
+        urls = wan_gen.generate_wan_videos(opening)
+        saved: list[Path] = []
+        for i, url in enumerate(urls[:len(opening)]):
+            if url.startswith("/"):
+                url = wan_gen.WAN_API + url
+            out = assets_dir / f"scene_{i:02d}.mp4"
+            print(f"  [wan opening] scene {i}: {url}", flush=True)
+            urllib.request.urlretrieve(url, str(out))
+            if out.exists() and out.stat().st_size > 0:
+                saved.append(out)
+        if saved:
+            update_job(job_id, wan_opening_count=len(saved), wan_opening_files=[str(p) for p in saved])
+        return saved
+    except Exception as exc:
+        print(f"[{job_id}] wan opening skipped: {exc}", flush=True)
+        update_job(job_id, wan_opening_error=str(exc))
+        return []
 
 
 def mark_job_done(job_id: str, video_path: Path, thumb_path: Path):
@@ -185,6 +272,8 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
         source_title = request.get("source_title") or request.get("title") or "参照動画"
         resolved_style = resolve_video_style(video_style, content_type="reference_script", vtuber_mode=vtuber_mode, title=source_title)
         script = normalize_provided_script(request.get("script") or {}, resolved_style)
+        if (request.get("source") or "") == "kmontage_news":
+            script = apply_opening_overlays(script)
         summary = script_summary_text(script)
 
         update_job(job_id, status="imaging", progress=35, source=request.get("source") or "kmontage",
@@ -215,12 +304,17 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
             idx = scene.get("index", len(image_paths))
             out = assets_dir / f"scene_{idx:02d}.png"
             prompt = scene.get("image_prompt", "clean vertical explainer visual, 9:16")
+            prompt = sanitize_image_prompt(prompt)
+            scene["image_prompt"] = prompt
             print(f"  [script image] scene {idx}: {prompt[:60]}...", flush=True)
             if idx > 0:
                 time.sleep(3)
             path = generate_image(prompt, out)
             image_paths.append(path)
         update_job(job_id, image_count=len(image_paths))
+
+        if (request.get("source") or "") == "kmontage_news":
+            generate_wan_opening_assets(job_id, script, assets_dir)
 
         update_job(job_id, status="rendering", progress=75)
         video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
