@@ -19,6 +19,7 @@ VOICEBOX_API = os.environ.get("VOICEBOX_API", "http://192.168.0.11:17493").rstri
 VOICEBOX_PROFILE_ID = os.environ.get("VOICEBOX_PROFILE_ID", "1fe9e00c-cc81-4b07-8884-24acf639ef5e")
 VOICEBOX_ENGINE = os.environ.get("VOICEBOX_ENGINE", "qwen")
 VOICEBOX_TIMEOUT = int(os.environ.get("VOICEBOX_TIMEOUT", "900"))
+VOICEBOX_RESTART_VRAM_MB = float(os.environ.get("VOICEBOX_RESTART_VRAM_MB", "7000"))
 # Cold start: the qwen voice-clone model takes ~200-240s to load on first use
 # (e.g. RTX 3080); warm generations are ~9s. 180s was too tight and timed out on
 # scene 0. 600s absorbs the cold load; later scenes stay fast.
@@ -94,14 +95,34 @@ def run_voicebox_tts(text: str, output_path: Path) -> float:
     if not text:
         return 0.0
 
-    duration = _run_voicebox_tts_engine(text, output_path, VOICEBOX_ENGINE)
-    if duration > 0:
-        return duration
-    fallback_engine = "chatterbox"
-    if VOICEBOX_ENGINE != fallback_engine:
-        print(f"  [tts] voicebox:{VOICEBOX_ENGINE} failed; retrying voicebox:{fallback_engine}", flush=True)
-        return _run_voicebox_tts_engine(text, output_path, fallback_engine)
-    return 0.0
+    return _run_voicebox_tts_engine(text, output_path, VOICEBOX_ENGINE)
+
+
+def cleanup_voicebox_server() -> None:
+    """Ask the dedicated Voicebox server to release VRAM after a narration batch."""
+    import requests
+
+    try:
+        requests.post(f"{VOICEBOX_API}/models/unload", timeout=20)
+    except Exception as exc:
+        print(f"  [tts] voicebox unload skipped: {exc}", flush=True)
+        return
+
+    try:
+        health = requests.get(f"{VOICEBOX_API}/health", timeout=10).json()
+        vram_used = float(health.get("vram_used_mb") or 0.0)
+    except Exception as exc:
+        print(f"  [tts] voicebox health after unload skipped: {exc}", flush=True)
+        return
+
+    print(f"  [tts] voicebox post-unload VRAM: {vram_used:.0f}MB", flush=True)
+    if vram_used >= VOICEBOX_RESTART_VRAM_MB:
+        try:
+            print("  [tts] voicebox VRAM remains high; requesting server restart", flush=True)
+            requests.post(f"{VOICEBOX_API}/shutdown", timeout=5)
+        except Exception:
+            # /shutdown intentionally drops the connection while systemd restarts it.
+            pass
 
 
 def _run_voicebox_tts_engine(text: str, output_path: Path, engine: str) -> float:
@@ -223,57 +244,60 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
         shutil.rmtree(parts_dir)
     parts_dir.mkdir(parents=True, exist_ok=True)
 
-    part_paths: list[Path] = []
-    for i, scene in enumerate(scenes):
-        text = str(scene.get("narration") or "").strip()
-        if not text:
-            continue
-        part_path = parts_dir / f"scene_{i:02d}.mp3"
-        duration = run_voicebox_tts(text, part_path)
-        if duration <= 0:
-            print(f"  [tts] voicebox scene {i} failed; falling back to edge-tts for this scene", flush=True)
-            duration = run_edge_tts(text, part_path)
-        if duration <= 0:
-            raise RuntimeError(f"TTS failed for scene {i} after voicebox and edge fallback")
-        min_duration = max(1.5 if len(text) <= 18 else 2.5, len(text) / 16.0)
-        if duration < min_duration:
-            raise RuntimeError(
-                f"Voicebox TTS output is too short for scene {i}: "
-                f"{duration:.1f}s for {len(text)} chars (minimum {min_duration:.1f}s)"
-            )
-        part_paths.append(part_path)
+    try:
+        part_paths: list[Path] = []
+        for i, scene in enumerate(scenes):
+            text = str(scene.get("narration") or "").strip()
+            if not text:
+                continue
+            part_path = parts_dir / f"scene_{i:02d}.mp3"
+            duration = run_voicebox_tts(text, part_path)
+            if duration <= 0:
+                print(f"  [tts] voicebox scene {i} failed; falling back to edge-tts for this scene", flush=True)
+                duration = run_edge_tts(text, part_path)
+            if duration <= 0:
+                raise RuntimeError(f"TTS failed for scene {i} after voicebox and edge fallback")
+            min_duration = max(1.5 if len(text) <= 18 else 2.5, len(text) / 16.0)
+            if duration < min_duration:
+                raise RuntimeError(
+                    f"Voicebox TTS output is too short for scene {i}: "
+                    f"{duration:.1f}s for {len(text)} chars (minimum {min_duration:.1f}s)"
+                )
+            part_paths.append(part_path)
 
-    if not part_paths:
-        return 0.0
+        if not part_paths:
+            return 0.0
 
-    concat_list = parts_dir / "concat.txt"
-    concat_list.write_text(
-        "\n".join(f"file '{p.as_posix()}'" for p in part_paths) + "\n",
-        encoding="utf-8",
-    )
-    tmp_output = output_path.with_suffix(".concat.mp3")
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            str(concat_list),
-            "-c:a",
-            "libmp3lame",
-            "-q:a",
-            "2",
-            str(tmp_output),
-        ],
-        check=True,
-    )
-    tmp_output.replace(output_path)
-    duration = get_audio_duration(output_path)
-    print(f"  [tts] {output_path.name} ({duration:.1f}s, voicebox scenes={len(part_paths)})", flush=True)
-    return duration
+        concat_list = parts_dir / "concat.txt"
+        concat_list.write_text(
+            "\n".join(f"file '{p.as_posix()}'" for p in part_paths) + "\n",
+            encoding="utf-8",
+        )
+        tmp_output = output_path.with_suffix(".concat.mp3")
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(concat_list),
+                "-c:a",
+                "libmp3lame",
+                "-q:a",
+                "2",
+                str(tmp_output),
+            ],
+            check=True,
+        )
+        tmp_output.replace(output_path)
+        duration = get_audio_duration(output_path)
+        print(f"  [tts] {output_path.name} ({duration:.1f}s, voicebox scenes={len(part_paths)})", flush=True)
+        return duration
+    finally:
+        cleanup_voicebox_server()
