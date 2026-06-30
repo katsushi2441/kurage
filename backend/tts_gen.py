@@ -231,7 +231,10 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
         part_path = parts_dir / f"scene_{i:02d}.mp3"
         duration = run_voicebox_tts(text, part_path)
         if duration <= 0:
-            raise RuntimeError(f"Voicebox TTS failed for scene {i}; refusing fallback for voicebox mode")
+            print(f"  [tts] voicebox scene {i} failed; falling back to edge-tts for this scene", flush=True)
+            duration = run_edge_tts(text, part_path)
+        if duration <= 0:
+            raise RuntimeError(f"TTS failed for scene {i} after voicebox and edge fallback")
         min_duration = max(1.5 if len(text) <= 18 else 2.5, len(text) / 16.0)
         if duration < min_duration:
             raise RuntimeError(

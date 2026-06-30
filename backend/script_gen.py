@@ -265,6 +265,53 @@ def quality_boost_script(script: dict, *, source_type: str, source_material, exp
     return script
 
 
+def fallback_entertainment_short_script(article: dict, video_style: str = "auto") -> dict:
+    """Build a safe article-based script when the LLM returns unusable JSON."""
+    title = str(article.get("title") or "エンタメニュース考察").strip()
+    summary = re.sub(r"\s+", " ", str(article.get("summary") or article.get("content") or "")).strip()
+    source_name = str(article.get("source_name") or "ニュース").strip()
+    base = summary or title
+    sentences = [s.strip(" 。、") for s in re.split(r"[。！？!?]\s*", base) if s.strip()]
+    while len(sentences) < 4:
+        sentences.append(title)
+
+    narrations = [
+        f"{title[:28]}の話題です",
+        f"{source_name[:14]}が伝えた注目ニュースです",
+        sentences[0][:34],
+        sentences[1][:34],
+        sentences[2][:34],
+        "背景と今後の動きを整理します",
+    ]
+    prompts = [
+        "bright Japanese entertainment news title card, vertical 9:16, pale aqua accents",
+        "clean smartphone news cards on white desk, vertical 9:16, soft studio light",
+        "cinematic studio data cards and headlines, vertical 9:16, bright white studio",
+        "abstract cinema seats and soft spotlight, vertical 9:16, commercial look",
+        "minimal timeline cards floating in white studio, vertical 9:16, pale aqua",
+        "clean recap card with subtle motion graphics, vertical 9:16, bright white",
+    ]
+    script = {
+        "title": title[:50],
+        "scenes": [
+            {"index": i, "narration": narrations[i], "image_prompt": prompts[i], "duration": 5}
+            for i in range(6)
+        ],
+        "fallback_reason": "LLM response was empty or invalid JSON",
+    }
+    resolved_style = resolve_video_style(video_style, content_type="entertainment_short", title=title)
+    script = quality_boost_script(
+        script,
+        source_type="entertainment_short",
+        source_material=article,
+        expected_scenes=6,
+        scene_duration=5,
+        force_title=title[:50],
+        video_style=resolved_style,
+    )
+    return apply_video_style(script, resolved_style)
+
+
 def generate_script(tweet: dict, video_style: str = "auto") -> dict:
     """Generate script JSON from tweet data using Ollama.
 
@@ -596,7 +643,11 @@ JSONのみ返してください。"""
     except Exception:
         pass
 
-    script = parse_json_from_response(response_text)
+    try:
+        script = parse_json_from_response(response_text)
+    except Exception as exc:
+        print(f"  [entertainment_short_script] LLM JSON parse failed; using fallback script: {exc}", flush=True)
+        return fallback_entertainment_short_script(article, video_style=resolved_style)
     script = quality_boost_script(
         script,
         source_type="entertainment_short",
