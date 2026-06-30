@@ -25,6 +25,7 @@ VOICEBOX_RESTART_VRAM_MB = float(os.environ.get("VOICEBOX_RESTART_VRAM_MB", "700
 # scene 0. 600s absorbs the cold load; later scenes stay fast.
 VOICEBOX_GENERATION_TIMEOUT = int(os.environ.get("VOICEBOX_GENERATION_TIMEOUT", "600"))
 VOICEBOX_SCENE_CHUNK_CHARS = int(os.environ.get("VOICEBOX_SCENE_CHUNK_CHARS", "48"))
+VOICEBOX_RETRY_ATTEMPTS = int(os.environ.get("VOICEBOX_RETRY_ATTEMPTS", "2"))
 
 
 def prepare_prosody_text(text: str) -> str:
@@ -251,6 +252,12 @@ def split_voicebox_scene_text(text: str, max_chars: int = VOICEBOX_SCENE_CHUNK_C
     return chunks
 
 
+def max_expected_tts_duration(text: str) -> float:
+    """Upper-bound generated narration duration to reject broken stretched audio."""
+    length = len(str(text or "").strip())
+    return max(6.0, min(24.0, length / 4.0 + 5.0))
+
+
 def normalize_tts_text(text: str) -> str:
     return normalize_text_for_tts(text)
 
@@ -294,11 +301,28 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
             for chunk_index, chunk in enumerate(scene_chunks):
                 suffix = f"{i:02d}" if len(scene_chunks) == 1 else f"{i:02d}_{chunk_index:02d}"
                 part_path = parts_dir / f"scene_{suffix}.mp3"
-                chunk_duration = run_voicebox_tts(chunk, part_path)
+                chunk_duration = 0.0
+                max_chunk_duration = max_expected_tts_duration(chunk)
+                for attempt in range(1, max(1, VOICEBOX_RETRY_ATTEMPTS) + 1):
+                    part_path.unlink(missing_ok=True)
+                    chunk_duration = run_voicebox_tts(chunk, part_path)
+                    if 0 < chunk_duration <= max_chunk_duration:
+                        break
+                    if chunk_duration > max_chunk_duration:
+                        print(
+                            f"  [tts] voicebox scene {i} chunk {chunk_index} too long "
+                            f"({chunk_duration:.1f}s > {max_chunk_duration:.1f}s), retry {attempt}",
+                            flush=True,
+                        )
                 if chunk_duration <= 0:
                     raise RuntimeError(
                         f"Voicebox TTS failed for scene {i} chunk {chunk_index}; "
                         "aborting instead of creating a mixed/fallback voice video"
+                    )
+                if chunk_duration > max_chunk_duration:
+                    raise RuntimeError(
+                        f"Voicebox TTS output is too long for scene {i} chunk {chunk_index}: "
+                        f"{chunk_duration:.1f}s for {len(chunk)} chars (maximum {max_chunk_duration:.1f}s)"
                     )
                 duration += chunk_duration
                 scene_part_paths.append(part_path)
@@ -309,6 +333,12 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
                 raise RuntimeError(
                     f"Voicebox TTS output is too short for scene {i}: "
                     f"{duration:.1f}s for {len(text)} chars (minimum {min_duration:.1f}s)"
+                )
+            max_duration = max_expected_tts_duration(text)
+            if duration > max_duration:
+                raise RuntimeError(
+                    f"Voicebox TTS output is too long for scene {i}: "
+                    f"{duration:.1f}s for {len(text)} chars (maximum {max_duration:.1f}s)"
                 )
             part_paths.extend(scene_part_paths)
 

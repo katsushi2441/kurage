@@ -160,6 +160,24 @@ def normalize_duration_phrases(text: str) -> str:
     """Avoid TTS engines hanging or misreading common duration phrases."""
     text = re.sub(r"(?<![A-Za-z_])90\s*日間", "三か月間", text)
     text = re.sub(r"(?<![A-Za-z_])90\s*日", "三か月", text)
+    minute_readings = {
+        "1": "いっぷん",
+        "2": "にふん",
+        "3": "さんぷん",
+        "4": "よんぷん",
+        "5": "ごふん",
+        "6": "ろっぷん",
+        "7": "ななふん",
+        "8": "はっぷん",
+        "9": "きゅうふん",
+        "10": "じゅっぷん",
+    }
+
+    def minute_repl(match: re.Match[str]) -> str:
+        raw = match.group(1)
+        return minute_readings.get(raw, f"{int_to_jp(int(raw))}ふん")
+
+    text = re.sub(r"(?<![A-Za-z_])(\d{1,2})\s*分", minute_repl, text)
     return text
 
 
