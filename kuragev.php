@@ -206,6 +206,43 @@ function job_body_text($job) {
     return trim((string)($job['tweet_text'] ?? ''));
 }
 
+function search_normalize($text) {
+    $text = trim((string)$text);
+    if ($text === '') { return ''; }
+    $text = preg_replace('!^https?://!i', '', $text);
+    $text = preg_replace('!^www\.!i', '', $text);
+    $text = preg_replace('!/$!', '', $text);
+    return function_exists('mb_strtolower') ? mb_strtolower($text, 'UTF-8') : strtolower($text);
+}
+
+function job_matches_query($job, $query) {
+    $query = search_normalize($query);
+    if ($query === '') { return true; }
+    $fields = array(
+        $job['job_id'] ?? '',
+        job_display_title($job),
+        job_body_text($job),
+        job_tool_label($job),
+        $job['source'] ?? '',
+        $job['content_type'] ?? '',
+        $job['source_title'] ?? '',
+        $job['summary_title'] ?? '',
+        $job['article_title'] ?? '',
+        $job['display_summary'] ?? '',
+        $job['summary'] ?? '',
+        $job['tweet_text'] ?? '',
+        $job['tweet_author'] ?? '',
+        $job['tweet_author_name'] ?? '',
+        $job['source_url'] ?? '',
+        $job['original_url'] ?? '',
+        $job['tweet_url'] ?? '',
+        $job['article_url'] ?? '',
+        $job['related_article_url'] ?? '',
+    );
+    $haystack = search_normalize(implode(' ', $fields));
+    return strpos($haystack, $query) !== false;
+}
+
 function normalize_copy_compare_text($text) {
     return preg_replace('/\s+/u', '', trim((string)$text));
 }
@@ -426,8 +463,15 @@ if ($detail_id) {
 /* ── 一覧データ（詳細以外） ──────────────────────────── */
 $videos = [];
 $tool_filter = isset($_GET['tool']) ? strtolower(trim((string)$_GET['tool'])) : '';
+$search_query = isset($_GET['q']) ? trim((string)$_GET['q']) : '';
+if (function_exists('mb_strlen') && mb_strlen($search_query, 'UTF-8') > 120) {
+    $search_query = mb_substr($search_query, 0, 120, 'UTF-8');
+} elseif (!function_exists('mb_strlen') && strlen($search_query) > 240) {
+    $search_query = substr($search_query, 0, 240);
+}
 $tool_options = [];
 $total_done_videos = 0;
+$total_filtered_before_search = 0;
 if (!$detail_id) {
     $jobs_res = kurage_get('/jobs?limit=0');
     $all_jobs = (!empty($jobs_res['jobs'])) ? $jobs_res['jobs'] : [];
@@ -439,6 +483,8 @@ if (!$detail_id) {
         $tool_key = job_tool_key($j);
         $tool_options[$tool_key] = job_tool_label($tool_key);
         if ($tool_filter !== '' && $tool_key !== $tool_filter) continue;
+        $total_filtered_before_search++;
+        if ($search_query !== '' && !job_matches_query($j, $search_query)) continue;
         $j['tool_key'] = $tool_key;
         $j['tool_label'] = job_tool_label($tool_key);
         $videos[] = $j;
@@ -469,6 +515,12 @@ if ($detail_job) {
     $page_url   = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($detail_id);
     $page_image = static_media_url_for_job($detail_job, $detail_id, 'thumbnail');
     $page_video = static_media_url_for_job($detail_job, $detail_id, 'video');
+} elseif ($search_query !== '') {
+    $page_title = '動画検索: ' . $search_query . ' | ' . $SITE_NAME;
+    $page_desc  = $search_query . ' に一致するKurageショート動画の検索結果です。';
+    $page_url   = $BASE_URL . '/' . $THIS_FILE . '?' . http_build_query(array_filter(array('q' => $search_query, 'tool' => $tool_filter, 'sort' => $sort), 'strlen'));
+    $page_image = $BASE_URL . '/images/kurage.png';
+    $page_video = '';
 } else {
     $page_title = $SITE_NAME . ' — AIショート動画';
     $page_desc  = 'AIで生成・翻訳した短編縦型動画を公開しています。';
@@ -580,6 +632,14 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 .sorts{display:flex;gap:6px;align-items:center;}
 .sort-link{border:1px solid #d6e3e8;border-radius:999px;padding:5px 10px;color:#53636b;text-decoration:none;font-size:12px;font-weight:800;background:#fff;}
 .sort-link.active{background:#007f96;border-color:#007f96;color:#fff;}
+.search-panel{padding:14px 20px;border-bottom:1px solid #f0f0f0;background:linear-gradient(180deg,#fff,#fbfeff);}
+.search-form{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center;}
+.search-input{width:100%;border:1px solid #cbdde3;border-radius:14px;background:#fff;padding:10px 12px;font-size:14px;outline:none;color:#1f2933;}
+.search-input:focus{border-color:#007f96;box-shadow:0 0 0 4px rgba(0,127,150,.1);}
+.search-btn,.search-clear{border:1px solid #007f96;border-radius:14px;padding:10px 14px;font-size:13px;font-weight:900;text-decoration:none;white-space:nowrap;font-family:inherit;}
+.search-btn{background:#007f96;color:#fff;cursor:pointer;}
+.search-clear{background:#fff;color:#007f96;}
+.search-hint{margin-top:8px;color:#64748b;font-size:12px;line-height:1.55;}
 .tool-filter{padding:12px 20px;border-bottom:1px solid #f0f0f0;background:linear-gradient(180deg,#fbfeff,#fff);}
 .tool-filter-title{font-size:11px;color:#64748b;font-weight:900;letter-spacing:.04em;margin-bottom:8px;}
 .tool-filter-list{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;}
@@ -589,7 +649,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 .tool-filter-chip.active::before{background:#fff;}
 .tool-badge{display:inline-flex;align-items:center;width:max-content;border:1px solid #b2dde8;background:#e8f8fb;color:#007f96;border-radius:999px;padding:3px 8px;font-size:11px;font-weight:900;margin-bottom:6px;}
 .views{display:inline-flex;align-items:center;gap:4px;color:#007f96;font-weight:900;}
-@media (max-width:640px){.tool-filter{padding-right:0;}.tool-filter-list{padding-right:20px;}}
+@media (max-width:640px){.tool-filter{padding-right:0;}.tool-filter-list{padding-right:20px;}.search-form{grid-template-columns:1fr auto;}.search-clear{grid-column:1 / -1;text-align:center;}}
 
 /* ── カード ── */
 .post-card{border-bottom:1px solid #f0f0f0;padding:20px;transition:background .15s;}
@@ -774,11 +834,24 @@ $detail_body_text = job_body_text($detail_job);
 <!-- ============ 一覧ページ ============ -->
 <div class="container">
   <div class="count-bar">
-    <span><?php echo count($videos); ?> / <?php echo (int)$total_done_videos; ?> 件の動画</span>
+    <span>
+      <?php echo count($videos); ?> / <?php echo (int)($search_query !== '' || $tool_filter !== '' ? $total_filtered_before_search : $total_done_videos); ?> 件の動画
+      <?php if ($search_query !== ''): ?>（検索: <?php echo h($search_query); ?>）<?php endif; ?>
+    </span>
     <span class="sorts">
       <a class="sort-link <?php echo $sort === 'created' ? 'active' : ''; ?>" href="<?php echo h(current_query_url(array('sort' => 'created'))); ?>">作成日順</a>
       <a class="sort-link <?php echo $sort === 'views' ? 'active' : ''; ?>" href="<?php echo h(current_query_url(array('sort' => 'views'))); ?>">表示回数順</a>
     </span>
+  </div>
+  <div class="search-panel" aria-label="動画をキーワード検索">
+    <form class="search-form" method="get" action="<?php echo h($THIS_FILE); ?>">
+      <?php if ($tool_filter !== ''): ?><input type="hidden" name="tool" value="<?php echo h($tool_filter); ?>"><?php endif; ?>
+      <?php if ($sort !== 'created'): ?><input type="hidden" name="sort" value="<?php echo h($sort); ?>"><?php endif; ?>
+      <input class="search-input" type="search" name="q" value="<?php echo h($search_query); ?>" placeholder="タイトル・説明・元URLで検索" aria-label="キーワード検索">
+      <button class="search-btn" type="submit">検索</button>
+      <?php if ($search_query !== ''): ?><a class="search-clear" href="<?php echo h(current_query_url(array('q' => null))); ?>">クリア</a><?php endif; ?>
+    </form>
+    <div class="search-hint">タイトル、動画説明、元URL、生成ツール、job_id を検索します。</div>
   </div>
   <div class="tool-filter" aria-label="生成ツールで絞り込み">
     <div class="tool-filter-title">生成ツール</div>
@@ -810,6 +883,7 @@ $detail_body_text = job_body_text($detail_job);
 ────────────────────────────────────────── */
 var kvVideos = <?php echo json_encode(array_values($client_videos), JSON_UNESCAPED_UNICODE); ?>;
 var IS_ADMIN = <?php echo $is_admin ? 'true' : 'false'; ?>;
+var SEARCH_QUERY = <?php echo json_encode($search_query, JSON_UNESCAPED_UNICODE); ?>;
 var PAGE_SIZE = 20;
 var curPage = 0;
 
@@ -1091,7 +1165,8 @@ if (sentinel) {
 if (kvVideos.length === 0) {
     var pl = document.getElementById('post-list');
     if (pl) {
-        pl.textContent = 'まだ動画がありません。';
+        pl.className = 'empty';
+        pl.textContent = SEARCH_QUERY ? '検索条件に一致する動画がありません。' : 'まだ動画がありません。';
     }
 } else {
     renderCards(0, PAGE_SIZE);
