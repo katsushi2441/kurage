@@ -163,6 +163,23 @@ def normalize_duration_phrases(text: str) -> str:
     return text
 
 
+def normalize_english_money_phrases(text: str) -> str:
+    """Normalize common monetization shorthand that Japanese TTS handles poorly."""
+
+    def k_or_bust(match: re.Match[str]) -> str:
+        amount = int(match.group(1).replace(",", "")) * 1000
+        return f"{int_to_jp(amount)}ドル達成か失敗か"
+
+    def k_amount(match: re.Match[str]) -> str:
+        amount = int(match.group(1).replace(",", "")) * 1000
+        return f"{int_to_jp(amount)}ドル"
+
+    text = re.sub(r"\$?\s*(\d{1,3}(?:,\d{3})*|\d+)\s*[kK]\s*,?\s*or\s*,?\s*bust", k_or_bust, text, flags=re.IGNORECASE)
+    text = re.sub(r"\$?\s*(\d{1,3}(?:,\d{3})*|\d+)\s*[kK](?![A-Za-z])", k_amount, text)
+    text = re.sub(r"\bper\s+month\b|\b/month\b", "毎月", text, flags=re.IGNORECASE)
+    return text
+
+
 def _load_user_dictionary(path: Path | None = None) -> dict[str, str]:
     path = path or Path(os.environ.get("KURAGE_TTS_DICTIONARY", DEFAULT_DICTIONARY_PATH))
     if not path.exists():
@@ -210,6 +227,7 @@ def normalize_tts_text(text: str, *, dictionary_path: Path | None = None, conver
     user_dict = _load_user_dictionary(dictionary_path)
     for surface, reading in _compile_entries(user_dict):
         normalized = _replace_surface(normalized, surface, reading)
+    normalized = normalize_english_money_phrases(normalized)
     normalized = normalize_numeric_ranges(normalized)
     normalized = normalize_native_counters(normalized)
     normalized = normalize_duration_phrases(normalized)

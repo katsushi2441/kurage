@@ -24,6 +24,7 @@ VOICEBOX_RESTART_VRAM_MB = float(os.environ.get("VOICEBOX_RESTART_VRAM_MB", "700
 # (e.g. RTX 3080); warm generations are ~9s. 180s was too tight and timed out on
 # scene 0. 600s absorbs the cold load; later scenes stay fast.
 VOICEBOX_GENERATION_TIMEOUT = int(os.environ.get("VOICEBOX_GENERATION_TIMEOUT", "600"))
+VOICEBOX_SCENE_CHUNK_CHARS = int(os.environ.get("VOICEBOX_SCENE_CHUNK_CHARS", "48"))
 
 
 def prepare_prosody_text(text: str) -> str:
@@ -213,6 +214,43 @@ def _run_voicebox_tts_engine(text: str, output_path: Path, engine: str) -> float
         return 0.0
 
 
+def split_voicebox_scene_text(text: str, max_chars: int = VOICEBOX_SCENE_CHUNK_CHARS) -> list[str]:
+    """Split a scene into short Voicebox-safe chunks without changing narration."""
+    text = prepare_prosody_text(text)
+    if not text:
+        return []
+    if len(text) <= max_chars:
+        return [text]
+
+    chunks: list[str] = []
+    current = ""
+    parts = re.split(r"([。！？!?、])", text)
+    units: list[str] = []
+    for i in range(0, len(parts), 2):
+        body = parts[i]
+        punct = parts[i + 1] if i + 1 < len(parts) else ""
+        unit = f"{body}{punct}".strip()
+        if unit:
+            units.append(unit)
+
+    for unit in units:
+        if len(unit) > max_chars:
+            if current:
+                chunks.append(current)
+                current = ""
+            for start in range(0, len(unit), max_chars):
+                chunks.append(unit[start : start + max_chars])
+            continue
+        if current and len(current) + len(unit) > max_chars:
+            chunks.append(current)
+            current = unit
+        else:
+            current += unit
+    if current:
+        chunks.append(current)
+    return chunks
+
+
 def normalize_tts_text(text: str) -> str:
     return normalize_text_for_tts(text)
 
@@ -250,20 +288,29 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
             text = str(scene.get("narration") or "").strip()
             if not text:
                 continue
-            part_path = parts_dir / f"scene_{i:02d}.mp3"
-            duration = run_voicebox_tts(text, part_path)
-            if duration <= 0:
-                print(f"  [tts] voicebox scene {i} failed; falling back to edge-tts for this scene", flush=True)
-                duration = run_edge_tts(text, part_path)
-            if duration <= 0:
-                raise RuntimeError(f"TTS failed for scene {i} after voicebox and edge fallback")
-            min_duration = max(1.5 if len(text) <= 18 else 2.5, len(text) / 16.0)
+            scene_chunks = split_voicebox_scene_text(text)
+            scene_part_paths: list[Path] = []
+            duration = 0.0
+            for chunk_index, chunk in enumerate(scene_chunks):
+                suffix = f"{i:02d}" if len(scene_chunks) == 1 else f"{i:02d}_{chunk_index:02d}"
+                part_path = parts_dir / f"scene_{suffix}.mp3"
+                chunk_duration = run_voicebox_tts(chunk, part_path)
+                if chunk_duration <= 0:
+                    raise RuntimeError(
+                        f"Voicebox TTS failed for scene {i} chunk {chunk_index}; "
+                        "aborting instead of creating a mixed/fallback voice video"
+                    )
+                duration += chunk_duration
+                scene_part_paths.append(part_path)
+            if not scene_part_paths:
+                continue
+            min_duration = max(1.2 if len(text) <= 24 else 2.5, len(text) / 18.0)
             if duration < min_duration:
                 raise RuntimeError(
                     f"Voicebox TTS output is too short for scene {i}: "
                     f"{duration:.1f}s for {len(text)} chars (minimum {min_duration:.1f}s)"
                 )
-            part_paths.append(part_path)
+            part_paths.extend(scene_part_paths)
 
         if not part_paths:
             return 0.0
