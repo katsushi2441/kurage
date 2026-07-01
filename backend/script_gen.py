@@ -265,6 +265,47 @@ def quality_boost_script(script: dict, *, source_type: str, source_material, exp
     return script
 
 
+def _sanitize_entertainment_short_script(script: dict, article: dict | None = None) -> dict:
+    """Keep entertainment-short narration TTS-safe.
+
+    Entertainment article URLs remain in job metadata and the public article.
+    They should not be read aloud, because long URL strings make Voicebox fail
+    and produce unwatchable videos.
+    """
+    title = str((article or {}).get("title") or script.get("title") or "エンタメニュース考察").strip()
+    safe_closing = "背景と今後の動きを整理します"
+    url_like = re.compile(r"(https?://|www\.|\.com|\.jp|\.net|\.org|/|\\?|=|&)", re.I)
+    bad_phrases = ("詳細は", "詳しくは", "続きは", "元ソース", "記事URL", "ニュースURL", "Kurageで", "クラゲで")
+    scenes = script.get("scenes") if isinstance(script, dict) else []
+    if not isinstance(scenes, list):
+        scenes = []
+    for i, scene in enumerate(scenes):
+        if not isinstance(scene, dict):
+            continue
+        narration = normalize_narration_text(str(scene.get("narration") or "").strip())
+        if url_like.search(narration) or any(p in narration for p in bad_phrases):
+            narration = safe_closing if i >= len(scenes) - 2 else f"{title[:24]}の要点を整理します"
+        # Five-second scenes should stay short. Cutting at Japanese punctuation
+        # prevents Voicebox from stretching a long sentence into a failed chunk.
+        if len(narration) > 42:
+            cut = narration[:42]
+            m = re.search(r"^(.{18,42}?)[。！？、,]", cut)
+            narration = (m.group(1) if m else cut).rstrip("、,。 ")
+        scene["narration"] = narration or safe_closing
+        scene["duration"] = int(scene.get("duration") or 5)
+    script["scenes"] = scenes[:6]
+    while len(script["scenes"]) < 6:
+        script["scenes"].append({
+            "index": len(script["scenes"]),
+            "narration": safe_closing,
+            "image_prompt": "clean recap card with subtle motion graphics, vertical 9:16, bright white",
+            "duration": 5,
+        })
+    for i, scene in enumerate(script["scenes"]):
+        scene["index"] = i
+    return script
+
+
 def fallback_entertainment_short_script(article: dict, video_style: str = "auto") -> dict:
     """Build a safe article-based script when the LLM returns unusable JSON."""
     title = str(article.get("title") or "エンタメニュース考察").strip()
@@ -309,6 +350,7 @@ def fallback_entertainment_short_script(article: dict, video_style: str = "auto"
         force_title=title[:50],
         video_style=resolved_style,
     )
+    script = _sanitize_entertainment_short_script(script, article)
     return apply_video_style(script, resolved_style)
 
 
@@ -572,7 +614,8 @@ Rules:
 - Do not describe a real person's face, body, or likeness in image_prompt.
 - Use abstract safe visuals: studio lights, city billboard, smartphone news cards, books, streaming icons, cinema seats.
 - Preserve public proper nouns in narration when relevant.
-- In the closing, cite the exact article URL and source URL when supplied.
+- Do not read URLs aloud. Do not include http, domain names, query strings, source URLs, or article URLs in narration.
+- The closing should summarize the insight, not cite links. Links stay in metadata outside the spoken script.
 - Do not say vague phrases like 「続きはKurageで」 or 「詳しくはKurageで」.
 - No double quotes inside string values. Use 「」for Japanese quotes.
 """
@@ -611,7 +654,8 @@ def generate_entertainment_short_script(article: dict, video_style: str = "auto"
 重要:
 - 本人が商品をおすすめした、愛用した、宣伝したとは言わない。
 - 人物の顔写真を使う前提にしない。
-- 最後は記事URLと元ニュースURLを短く案内する。
+- URLはナレーションに絶対に入れない。http、ドメイン名、クエリ文字列を読ませない。
+- 最後は記事の要点や今後の見方を短くまとめる。
 - 「続きはKurageで」「詳しくはKurageで」のような曖昧な表現は禁止。
 
 JSONのみ返してください。"""
@@ -657,6 +701,7 @@ JSONのみ返してください。"""
         force_title=title[:50],
         video_style=resolved_style,
     )
+    script = _sanitize_entertainment_short_script(script, article)
     return apply_video_style(script, resolved_style)
 
 
