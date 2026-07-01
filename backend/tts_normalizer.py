@@ -127,13 +127,44 @@ def numerals_to_jp(text: str) -> str:
     return re.sub(r"(?<![A-Za-z_])(?:\d{1,3}(?:,\d{3})+|\d+)", repl, text)
 
 
+def decimal_to_jp(raw: str) -> str:
+    """Read a decimal number in a predictable Japanese TTS form."""
+    integer, fraction = raw.replace(",", "").split(".", 1)
+    frac = "".join(_UNIT[int(ch)] if ch.isdigit() else ch for ch in fraction)
+    return f"{int_to_jp(int(integer))}てん{frac}"
+
+
+def normalize_percent_phrases(text: str) -> str:
+    """Normalize percentages before generic number conversion."""
+
+    def repl(match: re.Match[str]) -> str:
+        raw = match.group(1).replace(",", "")
+        if "." in raw:
+            reading = decimal_to_jp(raw)
+        else:
+            reading = int_to_jp(int(raw))
+        return f"{reading}パーセント"
+
+    text = re.sub(r"(?<![A-Za-z_])(\d{1,3}(?:,\d{3})*|\d+(?:\.\d+)?)\s*%", repl, text)
+    return re.sub(r"パーセント\s*[〜～~\-－]\s*", "パーセントから", text)
+
+
 def normalize_numeric_ranges(text: str) -> str:
     """Make numeric ranges explicit before number reading conversion."""
     return re.sub(
-        r"(?<![A-Za-z_])(\d{1,3}(?:,\d{3})*|\d+)\s*[〜～~\-－]\s*(\d{1,3}(?:,\d{3})*|\d+)",
+        r"(?<![A-Za-z_])(\d{1,3}(?:,\d{3})*|\d+(?:\.\d+)?)\s*[〜～~\-－]\s*(\d{1,3}(?:,\d{3})*|\d+(?:\.\d+)?)",
         r"\1から\2",
         text,
     )
+
+
+def normalize_decimal_numbers(text: str) -> str:
+    """Normalize remaining decimal numbers before integer conversion."""
+
+    def repl(match: re.Match[str]) -> str:
+        return decimal_to_jp(match.group(0).replace(",", ""))
+
+    return re.sub(r"(?<![A-Za-z_])(?:\d{1,3}(?:,\d{3})+|\d+)\.\d+", repl, text)
 
 
 def normalize_native_counters(text: str) -> str:
@@ -247,6 +278,8 @@ def normalize_tts_text(text: str, *, dictionary_path: Path | None = None, conver
         normalized = _replace_surface(normalized, surface, reading)
     normalized = normalize_english_money_phrases(normalized)
     normalized = normalize_numeric_ranges(normalized)
+    normalized = normalize_percent_phrases(normalized)
+    normalized = normalize_decimal_numbers(normalized)
     normalized = normalize_native_counters(normalized)
     normalized = normalize_duration_phrases(normalized)
     if convert_numbers:

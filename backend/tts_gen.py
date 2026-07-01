@@ -308,12 +308,23 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
                     chunk_duration = run_voicebox_tts(chunk, part_path)
                     if 0 < chunk_duration <= max_chunk_duration:
                         break
+                    if chunk_duration <= 0 and attempt < max(1, VOICEBOX_RETRY_ATTEMPTS):
+                        print(
+                            f"  [tts] voicebox scene {i} chunk {chunk_index} failed; "
+                            f"unloading model before retry {attempt + 1}",
+                            flush=True,
+                        )
+                        cleanup_voicebox_server()
+                        time.sleep(3.0)
                     if chunk_duration > max_chunk_duration:
                         print(
                             f"  [tts] voicebox scene {i} chunk {chunk_index} too long "
                             f"({chunk_duration:.1f}s > {max_chunk_duration:.1f}s), retry {attempt}",
                             flush=True,
                         )
+                        if attempt < max(1, VOICEBOX_RETRY_ATTEMPTS):
+                            cleanup_voicebox_server()
+                            time.sleep(3.0)
                 if chunk_duration <= 0:
                     raise RuntimeError(
                         f"Voicebox TTS failed for scene {i} chunk {chunk_index}; "
