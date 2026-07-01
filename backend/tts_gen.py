@@ -31,6 +31,7 @@ VOICEBOX_SCENE_CHUNK_CHARS = int(os.environ.get("VOICEBOX_SCENE_CHUNK_CHARS", "4
 VOICEBOX_RETRY_ATTEMPTS = int(os.environ.get("VOICEBOX_RETRY_ATTEMPTS", "2"))
 VOICEBOX_USE_RQDB4AI = os.environ.get("VOICEBOX_USE_RQDB4AI", "1").lower() not in {"0", "false", "no", "off"}
 VOICEBOX_RQDB4AI_QUEUE_CLASS = os.environ.get("VOICEBOX_RQDB4AI_QUEUE_CLASS", "web")
+VOICEBOX_DIRECT_FALLBACK = os.environ.get("VOICEBOX_DIRECT_FALLBACK", "0").lower() not in {"0", "false", "no", "off"}
 
 
 def prepare_prosody_text(text: str) -> str:
@@ -106,7 +107,11 @@ def run_voicebox_tts(text: str, output_path: Path) -> float:
         duration = run_voicebox_tts_rqdb4ai(text, output_path)
         if duration > 0:
             return duration
-        print("  [tts] rqdb4ai voicebox failed; falling back to direct Voicebox", flush=True)
+        cleanup_voicebox_server()
+        if not VOICEBOX_DIRECT_FALLBACK:
+            print("  [tts] rqdb4ai voicebox failed; direct fallback disabled to keep Voicebox serialized", flush=True)
+            return 0.0
+        print("  [tts] rqdb4ai voicebox failed; direct Voicebox fallback enabled", flush=True)
 
     return _run_voicebox_tts_engine(text, output_path, VOICEBOX_ENGINE)
 
