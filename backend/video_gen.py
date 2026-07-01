@@ -135,6 +135,133 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
     return overlay_html, overlay_css, overlay_js
 
 
+def _build_stickman_overlay(scene_index: int) -> str:
+    """Deterministic SVG stickman overlay for opening explainer scenes."""
+    return f"""
+      <div class="stickman-layer stickman-layer-{scene_index}" aria-label="stickman explainer animation">
+        <div class="stickman-stage">
+          <div class="stickman-orbit"></div>
+          <svg class="stickman-svg" viewBox="0 0 300 380" role="img" aria-label="棒人間アニメーション">
+            <g class="stickman-board">
+              <rect x="132" y="34" width="132" height="92" rx="18" />
+              <line x1="154" y1="64" x2="238" y2="64" />
+              <line x1="154" y1="88" x2="224" y2="88" />
+              <line x1="154" y1="112" x2="202" y2="112" />
+            </g>
+            <path class="stickman-pointer stickman-draw" d="M132 152 C170 132 202 128 244 108" />
+            <g class="stickman-body">
+              <circle class="stick-head" cx="100" cy="96" r="34" />
+              <line class="stick-neck" x1="100" y1="130" x2="100" y2="168" />
+              <line class="stick-torso" x1="100" y1="168" x2="100" y2="238" />
+              <line class="stick-arm stick-arm-left" x1="100" y1="166" x2="50" y2="206" />
+              <line class="stick-arm stick-arm-right" x1="100" y1="166" x2="154" y2="148" />
+              <line class="stick-leg stick-leg-left" x1="100" y1="238" x2="62" y2="312" />
+              <line class="stick-leg stick-leg-right" x1="100" y1="238" x2="142" y2="312" />
+              <circle class="stick-hand" cx="154" cy="148" r="7" />
+              <circle class="stick-hand" cx="50" cy="206" r="7" />
+            </g>
+            <g class="stickman-bars">
+              <rect class="stick-bar stick-bar-1" x="178" y="240" width="22" height="72" rx="6" />
+              <rect class="stick-bar stick-bar-2" x="210" y="204" width="22" height="108" rx="6" />
+              <rect class="stick-bar stick-bar-3" x="242" y="166" width="22" height="146" rx="6" />
+            </g>
+          </svg>
+          <div class="stickman-label">Stickman Explainer</div>
+        </div>
+      </div>"""
+
+
+def _stickman_css() -> str:
+    """CSS for code-rendered stickman opening animation."""
+    return """
+    .stickman-layer {
+      position: absolute; z-index: 3; left: 22px; top: 308px;
+      width: 278px; height: 358px; opacity: 0;
+      transform: translateY(18px) scale(0.96);
+      pointer-events: none;
+    }
+    .stickman-stage {
+      position: relative; width: 100%; height: 100%;
+      border-radius: 34px;
+      background:
+        radial-gradient(circle at 38% 20%, rgba(255,255,255,0.96), transparent 38%),
+        linear-gradient(150deg, rgba(255,255,255,0.94), rgba(231,249,255,0.86));
+      border: 2px solid rgba(7,138,166,0.23);
+      box-shadow: 0 26px 58px rgba(49,121,139,0.2), inset 0 1px 0 rgba(255,255,255,0.9);
+      overflow: hidden;
+    }
+    .stickman-orbit {
+      position: absolute; left: -46px; top: -50px; width: 180px; height: 180px;
+      border-radius: 50%; border: 18px solid rgba(7,138,166,0.08);
+    }
+    .stickman-svg {
+      position: absolute; inset: 12px 6px 32px 4px;
+      width: calc(100% - 10px); height: calc(100% - 44px);
+      overflow: visible;
+    }
+    .stickman-svg line,
+    .stickman-svg path,
+    .stickman-svg circle {
+      vector-effect: non-scaling-stroke;
+    }
+    .stick-head {
+      fill: #ffffff;
+      stroke: #17313a;
+      stroke-width: 8;
+    }
+    .stick-neck,
+    .stick-torso,
+    .stick-arm,
+    .stick-leg {
+      stroke: #17313a;
+      stroke-width: 9;
+      stroke-linecap: round;
+    }
+    .stick-hand {
+      fill: #17313a;
+      stroke: #17313a;
+      stroke-width: 4;
+    }
+    .stickman-board rect {
+      fill: rgba(255,255,255,0.82);
+      stroke: rgba(7,138,166,0.38);
+      stroke-width: 4;
+    }
+    .stickman-board line {
+      stroke: rgba(7,138,166,0.56);
+      stroke-width: 7;
+      stroke-linecap: round;
+    }
+    .stickman-pointer {
+      fill: none;
+      stroke: #f59e0b;
+      stroke-width: 8;
+      stroke-linecap: round;
+      stroke-dasharray: 150;
+      stroke-dashoffset: 150;
+    }
+    .stick-bar {
+      fill: rgba(7,138,166,0.68);
+      transform-box: fill-box;
+      transform-origin: 50% 100%;
+    }
+    .stick-bar-2 { fill: rgba(34,197,94,0.62); }
+    .stick-bar-3 { fill: rgba(245,158,11,0.68); }
+    .stickman-label {
+      position: absolute; left: 24px; right: 24px; bottom: 18px;
+      padding: 8px 10px; border-radius: 999px;
+      text-align: center; color: #07536a;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid rgba(7,138,166,0.2);
+      font-size: 15px; font-weight: 900; letter-spacing: 0.03em;
+    }
+    body.vtuber-enabled .stickman-layer {
+      top: 276px;
+      width: 250px;
+      height: 326px;
+    }"""
+
+
 def build_html(script: dict, image_paths: list[Path], total_dur: float,
                narration_duration: float = 0.0, vtuber_mode: bool = False,
                scene_video_indexes: set[int] | None = None) -> str:
@@ -181,11 +308,13 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
         {f'<div class="opening-headline">{overlay_headline}</div>' if overlay_headline else ''}
         {f'<div class="opening-subtitle">{overlay_subtitle}</div>' if overlay_subtitle else ''}
       </div>"""
+        stickman_html = _build_stickman_overlay(i) if scene.get("stickman_overlay") else ""
         scene_blocks.append(f"""
     <!-- Scene {i} ({start:.1f}s - {start+dur:.1f}s) -->
     <div class="scene clip" id="scene-{i}"
          data-start="{start:.2f}" data-duration="{dur:.2f}">
       {media_html}
+      {stickman_html}
       {overlay_html}
       <div class="scene-text">{narration}</div>
     </div>""")
@@ -216,6 +345,12 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
       {{scale:1.035, x:{start_x}, y:{start_y}}},
       {{scale:1.12, x:{end_x}, y:{end_y}, duration:{dur:.2f}, ease:"none"}},
       {fade_in:.2f})
+    .to("#scene-{i} .stickman-layer", {{opacity:1, y:0, scale:1, duration:0.5, ease:"back.out(1.35)"}}, {fade_in + 0.12:.2f})
+    .fromTo("#scene-{i} .stick-head", {{scale:0.82, transformOrigin:"100px 96px"}}, {{scale:1, duration:0.42, ease:"elastic.out(1,0.55)"}}, {fade_in + 0.22:.2f})
+    .to("#scene-{i} .stickman-pointer", {{strokeDashoffset:0, duration:0.7, ease:"power2.out"}}, {fade_in + 0.56:.2f})
+    .fromTo("#scene-{i} .stick-bar", {{scaleY:0.08}}, {{scaleY:1, duration:0.62, stagger:0.12, ease:"expo.out"}}, {fade_in + 0.64:.2f})
+    .to("#scene-{i} .stick-arm-right", {{rotation:-16, transformOrigin:"100px 166px", duration:0.34, yoyo:true, repeat:{max(1, math.ceil(dur / 0.72) - 1)}, ease:"sine.inOut"}}, {fade_in + 0.74:.2f})
+    .to("#scene-{i} .stickman-body", {{y:-5, duration:0.8, yoyo:true, repeat:{max(1, math.ceil(dur / 1.6) - 1)}, ease:"sine.inOut"}}, {fade_in + 0.92:.2f})
     .to("#scene-{i} .opening-card", {{opacity:1, y:0, scale:1, duration:0.48, ease:"power3.out"}}, {fade_in + 0.18:.2f})
     .to("#scene-{i} .scene-text", {{opacity:1, y:0, duration:0.4}}, {fade_in + 0.3:.2f})
     .to("#scene-{i}", {{opacity:0, duration:0.5}}, {fade_out:.2f});""")
@@ -314,6 +449,7 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
       margin-top: 12px; color: #345a64; font-size: 20px; font-weight: 800;
       line-height: 1.48;
     }}
+    {_stickman_css()}
     #title-overlay {{
       position: absolute; top: 0; left: 0; width: 576px; height: 1024px;
       display: flex; align-items: center; justify-content: center;
