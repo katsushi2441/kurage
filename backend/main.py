@@ -127,7 +127,7 @@ def config():
         },
         "vtuber": {
             "label": "Kurage VTuber解説モード",
-            "api": "PNG avatar overlay + deterministic mouth switching",
+            "api": "PNG avatar overlay + deterministic mouth switching + Inochi2D-style breathing/sway",
         },
         "wan": {
             "label": "Wan2.1 AI Video",

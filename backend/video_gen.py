@@ -42,11 +42,15 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
         </div>
         <div class="vtuber-avatar-wrap">
           <div class="vtuber-glow"></div>
-          <img id="vtuber-frame-0" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_0.png" alt="Kurage avatar">
-          <img id="vtuber-frame-1" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_1.png" alt="">
-          <img id="vtuber-frame-2" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_2.png" alt="">
-          <img id="vtuber-frame-3" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_3.png" alt="">
-          <img id="vtuber-frame-4" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_4.png" alt="">
+          <div class="vtuber-motion-rig">
+            <div class="vtuber-breath-rig">
+              <img id="vtuber-frame-0" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_0.png" alt="Kurage avatar">
+              <img id="vtuber-frame-1" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_1.png" alt="">
+              <img id="vtuber-frame-2" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_2.png" alt="">
+              <img id="vtuber-frame-3" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_3.png" alt="">
+              <img id="vtuber-frame-4" class="vtuber-avatar vtuber-avatar-frame" src="assets/avatar_lipsync_4.png" alt="">
+            </div>
+          </div>
         </div>
       </div>
     </div>"""
@@ -101,6 +105,18 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
       border-radius: 999px; background: rgba(102, 211, 230, 0.26);
       filter: blur(16px);
     }
+    .vtuber-motion-rig,
+    .vtuber-breath-rig {
+      position: absolute; inset: 0;
+    }
+    .vtuber-motion-rig {
+      animation: vtuberBodySway 6.2s ease-in-out infinite;
+      transform-origin: 50% 92%;
+    }
+    .vtuber-breath-rig {
+      animation: vtuberBreath 5.2s ease-in-out infinite;
+      transform-origin: 50% 62%;
+    }
     .vtuber-avatar {
       position: absolute; inset: 0; width: 100%; height: 100%;
       object-fit: contain; filter: drop-shadow(0 16px 22px rgba(49, 121, 139, 0.22));
@@ -115,6 +131,14 @@ def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
     }
     body.vtuber-enabled .scene-text {
       bottom: 292px; padding: 0 30px;
+    }
+    @keyframes vtuberBreath {
+      0%, 100% { transform: translateY(0) scaleX(1) scaleY(1); }
+      50% { transform: translateY(-3%) scaleX(1.016) scaleY(1.03); }
+    }
+    @keyframes vtuberBodySway {
+      0%, 100% { transform: rotate(-0.9deg) translateX(-0.5%); }
+      50% { transform: rotate(0.9deg) translateX(0.5%); }
     }"""
 
     mouth_js = []
