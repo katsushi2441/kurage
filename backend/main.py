@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from config import JOBS_DIR, PORT, ERNIE_URL, NVM_NODE, HYPERFRAMES_VERSION, OLLAMA_URL, OLLAMA_MODEL, WAN_API, WAN_TEST_MODE
-from tts_gen import TTS_BACKEND, TTS_VOICE, TTS_RATE, TTS_PITCH, VOICEBOX_ENGINE, VOICEBOX_PROFILE_ID
+from tts_gen import TTS_BACKEND, TTS_VOICE, TTS_RATE, TTS_PITCH, VOICEBOX_ENGINE, VOICEBOX_PROFILE_ID, run_voicebox_tts
 from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, run_pipeline_from_entertainment_short, run_pipeline_from_script, load_job, update_job
 from video_styles import STYLE_PRESETS, resolve_video_style, style_names
 from typing import Any
@@ -71,9 +71,40 @@ class ScriptVideoRequest(BaseModel):
     video_style: str = "auto"
 
 
+class TTSRequest(BaseModel):
+    input: str = ""
+    voice: str = ""
+    speed: float = 1.0
+
+
 @app.get("/health")
 def health():
     return {"ok": True, "service": "kurage", "time": time.strftime("%Y-%m-%d %H:%M:%S")}
+
+
+@app.post("/tts/voicebox")
+def tts_voicebox(req: TTSRequest):
+    """Generate a single MP3 with Kurage's serialized Voicebox/RQDB4AI path."""
+    import hashlib
+
+    text = (req.input or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="tts_text_required")
+    cache_dir = JOBS_DIR.parent / "tts_api"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    key = hashlib.sha256(("\n".join(["voicebox", VOICEBOX_ENGINE, VOICEBOX_PROFILE_ID, text])).encode("utf-8")).hexdigest()
+    out = cache_dir / f"{key}.mp3"
+    if not out.exists() or out.stat().st_size <= 1000:
+        duration = run_voicebox_tts(text, out)
+        if duration <= 0 or not out.exists() or out.stat().st_size <= 1000:
+            out.unlink(missing_ok=True)
+            raise HTTPException(status_code=502, detail="voicebox_tts_failed")
+    return FileResponse(
+        str(out),
+        media_type="audio/mpeg",
+        filename=f"kurage_voicebox_{key[:12]}.mp3",
+        headers={"Cache-Control": "private, max-age=31536000"},
+    )
 
 
 def _mask_url(url: str) -> str:
