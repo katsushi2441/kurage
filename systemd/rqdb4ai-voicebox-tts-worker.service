@@ -1,0 +1,17 @@
+[Unit]
+Description=RQDB4AI Voicebox TTS worker for Kurage
+After=default.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/kojima/work/rqdb4ai
+Environment=VOICEBOX_API=http://192.168.0.11:17493
+Environment=VOICEBOX_PROFILE_ID=1fe9e00c-cc81-4b07-8884-24acf639ef5e
+Environment=VOICEBOX_ENGINE=qwen
+Environment=VOICEBOX_GENERATION_TIMEOUT=600
+ExecStart=/home/kojima/work/rqdb4ai/run_worker_with_aixec_env.sh voicebox-192-168-0-11-web
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

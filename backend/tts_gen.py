@@ -1,16 +1,19 @@
 """TTS narration generation."""
 from __future__ import annotations
 import asyncio
+import json
 import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from tts_normalizer import normalize_tts_text as normalize_text_for_tts, numerals_to_jp
 
+ROOT = Path(__file__).resolve().parents[1]
 TTS_VOICE = "ja-JP-NanamiNeural"
 TTS_RATE  = "+10%"
 TTS_PITCH = "-15Hz"
@@ -26,6 +29,8 @@ VOICEBOX_RESTART_VRAM_MB = float(os.environ.get("VOICEBOX_RESTART_VRAM_MB", "700
 VOICEBOX_GENERATION_TIMEOUT = int(os.environ.get("VOICEBOX_GENERATION_TIMEOUT", "600"))
 VOICEBOX_SCENE_CHUNK_CHARS = int(os.environ.get("VOICEBOX_SCENE_CHUNK_CHARS", "48"))
 VOICEBOX_RETRY_ATTEMPTS = int(os.environ.get("VOICEBOX_RETRY_ATTEMPTS", "2"))
+VOICEBOX_USE_RQDB4AI = os.environ.get("VOICEBOX_USE_RQDB4AI", "1").lower() not in {"0", "false", "no", "off"}
+VOICEBOX_RQDB4AI_QUEUE_CLASS = os.environ.get("VOICEBOX_RQDB4AI_QUEUE_CLASS", "web")
 
 
 def prepare_prosody_text(text: str) -> str:
@@ -97,7 +102,88 @@ def run_voicebox_tts(text: str, output_path: Path) -> float:
     if not text:
         return 0.0
 
+    if VOICEBOX_USE_RQDB4AI:
+        duration = run_voicebox_tts_rqdb4ai(text, output_path)
+        if duration > 0:
+            return duration
+        print("  [tts] rqdb4ai voicebox failed; falling back to direct Voicebox", flush=True)
+
     return _run_voicebox_tts_engine(text, output_path, VOICEBOX_ENGINE)
+
+
+def run_voicebox_tts_rqdb4ai(text: str, output_path: Path) -> float:
+    """Serialize Voicebox use through rqdb4ai/RQ to avoid GPU contention."""
+    helper = ROOT / "scripts" / "rqdb4ai_voicebox_tts.py"
+    if not helper.exists():
+        print(f"  [tts] rqdb4ai voicebox helper missing: {helper}", flush=True)
+        return 0.0
+
+    work_dir = output_path.parent / "rqdb4ai_voicebox"
+    work_dir.mkdir(parents=True, exist_ok=True)
+    stem = output_path.stem
+    text_file = work_dir / f"{stem}.txt"
+    result_file = work_dir / f"{stem}.json"
+    text_file.write_text(text, encoding="utf-8")
+    result_file.unlink(missing_ok=True)
+
+    args = [
+        os.environ.get("KURAGE_PYTHON", sys.executable or "python3"),
+        str(helper),
+        "--text-file",
+        str(text_file),
+        "--output-path",
+        str(output_path),
+        "--result-file",
+        str(result_file),
+        "--voicebox-api",
+        VOICEBOX_API,
+        "--profile-id",
+        VOICEBOX_PROFILE_ID,
+        "--engine",
+        VOICEBOX_ENGINE,
+        "--queue-class",
+        VOICEBOX_RQDB4AI_QUEUE_CLASS,
+        "--timeout",
+        str(min(VOICEBOX_TIMEOUT, VOICEBOX_GENERATION_TIMEOUT)),
+        "--source",
+        os.environ.get("KURAGE_TTS_SOURCE", "kurage_tts"),
+    ]
+    print(
+        f"  [tts] enqueue rqdb4ai voicebox ({VOICEBOX_RQDB4AI_QUEUE_CLASS}, "
+        f"profile={VOICEBOX_PROFILE_ID[:8]}...): {text[:60]}...",
+        flush=True,
+    )
+    try:
+        proc = subprocess.run(
+            args,
+            cwd=str(ROOT),
+            text=True,
+            capture_output=True,
+            timeout=min(VOICEBOX_TIMEOUT, VOICEBOX_GENERATION_TIMEOUT) + 180,
+        )
+    except Exception as exc:
+        print(f"  [tts] rqdb4ai voicebox exception: {exc}", flush=True)
+        return 0.0
+
+    if proc.stdout.strip():
+        print(f"  [tts] rqdb4ai voicebox: {proc.stdout.strip()[-500:]}", flush=True)
+    if proc.returncode != 0:
+        print(f"  [tts] rqdb4ai voicebox failed rc={proc.returncode}: {(proc.stderr or proc.stdout)[-1200:]}", flush=True)
+        return 0.0
+
+    if not output_path.exists():
+        print("  [tts] rqdb4ai voicebox failed: output not created", flush=True)
+        return 0.0
+
+    duration = get_audio_duration(output_path)
+    if result_file.exists():
+        try:
+            result = json.loads(result_file.read_text(encoding="utf-8"))
+            duration = float(result.get("duration") or duration)
+        except Exception:
+            pass
+    print(f"  [tts] {output_path.name} ({duration:.1f}s, voicebox:{VOICEBOX_ENGINE}, rqdb4ai)", flush=True)
+    return duration
 
 
 def cleanup_voicebox_server() -> None:
