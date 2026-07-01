@@ -18,7 +18,7 @@ from static_media import publish_static_media
 import wan_gen
 
 WAN_OPENING_SCENES = int(os.environ.get("KURAGE_WAN_OPENING_SCENES", "2"))
-WAN_OPENING_ENABLED = os.environ.get("KURAGE_WAN_OPENING_ENABLED", "1").lower() not in {"0", "false", "no", "off"}
+WAN_OPENING_ENABLED = os.environ.get("KURAGE_WAN_OPENING_ENABLED", "0").lower() not in {"0", "false", "no", "off"}
 
 
 def job_path(job_id: str) -> Path:
@@ -313,7 +313,10 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
             image_paths.append(path)
         update_job(job_id, image_count=len(image_paths))
 
-        if (request.get("source") or "") == "kmontage_news":
+        # WAN opening generation is disabled by default. Use only when explicitly
+        # enabled for an isolated experiment; production news videos must stay on
+        # the regular HyperFrames/image pipeline.
+        if WAN_OPENING_ENABLED and (request.get("source") or "") == "kmontage_news":
             generate_wan_opening_assets(job_id, script, assets_dir)
 
         update_job(job_id, status="rendering", progress=75)
