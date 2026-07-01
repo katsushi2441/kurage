@@ -10,7 +10,7 @@ Environment=OLLAMA_URL=http://192.168.0.14:11434
 Environment=OLLAMA_MODEL=gemma4:12b-it-qat
 Environment=ERNIE_URL=http://192.168.0.3:8010/image/generate
 Environment=WAN_API=http://192.168.0.14:8091
-Environment=WAN_TEST_MODE=1
+Environment=WAN_TEST_MODE=0
 Environment=KURAGE_TTS_BACKEND=voicebox
 Environment=VOICEBOX_API=http://192.168.0.11:17493
 Environment=VOICEBOX_PROFILE_ID=1fe9e00c-cc81-4b07-8884-24acf639ef5e
