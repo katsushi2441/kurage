@@ -54,7 +54,8 @@ function static_media_url_for_job($job, $job_id, $kind) {
     if (is_file(__DIR__ . '/thumbs/' . $jid . '.jpg')) {
         return $BASE_URL . '/thumbs/' . rawurlencode($jid) . '.jpg';
     }
-    $thumb_ver = rawurlencode((string)($job['updated_at'] ?? $job['created_at'] ?? '1'));
+    /* v= はGoogleが安定URLを要求するため、変動しない created_at を使う (updated_at はクロール毎にURLが変わり動画インデックスを阻害する) */
+    $thumb_ver = rawurlencode((string)($job['created_at'] ?? '1'));
     return $BASE_URL . '/' . $THIS_FILE . '?proxy=thumbnail&job_id=' . rawurlencode($jid) . '&v=' . $thumb_ver;
 }
 
@@ -586,6 +587,10 @@ if ($detail_job) {
         $ts = strtotime((string)$detail_job['created_at']);
         $jsonld['uploadDate'] = $ts ? date('c', $ts) : (string)$detail_job['created_at'];
     }
+    $dur_sec = (int)($detail_job['duration_seconds'] ?? 0);
+    if ($dur_sec > 0) {
+        $jsonld['duration'] = 'PT' . intdiv($dur_sec, 60) . 'M' . ($dur_sec % 60) . 'S';
+    }
 }
 echo json_encode($jsonld, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 ?>
@@ -641,6 +646,12 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 .search-clear{background:#fff;color:#007f96;}
 .search-hint{margin-top:8px;color:#64748b;font-size:12px;line-height:1.55;}
 .tool-filter{padding:12px 20px;border-bottom:1px solid #f0f0f0;background:linear-gradient(180deg,#fbfeff,#fff);}
+.all-videos-index{margin:14px 20px 20px;border:1px solid #e6eef1;border-radius:10px;background:#fbfeff;font-size:12.5px;color:#53636b;}
+.all-videos-index summary{cursor:pointer;padding:10px 14px;font-weight:900;color:#64748b;}
+.all-videos-index ol{margin:0;padding:4px 14px 12px 34px;max-height:320px;overflow:auto;}
+.all-videos-index li{margin:3px 0;line-height:1.5;}
+.all-videos-index a{color:#1c7990;text-decoration:none;}
+.all-videos-index a:hover{text-decoration:underline;}
 .tool-filter-title{font-size:11px;color:#64748b;font-weight:900;letter-spacing:.04em;margin-bottom:8px;}
 .tool-filter-list{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;}
 .tool-filter-chip{display:inline-flex;align-items:center;gap:7px;border:1px solid #d6e3e8;border-radius:999px;background:#fff;color:#53636b;text-decoration:none;padding:7px 12px;font-size:12px;font-weight:900;white-space:nowrap;}
@@ -865,6 +876,20 @@ $detail_body_text = job_body_text($detail_job);
   <div id="post-list"></div>
   <div id="load-sentinel" style="height:1px;"></div>
   <div id="load-indicator" style="display:none;text-align:center;padding:16px;font-size:13px;color:#888;">読み込み中…</div>
+  <?php if (!empty($videos)): ?>
+  <?php /* カードはJS描画のため、初期HTMLにクローラが辿れる内部リンクが存在しない。
+           動画ページのインデックス登録にはHTML上の内部リンクが必要なので、
+           全動画へのテキストリンク一覧をサーバ側で出力する（Google動画SEO対応） */ ?>
+  <details class="all-videos-index">
+    <summary>全動画リンク一覧（<?php echo count($videos); ?>件）</summary>
+    <ol>
+      <?php foreach ($videos as $v): ?>
+      <?php $vid = preg_replace('/[^a-zA-Z0-9]/', '', (string)($v['job_id'] ?? '')); if ($vid === '') { continue; } ?>
+      <li><a href="<?php echo h($THIS_FILE . '?id=' . rawurlencode($vid)); ?>"><?php echo h(job_display_title($v)); ?></a></li>
+      <?php endforeach; ?>
+    </ol>
+  </details>
+  <?php endif; ?>
 </div>
 
 <?php if (!empty($videos)): ?>
@@ -1075,7 +1100,7 @@ function renderCards(from, to) {
             ? '<a class="kv-link" href="' + esc(turl) + '" target="_blank" rel="noopener">' + LINK_ICON + '&nbsp;' + esc(sourceButtonLabel(v)) + '</a>'
             : '';
 
-        var thumbVer = encodeURIComponent(v.updated_at || v.created_at || '1');
+        var thumbVer = encodeURIComponent(v.created_at || '1');
         var thumbSrc = 'kuragev.php?proxy=thumbnail&job_id=' + encodeURIComponent(jid) + '&v=' + thumbVer;
         var detailUrl = 'kuragev.php?id=' + encodeURIComponent(jid);
         var titleHtml = '<a class="post-title" href="' + detailUrl + '">' + esc(title) + '</a>';
@@ -1225,7 +1250,7 @@ function reelSlideHtml(v) {
     var copyText = copyTextForJob(v, shareUrl);
     var xText = encodeURIComponent(copyText);
     var videoSrc = 'kuragev.php?proxy=video&job_id=' + encodeURIComponent(jid);
-    var thumbVer = encodeURIComponent(v.updated_at || v.created_at || '1');
+    var thumbVer = encodeURIComponent(v.created_at || '1');
     var thumbSrc = 'kuragev.php?proxy=thumbnail&job_id=' + encodeURIComponent(jid) + '&v=' + thumbVer;
     var detailUrl = 'kuragev.php?id=' + encodeURIComponent(jid);
     return '<div class="reel-slide" data-job="' + esc(jid) + '">'

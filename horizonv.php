@@ -51,7 +51,8 @@ function static_media_url_for_job($job, $job_id, $kind) {
     if (is_file(__DIR__ . '/thumbs/' . $jid . '.jpg')) {
         return $BASE_URL . '/thumbs/' . rawurlencode($jid) . '.jpg';
     }
-    $thumb_ver = rawurlencode((string)($job['updated_at'] ?? $job['created_at'] ?? '1'));
+    /* v= はGoogleが安定URLを要求するため、変動しない created_at を使う */
+    $thumb_ver = rawurlencode((string)($job['created_at'] ?? '1'));
     return $BASE_URL . '/' . $THIS_FILE . '?proxy=thumbnail&job_id=' . rawurlencode($jid) . '&v=' . $thumb_ver;
 }
 
@@ -239,6 +240,10 @@ if ($detail_job && !empty($detail_job['created_at'])) {
     $jsonld['isFamilyFriendly'] = true;
     $ts = strtotime((string)$detail_job['created_at']);
     $jsonld['uploadDate'] = $ts ? date('c', $ts) : (string)$detail_job['created_at'];
+    $dur_sec = (int)($detail_job['duration_seconds'] ?? 0);
+    if ($dur_sec > 0) {
+        $jsonld['duration'] = 'PT' . intdiv($dur_sec, 60) . 'M' . ($dur_sec % 60) . 'S';
+    }
 }
 echo json_encode($jsonld, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 ?>
@@ -549,7 +554,7 @@ function renderCards(from, to) {
             : '';
 
         var videoSrc = 'horizonv.php?proxy=video&job_id=' + encodeURIComponent(jid);
-        var thumbVer = encodeURIComponent(v.updated_at || v.created_at || '1');
+        var thumbVer = encodeURIComponent(v.created_at || '1');
         var thumbSrc = 'horizonv.php?proxy=thumbnail&job_id=' + encodeURIComponent(jid) + '&v=' + thumbVer;
         var html = '<div class="post-card">'
             + '<div style="display:flex;gap:12px;align-items:flex-start;">'

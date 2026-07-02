@@ -406,6 +406,7 @@ def status(job_id: str):
         "updated_at": job.get("updated_at"),
         "views": _job_views(job),
         "script": job.get("script"),
+        "duration_seconds": job.get("duration_seconds"),
     }
 
     if job.get("status") == "done":
@@ -530,6 +531,7 @@ def list_jobs(limit: int = 20, source: str | None = None):
                 "created_at": d.get("created_at"),
                 "updated_at": d.get("updated_at"),
                 "views": _job_views(d),
+                "duration_seconds": d.get("duration_seconds"),
                 "has_video": d.get("status") == "done",
                 "has_thumbnail": (JOBS_DIR / f.stem / "thumbnail.jpg").exists(),
             })

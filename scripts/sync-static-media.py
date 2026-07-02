@@ -35,6 +35,22 @@ def job_id_from(path: Path, data: dict[str, Any]) -> str:
     return "".join(ch for ch in raw if ch.isalnum())
 
 
+def probe_duration_seconds(video: Path) -> int:
+    """ffprobeで動画の長さ(秒)を返す。取得できなければ0。"""
+    try:
+        proc = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "csv=p=0", str(video)],
+            text=True,
+            capture_output=True,
+            timeout=60,
+            check=False,
+        )
+        return int(round(float(proc.stdout.strip())))
+    except Exception:
+        return 0
+
+
 def ftp_upload(local: Path, remote_name: str, timeout: int) -> None:
     host = os.environ.get("FTP_HOST", "").strip()
     user = os.environ.get("FTP_USER", "").strip()
@@ -101,6 +117,11 @@ def sync_one(job_file: Path, dry_run: bool, no_ftp: bool, timeout: int) -> dict[
             value = f"{BASE_URL}/{remote_name}"
             if job.get(key) != value:
                 job[key] = value
+                changed = True
+        if not job.get("duration_seconds") and video.is_file():
+            dur = probe_duration_seconds(video)
+            if dur > 0:
+                job["duration_seconds"] = dur
                 changed = True
         if job.get("static_media_status") != "done":
             job["static_media_status"] = "done"
