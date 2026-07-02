@@ -272,19 +272,40 @@ def _sanitize_entertainment_short_script(script: dict, article: dict | None = No
     They should not be read aloud, because long URL strings make Voicebox fail
     and produce unwatchable videos.
     """
-    title = str((article or {}).get("title") or script.get("title") or "エンタメニュース考察").strip()
+    article = article or {}
+    title = str(article.get("title") or script.get("title") or "エンタメニュース考察").strip()
     safe_closing = "背景と今後の動きを整理します"
-    url_like = re.compile(r"(https?://|www\.|\.com|\.jp|\.net|\.org|/|\\?|=|&)", re.I)
+    url_like = re.compile(r"(https?://|www\.|\.com|\.jp|\.net|\.org|/|\?|=|&)", re.I)
     bad_phrases = ("詳細は", "詳しくは", "続きは", "元ソース", "記事URL", "ニュースURL", "Kurageで", "クラゲで")
+    generic_phrases = ("要点を整理します", "背景と今後の動きを整理します", "注目が集まります", "話題です")
     scenes = script.get("scenes") if isinstance(script, dict) else []
     if not isinstance(scenes, list):
         scenes = []
+
+    candidates = _entertainment_narration_candidates(article, title)
+    used: set[str] = set()
+
+    def replacement_for(index: int) -> str:
+        for offset in range(len(candidates)):
+            candidate = candidates[(index + offset) % len(candidates)] if candidates else ""
+            key = _narration_key(candidate)
+            if candidate and key not in used:
+                used.add(key)
+                return candidate
+        return safe_closing if index >= 5 else f"{title[:24]}の背景を整理します"
+
     for i, scene in enumerate(scenes):
         if not isinstance(scene, dict):
             continue
         narration = normalize_narration_text(str(scene.get("narration") or "").strip())
-        if url_like.search(narration) or any(p in narration for p in bad_phrases):
-            narration = safe_closing if i >= len(scenes) - 2 else f"{title[:24]}の要点を整理します"
+        key = _narration_key(narration)
+        is_repeated = bool(key and key in used)
+        is_generic = any(p in narration for p in generic_phrases)
+        if url_like.search(narration) or any(p in narration for p in bad_phrases) or is_repeated or is_generic:
+            narration = replacement_for(i)
+            key = _narration_key(narration)
+        if key:
+            used.add(key)
         # Five-second scenes should stay short. Cutting at Japanese punctuation
         # prevents Voicebox from stretching a long sentence into a failed chunk.
         if len(narration) > 42:
@@ -303,7 +324,113 @@ def _sanitize_entertainment_short_script(script: dict, article: dict | None = No
         })
     for i, scene in enumerate(script["scenes"]):
         scene["index"] = i
+    if _entertainment_script_is_repetitive(script):
+        script["scenes"] = _build_entertainment_scenes_from_article(article, title, script.get("scenes") or [])
     return script
+
+
+def _narration_key(value: str) -> str:
+    return re.sub(r"[\s、。！？!?,.「」『』（）()・:：]+", "", value or "")
+
+
+def _clean_entertainment_sentence(value: str) -> str:
+    value = normalize_narration_text(str(value or ""))
+    value = re.sub(r"https?://\S+|www\.\S+", "", value)
+    value = re.sub(r"\s+", " ", value).strip(" 。、")
+    value = value.replace("記事URL", "").replace("元ニュースURL", "").strip(" ：:。、")
+    if not value:
+        return ""
+    if re.search(r"(https?://|\.com|\.jp|\.net|\.org|/|\?|=|&)", value, re.I):
+        return ""
+    if any(p in value for p in ("詳細は", "詳しくは", "続きはKurage", "Kurageで", "クラゲで")):
+        return ""
+    if len(value) > 42:
+        cut = value[:42]
+        m = re.search(r"^(.{18,42}?)[。！？、,]", cut)
+        value = (m.group(1) if m else cut).rstrip("、,。 ")
+    return value
+
+
+def _split_source_sentences(value: str) -> list[str]:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if not text:
+        return []
+    return [s.strip(" 。、") for s in re.split(r"[。！？!?]\s*", text) if s.strip(" 。、")]
+
+
+def _entertainment_narration_candidates(article: dict, title: str) -> list[str]:
+    raw_items: list[str] = []
+    for item in article.get("video_script_30s") or []:
+        raw_items.extend(_split_source_sentences(str(item)))
+    raw_items.extend(_split_source_sentences(article.get("summary") or ""))
+    raw_items.extend(_split_source_sentences(article.get("content") or ""))
+    body = article.get("body")
+    if isinstance(body, list):
+        for item in body:
+            raw_items.extend(_split_source_sentences(str(item)))
+    source_title = str(article.get("source_title") or "").strip()
+    if source_title and source_title != title:
+        raw_items.extend(_split_source_sentences(source_title))
+
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for item in raw_items:
+        sentence = _clean_entertainment_sentence(item)
+        key = _narration_key(sentence)
+        if not sentence or len(sentence) < 12 or key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(sentence)
+
+    if title:
+        intro = _clean_entertainment_sentence(f"{title[:32]}を整理します")
+        if intro and _narration_key(intro) not in seen:
+            cleaned.insert(0, intro)
+    return cleaned
+
+
+def _entertainment_script_is_repetitive(script: dict) -> bool:
+    scenes = script.get("scenes") if isinstance(script, dict) else []
+    narrations = [
+        _narration_key(str(scene.get("narration") or ""))
+        for scene in scenes
+        if isinstance(scene, dict)
+    ]
+    narrations = [n for n in narrations if n]
+    if len(narrations) < 4:
+        return True
+    unique = set(narrations)
+    if len(unique) < min(4, len(narrations)):
+        return True
+    counts = {n: narrations.count(n) for n in unique}
+    return max(counts.values() or [0]) >= 2
+
+
+def _build_entertainment_scenes_from_article(article: dict, title: str, existing_scenes: list[dict]) -> list[dict]:
+    candidates = _entertainment_narration_candidates(article, title)
+    while len(candidates) < 6:
+        candidates.append("背景と今後の見方を短く整理します")
+    prompts = [
+        "bright Japanese entertainment news title card, vertical 9:16, pale aqua accents",
+        "clean smartphone news cards on white desk, vertical 9:16, soft studio light",
+        "cinematic studio data cards and headlines, vertical 9:16, bright white studio",
+        "abstract cinema seats and soft spotlight, vertical 9:16, commercial look",
+        "minimal timeline cards floating in white studio, vertical 9:16, pale aqua",
+        "clean recap card with subtle motion graphics, vertical 9:16, bright white",
+    ]
+    scenes: list[dict] = []
+    for i in range(6):
+        base = existing_scenes[i] if i < len(existing_scenes) and isinstance(existing_scenes[i], dict) else {}
+        prompt = str(base.get("image_prompt") or prompts[i]).strip()
+        if "vertical" not in prompt.lower():
+            prompt += ", vertical 9:16"
+        scenes.append({
+            "index": i,
+            "narration": candidates[i],
+            "image_prompt": prompt,
+            "duration": 5,
+        })
+    return scenes
 
 
 def fallback_entertainment_short_script(article: dict, video_style: str = "auto") -> dict:

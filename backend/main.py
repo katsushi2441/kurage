@@ -53,8 +53,11 @@ class EntertainmentShortRequest(BaseModel):
     content: str = ""
     url: str = ""
     source_url: str = ""
+    source_title: str = ""
     source_name: str = "Kurage Entertainment"
     celebrity_names: list[str] = []
+    body: list[str] = []
+    video_script_30s: list[str] = []
     vtuber_mode: bool = False
     video_style: str = "auto"
 

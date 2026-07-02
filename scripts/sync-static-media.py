@@ -102,6 +102,11 @@ def sync_one(job_file: Path, dry_run: bool, no_ftp: bool, timeout: int) -> dict[
             if job.get(key) != value:
                 job[key] = value
                 changed = True
+        if job.get("static_media_status") != "done":
+            job["static_media_status"] = "done"
+            changed = True
+        if job.pop("static_media_error", None) is not None:
+            changed = True
         if changed or uploaded:
             job["static_media_synced_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
             save_job(job_file, job)
