@@ -188,6 +188,8 @@ def _repair_script_with_kmontage_quality(script: dict, *, source_type: str, sour
 """
     payload = {
         "model": OLLAMA_MODEL,
+        # gemma4は思考型: think無効化しないと隠れ推論がnum_predictを食い潰しJSONが尻切れになる
+        "think": False,
         "prompt": prompt,
         "stream": False,
         "options": {"temperature": 0.08, "num_predict": 8192},
@@ -505,6 +507,8 @@ JSONのみ返してください。"""
 
     payload = {
         "model": OLLAMA_MODEL,
+        # gemma4は思考型: think無効化しないと隠れ推論がnum_predictを食い潰しJSONが尻切れになる
+        "think": False,
         "prompt": SYSTEM_PROMPT + "\n\n" + user_prompt,
         "stream": False,
         "options": {
@@ -596,6 +600,8 @@ JSONのみ返してください。"""
 
     payload = {
         "model": OLLAMA_MODEL,
+        # gemma4は思考型: think無効化しないと隠れ推論がnum_predictを食い潰しJSONが尻切れになる
+        "think": False,
         "prompt": NEWS_SYSTEM_PROMPT + "\n\n" + user_prompt,
         "stream": False,
         "options": {
@@ -689,6 +695,8 @@ JSONのみ返してください。"""
 
     payload = {
         "model": OLLAMA_MODEL,
+        # gemma4は思考型: think無効化しないと隠れ推論がnum_predictを食い潰しJSONが尻切れになる
+        "think": False,
         "prompt": BLOG_SYSTEM_PROMPT + "\n\n" + user_prompt,
         "stream": False,
         "options": {
@@ -789,6 +797,8 @@ JSONのみ返してください。"""
 
     payload = {
         "model": OLLAMA_MODEL,
+        # gemma4は思考型: think無効化しないと隠れ推論がnum_predictを食い潰しJSONが尻切れになる
+        "think": False,
         "prompt": ENTERTAINMENT_SHORT_SYSTEM_PROMPT + "\n\n" + user_prompt,
         "stream": False,
         "options": {
