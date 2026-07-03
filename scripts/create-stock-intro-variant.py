@@ -135,7 +135,7 @@ def make_keyframe_image(base_frame: Path, output: Path, title: str) -> None:
     veil = Image.new("RGBA", (W, H), (255, 255, 255, 0))
     vd = ImageDraw.Draw(veil)
     vd.rectangle((0, 0, W, H), fill=(255, 255, 255, 84))
-    vd.rounded_rectangle((36, 90, W - 36, 562), radius=42, fill=(255, 255, 255, 224), outline=(27, 145, 170, 70), width=2)
+    vd.rounded_rectangle((36, 90, W - 36, 562), radius=42, fill=(255, 255, 255, 212), outline=(27, 145, 170, 70), width=2)
     vd.rounded_rectangle((56, 112, 222, 158), radius=23, fill=(8, 138, 166, 230))
     veil = veil.filter(ImageFilter.GaussianBlur(radius=0.2))
     img = Image.alpha_composite(img.convert("RGBA"), veil)
@@ -185,6 +185,12 @@ def make_intro(stock: Path, work_dir: Path, title: str) -> Path:
     intro_mp4 = work_dir / "intro.mp4"
 
     vf_cover = f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps=30,format=yuv420p"
+    # The motion segment is the same stock clip with a gentle push-in.
+    vf_zoom = (
+        f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
+        "zoompan=z='min(zoom+0.0015,1.11)':d=1:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':"
+        f"s={W}x{H}:fps=30,format=yuv420p"
+    )
     run(["ffmpeg", "-y", "-ss", "0.2", "-i", str(stock), "-frames:v", "1", "-vf", vf_cover, str(raw_frame)], timeout=120)
     make_keyframe_image(raw_frame, key_jpg, title)
     run(
@@ -198,7 +204,7 @@ def make_intro(stock: Path, work_dir: Path, title: str) -> Path:
 
     make_motion_overlay(overlay_png)
     filter_complex = (
-        f"[0:v]{vf_cover},eq=brightness=0.08:saturation=0.82[bg];"
+        f"[0:v]{vf_zoom},eq=brightness=0.08:saturation=0.94[bg];"
         "[1:v]format=rgba[ol];"
         "[bg][ol]overlay=0:0:format=auto[v]"
     )
@@ -247,6 +253,10 @@ def main() -> int:
     parser.add_argument("source_job_id")
     parser.add_argument("--new-job-id", default="", help="Create a separate job only when this is explicitly set.")
     parser.add_argument("--title-suffix", default="", help="Optional title suffix, normally unused for overwrite regeneration.")
+    parser.add_argument("--stock-file", default="", help="Use this local stock video instead of the default Archive.org clip.")
+    parser.add_argument("--stock-source-url", default="", help="Source page URL for provenance when --stock-file is used.")
+    parser.add_argument("--stock-license", default="", help="License note for provenance when --stock-file is used.")
+    parser.add_argument("--body-file", default="", help="Use this body video instead of the job output. Useful for overwrite regeneration.")
     args = parser.parse_args()
 
     src_id = "".join(ch for ch in args.source_job_id if ch.isalnum())
@@ -254,7 +264,8 @@ def main() -> int:
     if not src_json.is_file():
         raise SystemExit(f"source job json not found: {src_json}")
     src_job = json.loads(src_json.read_text(encoding="utf-8"))
-    src_video = Path(str(src_job.get("video_file") or JOBS_DIR / src_id / "output.mp4"))
+    body_candidate = Path(args.body_file).expanduser() if args.body_file else JOBS_DIR / src_id / "body.mp4"
+    src_video = body_candidate if body_candidate.is_file() else Path(str(src_job.get("video_file") or JOBS_DIR / src_id / "output.mp4"))
     if not src_video.is_file():
         raise SystemExit(f"source video not found: {src_video}")
 
@@ -271,7 +282,9 @@ def main() -> int:
 
     title = str(src_job.get("title") or src_job.get("display_title") or "Kurage動画")
     out_title = title + args.title_suffix if create_new else title
-    stock = download_stock_video()
+    stock = Path(args.stock_file).expanduser() if args.stock_file else download_stock_video()
+    if not stock.is_file():
+        raise SystemExit(f"stock video not found: {stock}")
     intro = make_intro(stock, work_dir / "intro_template", title)
     body = normalize_body(src_video, work_dir / "body.mp4")
     output_tmp = work_dir / "output.mp4"
@@ -311,9 +324,10 @@ def main() -> int:
                 "thumbnail_keyframe_seconds": 0.5,
                 "stock_motion_seconds": 3.5,
                 "body_start_seconds": 4.0,
-                "stock_source_url": ARCHIVE_SOURCE_URL,
-                "stock_license": ARCHIVE_LICENSE,
+                "stock_source_url": args.stock_source_url or ARCHIVE_SOURCE_URL,
+                "stock_license": args.stock_license or ARCHIVE_LICENSE,
                 "stock_file": str(stock),
+                "body_file": str(src_video),
             },
         }
     )
