@@ -6,7 +6,6 @@ import json
 import shutil
 import subprocess
 import time
-import uuid
 from pathlib import Path
 from urllib.parse import quote
 
@@ -244,10 +243,10 @@ def make_thumbnail(video: Path, output: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Create a Kurage video variant with a stock-footage opening template.")
+    parser = argparse.ArgumentParser(description="Regenerate a Kurage video with a stock-footage opening template.")
     parser.add_argument("source_job_id")
-    parser.add_argument("--job-id", default="")
-    parser.add_argument("--title-suffix", default=" / 実写風オープニング版")
+    parser.add_argument("--new-job-id", default="", help="Create a separate job only when this is explicitly set.")
+    parser.add_argument("--title-suffix", default="", help="Optional title suffix, normally unused for overwrite regeneration.")
     args = parser.parse_args()
 
     src_id = "".join(ch for ch in args.source_job_id if ch.isalnum())
@@ -259,21 +258,36 @@ def main() -> int:
     if not src_video.is_file():
         raise SystemExit(f"source video not found: {src_video}")
 
-    new_id = "".join(ch for ch in (args.job_id or f"intro{uuid.uuid4().hex[:12]}") if ch.isalnum())
-    job_dir = JOBS_DIR / new_id
-    if job_dir.exists() or (JOBS_DIR / f"{new_id}.json").exists():
-        raise SystemExit(f"target job already exists: {new_id}")
-    job_dir.mkdir(parents=True)
+    target_id = "".join(ch for ch in (args.new_job_id or src_id) if ch.isalnum())
+    create_new = target_id != src_id
+    job_dir = JOBS_DIR / target_id
+    if create_new and (job_dir.exists() or (JOBS_DIR / f"{target_id}.json").exists()):
+        raise SystemExit(f"target job already exists: {target_id}")
+    job_dir.mkdir(parents=True, exist_ok=True)
+    work_dir = job_dir / "_stock_intro_work"
+    if work_dir.exists():
+        shutil.rmtree(work_dir)
+    work_dir.mkdir(parents=True)
 
     title = str(src_job.get("title") or src_job.get("display_title") or "Kurage動画")
-    out_title = title + args.title_suffix
+    out_title = title + args.title_suffix if create_new else title
     stock = download_stock_video()
-    intro = make_intro(stock, job_dir / "intro_template", title)
-    body = normalize_body(src_video, job_dir / "body.mp4")
+    intro = make_intro(stock, work_dir / "intro_template", title)
+    body = normalize_body(src_video, work_dir / "body.mp4")
+    output_tmp = work_dir / "output.mp4"
+    concat_videos([intro, body], output_tmp)
+    thumb_tmp = work_dir / "thumbnail.jpg"
+    make_thumbnail(output_tmp, thumb_tmp)
+
     output = job_dir / "output.mp4"
-    concat_videos([intro, body], output)
     thumb = job_dir / "thumbnail.jpg"
-    make_thumbnail(output, thumb)
+    shutil.copy2(output_tmp, output)
+    shutil.copy2(thumb_tmp, thumb)
+    intro_dest = job_dir / "intro_template"
+    if intro_dest.exists():
+        shutil.rmtree(intro_dest)
+    shutil.copytree(work_dir / "intro_template", intro_dest)
+    shutil.copy2(work_dir / "body.mp4", job_dir / "body.mp4")
 
     now = time.strftime("%Y-%m-%d %H:%M:%S")
     new_job = dict(src_job)
@@ -281,7 +295,6 @@ def main() -> int:
         {
             "status": "done",
             "progress": 100,
-            "created_at": now,
             "updated_at": now,
             "title": out_title,
             "display_title": out_title,
@@ -289,9 +302,10 @@ def main() -> int:
             "video_file": str(output),
             "thumbnail_file": str(thumb),
             "duration_seconds": int(round(probe_duration(output))),
-            "views": 0,
             "source": src_job.get("source") or "kurage",
-            "regenerated_from_job_id": src_id,
+            "regenerated_from_job_id": src_id if create_new else src_job.get("regenerated_from_job_id", ""),
+            "regenerated_at": now,
+            "regenerated_method": "overwrite_stock_intro_v1" if not create_new else "new_stock_intro_v1",
             "opening_template": {
                 "type": "stock_intro_v1",
                 "thumbnail_keyframe_seconds": 0.5,
@@ -303,14 +317,18 @@ def main() -> int:
             },
         }
     )
+    if create_new:
+        new_job["created_at"] = now
+        new_job["views"] = 0
     for key in ("static_video_url", "static_thumbnail_url", "static_media_synced_at", "static_media_error"):
         new_job.pop(key, None)
     new_job["static_media_status"] = "pending"
-    (JOBS_DIR / f"{new_id}.json").write_text(json.dumps(new_job, ensure_ascii=False, indent=2), encoding="utf-8")
+    (JOBS_DIR / f"{target_id}.json").write_text(json.dumps(new_job, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # Keep a small provenance bundle inside the job dir for future debugging.
     shutil.copy2(src_json, job_dir / "source_job.json")
-    print(json.dumps({"ok": True, "job_id": new_id, "video": str(output), "thumbnail": str(thumb)}, ensure_ascii=False))
+    shutil.rmtree(work_dir)
+    print(json.dumps({"ok": True, "job_id": target_id, "mode": "new" if create_new else "overwrite", "video": str(output), "thumbnail": str(thumb)}, ensure_ascii=False))
     return 0
 
 
