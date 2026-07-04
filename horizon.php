@@ -183,11 +183,12 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
 .hero p { color:var(--muted); font-size:.88rem; line-height:1.8; }
 @media(max-width:600px) { .input-row { flex-wrap:wrap; } .container { padding:1rem; } }
 </style>
+<link rel="stylesheet" href="assets/kurage-avatar.css?v=20260704a">
 </head>
 <body>
 <header>
   <div class="brand">
-    <img class="brand-icon" src="avatar/lipsync/kurage_mouth_0.png" alt="Kurage">
+    <span class="kurage-avatar-stage kurage-avatar-mini" role="img" aria-label="Kurage avatar"><span class="kurage-avatar-motion"><span class="kurage-avatar-breath"><img class="kurage-avatar-frame kurage-avatar-frame-0" src="avatar/lipsync/kurage_mouth_0.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-1" src="avatar/lipsync/kurage_mouth_1.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-2" src="avatar/lipsync/kurage_mouth_2.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-3" src="avatar/lipsync/kurage_mouth_3.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-4" src="avatar/lipsync/kurage_mouth_4.png" alt=""></span></span></span>
     <a class="brand-logo" href="horizon.php">
       <span>Kurageプロジェクト</span>
       <span class="brand-sub">Horizon-AI生成ニュース動画</span>

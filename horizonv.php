@@ -347,13 +347,14 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 .reel-side-btn{background:rgba(0,0,0,.5);border:none;border-radius:50%;width:44px;height:44px;color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px;backdrop-filter:blur(4px);text-decoration:none;}
 .reel-side-btn span{font-size:9px;color:rgba(255,255,255,.65);}
 </style>
+<link rel="stylesheet" href="assets/kurage-avatar.css?v=20260704a">
 </head>
 <body>
 
 <!-- ── ヘッダー ── -->
 <header class="header">
   <div class="brand">
-    <img class="brand-icon" src="avatar/lipsync/kurage_mouth_0.png" alt="Kurage">
+    <span class="kurage-avatar-stage kurage-avatar-mini" role="img" aria-label="Kurage avatar"><span class="kurage-avatar-motion"><span class="kurage-avatar-breath"><img class="kurage-avatar-frame kurage-avatar-frame-0" src="avatar/lipsync/kurage_mouth_0.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-1" src="avatar/lipsync/kurage_mouth_1.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-2" src="avatar/lipsync/kurage_mouth_2.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-3" src="avatar/lipsync/kurage_mouth_3.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-4" src="avatar/lipsync/kurage_mouth_4.png" alt=""></span></span></span>
     <a class="brand-logo" href="horizonv.php">
       <span>Kurageプロジェクト</span>
       <span class="brand-sub">Horizon-AI生成ニュース動画</span>

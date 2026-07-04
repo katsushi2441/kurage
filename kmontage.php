@@ -107,11 +107,12 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
 <style>
 .job-main{display:block;width:100%;text-align:left;border:1px solid transparent;border-radius:12px;background:#fff;color:var(--ink);box-shadow:none;padding:.55rem}.job-main:hover{border-color:#b9d8e8;background:#f9fdfe}@media(max-width:760px){.job{grid-template-columns:1fr}}
 </style>
+<link rel="stylesheet" href="assets/kurage-avatar.css?v=20260704a">
 </head>
 <body>
 <header>
   <a class="brand" href="<?php echo h($THIS_FILE); ?>" aria-label="Kurage Montage トップへ">
-    <img src="avatar/lipsync/kurage_mouth_0.png" alt="Kurage">
+    <span class="kurage-avatar-stage kurage-avatar-mini" role="img" aria-label="Kurage avatar"><span class="kurage-avatar-motion"><span class="kurage-avatar-breath"><img class="kurage-avatar-frame kurage-avatar-frame-0" src="avatar/lipsync/kurage_mouth_0.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-1" src="avatar/lipsync/kurage_mouth_1.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-2" src="avatar/lipsync/kurage_mouth_2.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-3" src="avatar/lipsync/kurage_mouth_3.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-4" src="avatar/lipsync/kurage_mouth_4.png" alt=""></span></span></span>
     <div><strong>Kurage Montage</strong><span>X・YouTube・ブログ・PDFからショート動画生成</span></div>
   </a>
   <div class="userbar">

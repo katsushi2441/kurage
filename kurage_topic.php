@@ -55,6 +55,7 @@ main{max-width:1120px;margin:0 auto;padding:8px 24px 70px}.section-title{font-si
 footer{border-top:1px solid var(--line);background:rgba(255,255,255,.72);padding:24px;color:var(--muted);font-size:13px;text-align:center}
 @media(max-width:900px){header{padding:10px 16px}.hero{grid-template-columns:1fr;padding:32px 18px 18px}main{padding:8px 18px 56px}.featured,.videos{grid-template-columns:1fr}.btn-ghost{display:none}}
 </style>
+<link rel="stylesheet" href="assets/kurage-avatar.css?v=20260704a">
 </head>
 <body>
 <header>
@@ -91,7 +92,7 @@ footer{border-top:1px solid var(--line);background:rgba(255,255,255,.72);padding
   </div>
   <aside class="side-card">
     <div class="editor">
-      <img src="avatar/lipsync/kurage_mouth_0.png" alt="Kurage editor">
+      <span class="kurage-avatar-stage kurage-avatar-editor" role="img" aria-label="Kurage editor"><span class="kurage-avatar-motion"><span class="kurage-avatar-breath"><img class="kurage-avatar-frame kurage-avatar-frame-0" src="avatar/lipsync/kurage_mouth_0.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-1" src="avatar/lipsync/kurage_mouth_1.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-2" src="avatar/lipsync/kurage_mouth_2.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-3" src="avatar/lipsync/kurage_mouth_3.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-4" src="avatar/lipsync/kurage_mouth_4.png" alt=""></span></span></span>
       <div><b>Kurage編集者</b><span>動画を知識に整理中</span></div>
     </div>
     <div class="stats">
