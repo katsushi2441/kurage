@@ -189,6 +189,7 @@ function message(text){ $('message').textContent = text || ''; }
 function setActions(enabled){ $('copy').disabled = !enabled; $('post-x').disabled = !enabled; $('delete').disabled = !currentJobId; }
 function scriptLines(job){ const script = job.kurage_script || job.script || {}; const scenes = Array.isArray(script.scenes) ? script.scenes : []; if (scenes.length) return scenes.map(s => s.narration || '').filter(Boolean); return Array.isArray(job.script_outline) ? job.script_outline : []; }
 function statusLabel(job){ const labels = {queued:'待機中',analyzing:'URL解析中',downloading:'元動画取得中',transcribing:'文字起こし中',planning:'台本生成中',generating:'Kurage動画生成中',done:'完了',error:'エラー'}; return labels[job.status] || job.status || '不明'; }
+function progressText(job){ const p = Math.max(0, Math.min(100, Number(job.failed_at_progress ?? job.progress ?? 0))); return job.status === 'error' ? `エラー（${p}%で停止）` : `${statusLabel(job)} / ${p}%`; }
 function jobTitle(job){ return job.kurage_title || job.title || job.source_title || job.url || '生成中'; }
 function renderJob(job){
   currentJobId = job.id || currentJobId;
@@ -196,7 +197,7 @@ function renderJob(job){
   if (job.url) $('source-url').value = job.url;
   $('job-id').textContent = currentJobId || '未開始';
   const st = job.status || 'unknown';
-  $('status').textContent = `${st} ${job.progress ?? 0}%`;
+  $('status').textContent = st === 'error' ? progressText(job) : `${st} ${job.progress ?? 0}%`;
   $('status').className = 'badge ' + (st === 'done' ? 'done' : st === 'error' ? 'error' : 'status-pill');
   $('progress').style.width = `${Math.max(0, Math.min(100, Number(job.progress || 0)))}%`;
   $('title').textContent = jobTitle(job);
@@ -235,7 +236,7 @@ async function loadHistory(){
     const div = document.createElement('div');
     div.className = 'job';
     const kurage = job.kurage_job_id ? `<small>Kurage: ${esc(job.kurage_status || '-')} / ${esc(job.kurage_progress ?? '-')}%</small>` : '';
-    div.innerHTML = `<button class="job-main" data-id="${esc(job.id)}" type="button"><strong>${esc(jobTitle(job))}</strong><small>${esc(statusLabel(job))} / ${esc(job.progress ?? 0)}% / ${esc(job.url || '')}</small>${kurage}</button>`;
+    div.innerHTML = `<button class="job-main" data-id="${esc(job.id)}" type="button"><strong>${esc(jobTitle(job))}</strong><small>${esc(progressText(job))} / ${esc(job.url || '')}</small>${kurage}</button>`;
     div.querySelector('button').addEventListener('click', async () => openJob(job));
     box.appendChild(div);
   }
