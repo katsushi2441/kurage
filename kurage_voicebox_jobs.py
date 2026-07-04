@@ -10,6 +10,31 @@ from typing import Any
 import requests
 
 
+TRANSIENT_GPU_ERRORS = (
+    "cudnn",
+    "cuda",
+    "cublas",
+    "out of memory",
+    "internal_error",
+)
+
+
+def _recover_voicebox(api: str, error: str) -> None:
+    """Best-effort recovery for transient GPU/model failures before retry."""
+    message = str(error or "").lower()
+    try:
+        requests.post(f"{api}/models/unload", timeout=20)
+    except Exception:
+        pass
+    if any(token in message for token in TRANSIENT_GPU_ERRORS):
+        try:
+            # The dedicated Voicebox host is expected to be supervised. Dropping
+            # the connection here is OK; the next retry gets a clean model load.
+            requests.post(f"{api}/shutdown", timeout=5)
+        except Exception:
+            pass
+
+
 def _duration(path: Path) -> float:
     proc = subprocess.run(
         [
@@ -81,7 +106,9 @@ def voicebox_tts_job(
         if status == "completed":
             break
         if status == "failed":
-            raise RuntimeError(str(history.get("error") or history))
+            error = str(history.get("error") or history)
+            _recover_voicebox(api, error)
+            raise RuntimeError(error)
         time.sleep(2.0)
         hres = requests.get(f"{api}/history/{generation_id}", timeout=30)
         hres.raise_for_status()
@@ -91,6 +118,7 @@ def voicebox_tts_job(
             requests.post(f"{api}/generate/{generation_id}/cancel", timeout=10)
         except Exception:
             pass
+        _recover_voicebox(api, "voicebox generation timed out")
         raise TimeoutError(f"voicebox generation timed out: {generation_id}")
 
     audio_response = requests.get(f"{api}/audio/{generation_id}", timeout=60)
