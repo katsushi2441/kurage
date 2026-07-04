@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime
+from ftplib import FTP, error_perm
 from pathlib import Path
 from typing import Any
 
@@ -337,16 +339,71 @@ def build_wiki_markdown(topic: TopicDef, items: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def load_env_file(path: Path) -> None:
+    if not path.is_file():
+        return
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
+def ensure_ftp_dir(ftp: FTP, path: str) -> None:
+    parts = [part for part in path.strip("/").split("/") if part]
+    ftp.cwd("/")
+    for part in parts:
+        try:
+            ftp.mkd(part)
+        except error_perm as exc:
+            if not str(exc).startswith("550"):
+                raise
+        ftp.cwd(part)
+
+
+def upload_knowledge_json(env_file: str, remote_root: str) -> int:
+    load_env_file(Path(env_file).expanduser())
+    host = os.environ.get("FTP_HOST") or os.environ.get("AIXEC_FTP_HOST")
+    user = os.environ.get("FTP_USER") or os.environ.get("AIXEC_FTP_USER")
+    password = (
+        os.environ.get("FTP_PASS")
+        or os.environ.get("FTP_PASSWORD")
+        or os.environ.get("AIXEC_FTP_PASS")
+    )
+    if not (host and user and password):
+        raise RuntimeError("FTP credentials are not available")
+
+    files = [OUT_DIR / "index.json"] + sorted((OUT_DIR / "topics").glob("*.json"))
+    uploaded = 0
+    with FTP(host, timeout=30) as ftp:
+        ftp.login(user, password)
+        for local_path in files:
+            rel = local_path.relative_to(ROOT).as_posix()
+            remote_path = f"{remote_root.rstrip('/')}/{rel}"
+            ensure_ftp_dir(ftp, str(Path(remote_path).parent))
+            with local_path.open("rb") as handle:
+                ftp.storbinary("STOR " + Path(remote_path).name, handle)
+            uploaded += 1
+    return uploaded
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=0, help="Limit source jobs for testing")
     parser.add_argument("--watch", action="store_true", help="Keep rebuilding in the background")
     parser.add_argument("--interval", type=int, default=900, help="Watch interval seconds")
+    parser.add_argument("--ftp-upload", action="store_true", help="Upload generated JSON to the public Kurage server")
+    parser.add_argument("--ftp-env", default="/home/kojima/work/aixec/.env", help="Env file containing FTP credentials")
+    parser.add_argument("--ftp-remote", default="/web/kurage_exbridge_jp", help="Kurage FTP remote root")
     args = parser.parse_args()
 
     while True:
         index = build(limit=max(0, args.limit))
         print(f"[{index['updated_at']}] built {index['topic_count']} topics from {index['video_count']} videos")
+        if args.ftp_upload:
+            uploaded = upload_knowledge_json(args.ftp_env, args.ftp_remote)
+            print(f"[{index['updated_at']}] uploaded {uploaded} knowledge JSON files")
         if not args.watch:
             return 0
         time.sleep(max(60, args.interval))

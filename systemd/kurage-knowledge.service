@@ -5,4 +5,4 @@ After=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/home/kojima/work/kurage
-ExecStart=/usr/bin/python3 /home/kojima/work/kurage/scripts/build-kurage-knowledge.py
+ExecStart=/usr/bin/python3 /home/kojima/work/kurage/scripts/build-kurage-knowledge.py --ftp-upload --ftp-env /home/kojima/work/aixec/.env --ftp-remote /web/kurage_exbridge_jp
