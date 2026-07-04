@@ -1,0 +1,8 @@
+[Unit]
+Description=Build Kurage Knowledge Library
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/kojima/work/kurage
+ExecStart=/usr/bin/python3 /home/kojima/work/kurage/scripts/build-kurage-knowledge.py

@@ -739,6 +739,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
   </div>
   <div class="header-right">
     <a class="amazon-mini" href="<?php echo h($header_amazon_url); ?>" target="_blank" rel="sponsored nofollow noopener" aria-label="Amazonで関連商品を見る" title="Amazonで関連商品を見る">a</a>
+    <a href="kurage_knowledge.php" class="gen-link">知識</a>
     <?php if ($detail_job): ?>
     <a class="back-btn" href="<?php echo h($THIS_FILE); ?>">← 一覧</a>
     <?php else: ?>
