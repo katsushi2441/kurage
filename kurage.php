@@ -188,7 +188,7 @@ input[type=text]:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(0
 <body>
 <header>
   <div class="brand">
-    <img class="brand-icon" src="images/kurage-icon.png" alt="Kurage">
+    <img class="brand-icon" src="avatar/lipsync/kurage_mouth_0.png" alt="Kurage">
     <a class="brand-logo" href="kurage.php">
       <span>Kurageプロジェクト</span>
       <span class="brand-sub">AI Short Video Generator</span>

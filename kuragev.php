@@ -520,13 +520,13 @@ if ($detail_job) {
     $page_title = '動画検索: ' . $search_query . ' | ' . $SITE_NAME;
     $page_desc  = $search_query . ' に一致するKurageショート動画の検索結果です。';
     $page_url   = $BASE_URL . '/' . $THIS_FILE . '?' . http_build_query(array_filter(array('q' => $search_query, 'tool' => $tool_filter, 'sort' => $sort), 'strlen'));
-    $page_image = $BASE_URL . '/images/kurage.png';
+    $page_image = $BASE_URL . '/avatar/lipsync/kurage_mouth_0.png';
     $page_video = '';
 } else {
     $page_title = $SITE_NAME . ' — AIショート動画';
     $page_desc  = 'AIで生成・翻訳した短編縦型動画を公開しています。';
     $page_url   = $BASE_URL . '/' . $THIS_FILE;
-    $page_image = $BASE_URL . '/images/kurage.png';
+    $page_image = $BASE_URL . '/avatar/lipsync/kurage_mouth_0.png';
     $page_video = '';
 }
 $header_amazon_kw = trim((string)($detail_job['title'] ?? '動画編集 撮影機材 YouTube 本'));
@@ -731,7 +731,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 <!-- ── ヘッダー ── -->
 <header class="header">
   <div class="brand">
-    <img class="brand-icon" src="images/kurage-icon.png" alt="Kurage">
+    <img class="brand-icon" src="avatar/lipsync/kurage_mouth_0.png" alt="Kurage">
     <a class="brand-logo" href="kuragev.php">
       <span>Kurageプロジェクト</span>
       <span class="brand-sub">AI Short Video</span>

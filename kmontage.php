@@ -111,7 +111,7 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
 <body>
 <header>
   <a class="brand" href="<?php echo h($THIS_FILE); ?>" aria-label="Kurage Montage トップへ">
-    <img src="images/kurage-icon.png" alt="Kurage">
+    <img src="avatar/lipsync/kurage_mouth_0.png" alt="Kurage">
     <div><strong>Kurage Montage</strong><span>X・YouTube・ブログ・PDFからショート動画生成</span></div>
   </a>
   <div class="userbar">

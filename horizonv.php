@@ -189,7 +189,7 @@ if ($detail_job) {
     $page_title = $SITE_NAME;
     $page_desc  = 'Horizonが収集したニュースをAIが縦型ショート動画に自動生成。毎日更新。';
     $page_url   = $BASE_URL . '/' . $THIS_FILE;
-    $page_image = $BASE_URL . '/images/kurage.png';
+    $page_image = $BASE_URL . '/avatar/lipsync/kurage_mouth_0.png';
     $page_video = '';
 }
 ?><!DOCTYPE html>
@@ -353,7 +353,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 <!-- ── ヘッダー ── -->
 <header class="header">
   <div class="brand">
-    <img class="brand-icon" src="images/kurage-icon.png" alt="Kurage">
+    <img class="brand-icon" src="avatar/lipsync/kurage_mouth_0.png" alt="Kurage">
     <a class="brand-logo" href="horizonv.php">
       <span>Kurageプロジェクト</span>
       <span class="brand-sub">Horizon-AI生成ニュース動画</span>

@@ -28,7 +28,7 @@ $featured = is_array($topic['featured_videos'] ?? null) ? $topic['featured_video
 <meta property="og:type" content="article">
 <meta property="og:title" content="<?php echo h($title); ?>">
 <meta property="og:description" content="<?php echo h($desc); ?>">
-<meta property="og:image" content="<?php echo h($BASE_URL); ?>/images/kurage.png">
+<meta property="og:image" content="<?php echo h($BASE_URL); ?>/avatar/lipsync/kurage_mouth_0.png">
 <style>
 :root{--ink:#17324d;--muted:#66839a;--sea:#55c7da;--line:#cbeef4;--accent:#2aa8c7;--accent2:#1e8fa8;--soft:#eef9fc;--paper:rgba(255,255,255,.92)}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -91,7 +91,7 @@ footer{border-top:1px solid var(--line);background:rgba(255,255,255,.72);padding
   </div>
   <aside class="side-card">
     <div class="editor">
-      <img src="images/kurage-icon.png" alt="Kurage editor">
+      <img src="avatar/lipsync/kurage_mouth_0.png" alt="Kurage editor">
       <div><b>Kurage編集者</b><span>動画を知識に整理中</span></div>
     </div>
     <div class="stats">
