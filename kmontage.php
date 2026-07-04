@@ -189,7 +189,8 @@ function message(text){ $('message').textContent = text || ''; }
 function setActions(enabled){ $('copy').disabled = !enabled; $('post-x').disabled = !enabled; $('delete').disabled = !currentJobId; }
 function scriptLines(job){ const script = job.kurage_script || job.script || {}; const scenes = Array.isArray(script.scenes) ? script.scenes : []; if (scenes.length) return scenes.map(s => s.narration || '').filter(Boolean); return Array.isArray(job.script_outline) ? job.script_outline : []; }
 function statusLabel(job){ const labels = {queued:'待機中',analyzing:'URL解析中',downloading:'元動画取得中',transcribing:'文字起こし中',planning:'台本生成中',generating:'Kurage動画生成中',done:'完了',error:'エラー'}; return labels[job.status] || job.status || '不明'; }
-function progressText(job){ const p = Math.max(0, Math.min(100, Number(job.failed_at_progress ?? job.progress ?? 0))); return job.status === 'error' ? `エラー（${p}%で停止）` : `${statusLabel(job)} / ${p}%`; }
+function displayProgress(job){ return job.status === 'done' ? 100 : Math.max(0, Math.min(100, Number(job.failed_at_progress ?? job.progress ?? 0))); }
+function progressText(job){ const p = displayProgress(job); return job.status === 'error' ? `エラー（${p}%で停止）` : `${statusLabel(job)} / ${p}%`; }
 function jobTitle(job){ return job.kurage_title || job.title || job.source_title || job.url || '生成中'; }
 function renderJob(job){
   currentJobId = job.id || currentJobId;
@@ -199,7 +200,7 @@ function renderJob(job){
   const st = job.status || 'unknown';
   $('status').textContent = progressText(job);
   $('status').className = 'badge ' + (st === 'done' ? 'done' : st === 'error' ? 'error' : 'status-pill');
-  $('progress').style.width = `${Math.max(0, Math.min(100, Number(job.progress || 0)))}%`;
+  $('progress').style.width = `${displayProgress(job)}%`;
   $('title').textContent = jobTitle(job);
   $('summary').textContent = job.summary || job.reference_analysis?.core_claim || job.analysis?.reference_analysis?.core_claim || job.transcript_preview || '解析中です。';
   const list = $('script'); list.innerHTML = '';
