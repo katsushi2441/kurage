@@ -197,7 +197,7 @@ function renderJob(job){
   if (job.url) $('source-url').value = job.url;
   $('job-id').textContent = currentJobId || '未開始';
   const st = job.status || 'unknown';
-  $('status').textContent = st === 'error' ? progressText(job) : `${st} ${job.progress ?? 0}%`;
+  $('status').textContent = progressText(job);
   $('status').className = 'badge ' + (st === 'done' ? 'done' : st === 'error' ? 'error' : 'status-pill');
   $('progress').style.width = `${Math.max(0, Math.min(100, Number(job.progress || 0)))}%`;
   $('title').textContent = jobTitle(job);
@@ -227,7 +227,7 @@ function shareText(){ return `${$('title').textContent}\n${$('summary').textCont
 $('copy').addEventListener('click', async () => { const text = shareText(); await navigator.clipboard.writeText(text); message('コピーしました'); });
 $('post-x').addEventListener('click', () => { const text = shareText(); window.open(`https://x.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank', 'noopener'); });
 $('delete').addEventListener('click', async () => { if (!currentJobId || !confirm('この生成ジョブとKurage動画を削除しますか？')) return; await fetchJson(`<?php echo h($THIS_FILE); ?>?proxy=delete&job_id=${encodeURIComponent(currentJobId)}`, {method:'POST'}); currentJobId = null; currentJobUrl = ''; $('job-id').textContent='削除済み'; $('status').textContent='deleted'; $('title').textContent='タイトルはここに表示されます'; $('summary').textContent='動画の要点と生成された台本がここに表示されます。'; $('script').innerHTML=''; $('player').style.display='none'; setActions(false); await loadHistory(); });
-async function openJob(job){ currentJobId = job.id; await poll(job.id); clearInterval(pollTimer); if (!['done','error'].includes(job.status)) pollTimer = setInterval(() => poll(job.id), 5000); }
+async function openJob(job){ currentJobId = job.id; const latest = await poll(job.id); clearInterval(pollTimer); if (!['done','error'].includes(latest.status)) pollTimer = setInterval(() => poll(job.id), 5000); }
 async function loadHistory(){
   const data = await fetchJson('<?php echo h($THIS_FILE); ?>?proxy=jobs&limit=20');
   const box = $('history');

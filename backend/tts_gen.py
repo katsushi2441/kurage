@@ -47,6 +47,8 @@ def prepare_prosody_text(text: str) -> str:
     text = re.sub(r"\s+", "、", text)
     text = re.sub(r"、+([。！？!?])", r"\1", text)
     text = re.sub(r"。+", "。", text)
+    if text.endswith("、"):
+        text = text[:-1] + "。"
     if text[-1] not in "。！？!?":
         text += "。"
     return text
@@ -340,7 +342,19 @@ def split_voicebox_scene_text(text: str, max_chars: int = VOICEBOX_SCENE_CHUNK_C
             current += unit
     if current:
         chunks.append(current)
-    return chunks
+    cleaned: list[str] = []
+    for chunk in chunks:
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        if chunk in "、。！？!?":
+            if cleaned and cleaned[-1][-1] not in "。！？!?":
+                cleaned[-1] = cleaned[-1].rstrip("、") + "。"
+            continue
+        if chunk.endswith("、"):
+            chunk = chunk[:-1] + "。"
+        cleaned.append(chunk)
+    return cleaned
 
 
 def max_expected_tts_duration(text: str) -> float:

@@ -128,7 +128,8 @@ def generate_wan_opening_assets(job_id: str, script: dict, assets_dir: Path, cou
 def mark_job_done(job_id: str, video_path: Path, thumb_path: Path):
     """Mark a job complete and best-effort publish SEO-friendly static media."""
     update_job(job_id, status="done", progress=100, video_file=str(video_path),
-               thumbnail_file=str(thumb_path) if thumb_path.exists() else "")
+               thumbnail_file=str(thumb_path) if thumb_path.exists() else "",
+               error=None, traceback=None, static_media_error=None)
     try:
         result = publish_static_media(job_id)
         if result.get("ok"):
