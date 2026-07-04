@@ -215,7 +215,7 @@ function renderJob(job){
   } else { $('player').style.display = 'none'; $('player').innerHTML = ''; setActions(false); }
 }
 async function fetchJson(url, options){ const res = await fetch(url, options || {}); const data = await res.json(); if (!res.ok || data.ok === false) throw new Error(data.detail || data.error || 'request failed'); return data; }
-async function poll(jobId){ const job = await fetchJson(`<?php echo h($THIS_FILE); ?>?proxy=status&job_id=${encodeURIComponent(jobId)}`); renderJob(job); history.replaceState(null, '', `?job=${encodeURIComponent(jobId)}`); if (job.status === 'done' || job.status === 'error') { clearInterval(pollTimer); pollTimer = null; await loadHistory(); } }
+async function poll(jobId){ const job = await fetchJson(`<?php echo h($THIS_FILE); ?>?proxy=status&job_id=${encodeURIComponent(jobId)}`); renderJob(job); history.replaceState(null, '', `?job=${encodeURIComponent(jobId)}`); if (job.status === 'done' || job.status === 'error') { clearInterval(pollTimer); pollTimer = null; await loadHistory(); } return job; }
 $('generate').addEventListener('click', async () => {
   const url = $('source-url').value.trim(); if (!url) return message('URLを入力してください');
   $('generate').disabled = true; message('生成ジョブを開始しています...');
@@ -245,7 +245,7 @@ async function loadHistory(){
 $('reload').addEventListener('click', loadHistory);
 
 $('source-url').addEventListener('input', () => { if ($('source-url').value.trim() !== currentJobUrl) currentJobId = null; });
-async function openInitialJob(){ await loadHistory(); const jobId = new URLSearchParams(location.search).get('job'); if (jobId) { await poll(jobId); clearInterval(pollTimer); pollTimer = setInterval(() => poll(jobId), 5000); } }
+async function openInitialJob(){ await loadHistory(); const jobId = new URLSearchParams(location.search).get('job'); if (jobId) { const job = await poll(jobId); clearInterval(pollTimer); if (!['done','error'].includes(job.status)) pollTimer = setInterval(() => poll(jobId), 5000); } }
 openInitialJob().catch(e => message(e.message || String(e)));
 </script>
 <?php endif; ?>
