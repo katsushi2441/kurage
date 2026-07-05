@@ -185,7 +185,7 @@ if (($_GET['api'] ?? '') === 'ask') {
     exit;
 }
 $page_title = 'Kurage Knowledge Library — 動画から育つ知識ページ';
-$page_desc = 'Kurage編集者がAIショート動画をテーマ別に分類し、複数の動画が伝える学びをまとめるナレッジライブラリです。';
+$page_desc = 'Kurageさんに学びたいことを聞くと、テーマ別に整理された動画アーカイブから参考になる動画をおすすめしてくれるナレッジライブラリです。';
 ?><!doctype html>
 <html lang="ja">
 <head>
@@ -296,9 +296,9 @@ footer{border-top:1px solid var(--line);background:rgba(255,255,255,.72);padding
     <div class="eyebrow"><span class="dot"></span>動画から育つ知識ライブラリ</div>
     <h1>Kurage動画を<br><em>テーマ別の知識</em>へ</h1>
     <p class="lead">
-      時系列に流れていく動画を、Kurage編集者がテーマごとに整理します。
-      複数の動画が伝えている学び、実装の流れ、見るべき順番をまとめ、
-      Kurageの動画アーカイブを知識の宝庫として育てていきます。
+      Kurageさんに学びたいことを聞くと、参考になる動画をおすすめしてくれます。
+      時系列に流れていく動画をテーマごとに整理し、複数の動画が伝えている学び、
+      実装の流れ、見るべき順番まで案内する知識の入口として育てていきます。
     </p>
     <div class="stats">
       <div class="stat"><b><?php echo h((int)($data['video_count'] ?? 0)); ?></b><span>整理対象動画</span></div>
