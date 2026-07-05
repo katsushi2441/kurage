@@ -385,6 +385,7 @@ footer{border-top:1px solid var(--line);background:rgba(255,255,255,.72);padding
   var results = document.getElementById('knowledgeResults');
   var title = document.getElementById('knowledgeSectionTitle');
   var meta = document.getElementById('knowledgeSectionMeta');
+  var askCard = document.querySelector('.ask-card');
   if (!form || !input || !results) { return; }
   var defaultHtml = results.innerHTML;
   var defaultClass = results.className;
@@ -463,7 +464,9 @@ footer{border-top:1px solid var(--line);background:rgba(255,255,255,.72);padding
       if (meta) { meta.textContent = '質問: ' + question; }
       renderVideos(data.videos || []);
       reset.className = 'ask-reset show';
-      document.getElementById('topics').scrollIntoView({behavior:'smooth', block:'start'});
+      var target = askCard || form;
+      var top = target.getBoundingClientRect().top + window.scrollY - 72;
+      window.scrollTo({top: Math.max(0, top), behavior: 'smooth'});
     }).catch(function(err) {
       answer.textContent = '検索でエラーが出ました。少し時間を置いてもう一度試してください。';
       console.error(err);
