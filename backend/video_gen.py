@@ -4,7 +4,6 @@ import html
 import json
 import math
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -77,39 +76,6 @@ def _build_stickman_overlay(scene_index: int) -> str:
           <div class="stickman-label">Stickman Explainer</div>
         </div>
       </div>"""
-
-
-def _safe_class_token(value: object, allowed: set[str], default: str) -> str:
-    token = re.sub(r"[^a-z0-9_-]+", "", str(value or "").strip().lower())
-    return token if token in allowed else default
-
-
-def _highlight_caption_keywords(text: object, keywords: object) -> str:
-    raw = str(text or "")
-    if not raw:
-        return ""
-    terms: list[str] = []
-    if isinstance(keywords, list):
-        for keyword in keywords:
-            term = str(keyword or "").strip()
-            if 1 < len(term) <= 18 and term in raw and term not in terms:
-                terms.append(term)
-            if len(terms) >= 4:
-                break
-    if not terms:
-        return html.escape(raw)
-
-    pattern = re.compile("|".join(re.escape(term) for term in sorted(terms, key=len, reverse=True)))
-    parts: list[str] = []
-    pos = 0
-    for match in pattern.finditer(raw):
-        if match.start() < pos:
-            continue
-        parts.append(html.escape(raw[pos:match.start()]))
-        parts.append(f'<span class="caption-keyword">{html.escape(match.group(0))}</span>')
-        pos = match.end()
-    parts.append(html.escape(raw[pos:]))
-    return "".join(parts)
 
 
 def _stickman_css() -> str:
@@ -232,14 +198,7 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
     for i, (scene, (start, dur)) in enumerate(zip(scenes, scene_timing)):
         img_src = f"assets/scene_{i:02d}.png"
         video_src = f"assets/scene_{i:02d}.mp4"
-        narration = _highlight_caption_keywords(scene.get("narration") or "", scene.get("caption_keywords") or [])
-        layout = _safe_class_token(scene.get("layout"), {"top", "center", "lower", "left", "right"}, "top")
-        tempo = _safe_class_token(scene.get("editor_tempo") or scene.get("tempo"), {"fast", "normal", "slow"}, "normal")
-        emphasis = _safe_class_token(
-            scene.get("editor_emphasis") or scene.get("emphasis"),
-            {"hook", "proof", "workflow", "warning", "closing", "normal"},
-            "normal",
-        )
+        narration = html.escape(scene.get("narration") or "")
         media_html = (
             f'<video class="scene-bg" src="{video_src}" muted playsinline preload="auto"></video>'
             if i in scene_video_indexes
@@ -251,7 +210,7 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
         overlay_html = ""
         if overlay_headline or overlay_subtitle:
             overlay_html = f"""
-      <div class="opening-card layout-{layout} tempo-{tempo} emphasis-{emphasis}">
+      <div class="opening-card">
         {f'<div class="opening-badge">{overlay_badge}</div>' if overlay_badge else ''}
         {f'<div class="opening-headline">{overlay_headline}</div>' if overlay_headline else ''}
         {f'<div class="opening-subtitle">{overlay_subtitle}</div>' if overlay_subtitle else ''}
@@ -259,7 +218,7 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
         stickman_html = _build_stickman_overlay(i) if scene.get("stickman_overlay") else ""
         scene_blocks.append(f"""
     <!-- Scene {i} ({start:.1f}s - {start+dur:.1f}s) -->
-    <div class="scene clip tempo-{tempo} emphasis-{emphasis}" id="scene-{i}"
+    <div class="scene clip" id="scene-{i}"
          data-start="{start:.2f}" data-duration="{dur:.2f}">
       {media_html}
       {stickman_html}
@@ -366,23 +325,6 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
       color: #17313a; text-shadow: 0 2px 0 rgba(255,255,255,0.92);
       line-height: 1.5; letter-spacing: 0.02em;
     }}
-    .scene.emphasis-hook .scene-text,
-    .scene.emphasis-proof .scene-text {{
-      font-size: 30px; font-weight: 900;
-    }}
-    .scene.tempo-fast .scene-text {{
-      letter-spacing: 0.005em;
-    }}
-    .caption-keyword {{
-      display: inline-block;
-      padding: 0 0.12em;
-      margin: 0 0.02em;
-      border-radius: 0.22em;
-      color: #082d36;
-      background: linear-gradient(180deg, rgba(255,245,153,0.25), rgba(255,220,64,0.92));
-      box-shadow: inset 0 -0.28em 0 rgba(255,182,24,0.42), 0 3px 0 rgba(255,255,255,0.86);
-      transform: translateY(-0.02em);
-    }}
     .scene-text::before {{
       content: ""; position: absolute; z-index: -1;
       inset: -14px 18px;
@@ -399,29 +341,6 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
       box-shadow: 0 22px 60px rgba(49,121,139,0.2);
       backdrop-filter: blur(10px); opacity: 0;
       transform: translateY(18px) scale(0.98);
-    }}
-    .opening-card.layout-center {{
-      top: 214px;
-    }}
-    .opening-card.layout-lower {{
-      top: auto; bottom: 232px;
-    }}
-    .opening-card.layout-left {{
-      right: 112px;
-    }}
-    .opening-card.layout-right {{
-      left: 112px;
-    }}
-    .opening-card.tempo-fast {{
-      border-width: 2px;
-      box-shadow: 0 24px 64px rgba(49,121,139,0.24), 0 0 0 8px rgba(255,230,88,0.24);
-    }}
-    .opening-card.emphasis-hook {{
-      background: linear-gradient(145deg, rgba(255,255,255,0.96), rgba(232,250,255,0.92));
-    }}
-    .opening-card.emphasis-warning {{
-      border-color: rgba(237,135,35,0.36);
-      box-shadow: 0 22px 60px rgba(205,113,31,0.18);
     }}
     .opening-badge {{
       display: inline-flex; width: max-content; border-radius: 999px;
