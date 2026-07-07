@@ -1,6 +1,7 @@
 """Kurage FastAPI backend."""
 from __future__ import annotations
 import json
+import re
 import threading
 import time
 import uuid
@@ -63,6 +64,7 @@ class EntertainmentShortRequest(BaseModel):
 
 
 class ScriptVideoRequest(BaseModel):
+    job_id: str = ""
     title: str = ""
     script: dict[str, Any]
     source_url: str = ""
@@ -260,7 +262,13 @@ def generate_from_script(req: ScriptVideoRequest):
     scenes = script.get("scenes") if isinstance(script, dict) else None
     if not isinstance(scenes, list) or not scenes:
         raise HTTPException(status_code=400, detail="script.scenes is required")
-    job_id = str(uuid.uuid4()).replace("-", "")[:16]
+    requested_job_id = (req.job_id or "").strip()
+    if requested_job_id:
+        if not re.fullmatch(r"[A-Za-z0-9]{8,32}", requested_job_id):
+            raise HTTPException(status_code=400, detail="invalid job_id")
+        job_id = requested_job_id
+    else:
+        job_id = str(uuid.uuid4()).replace("-", "")[:16]
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     source_title = req.source_title or req.title or script.get("title") or "参照動画"
     resolved_style = resolve_video_style(req.video_style, content_type="reference_script", vtuber_mode=req.vtuber_mode, title=source_title)
