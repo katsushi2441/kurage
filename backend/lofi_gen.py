@@ -186,11 +186,16 @@ def _run_ffmpeg(job_id: str, duration_seconds: int) -> Path:
     audio = d / "music.mp3"
     out = d / "output.mp4"
     fade_out_start = max(0, duration_seconds - 4)
+    # Keep the whole long-form video alive. The previous zoompan reached its
+    # max zoom early and then became effectively static; this crop path keeps
+    # drifting for the full duration while a subtle light pulse adds motion.
     vf = (
-        "scale=2200:1240:force_original_aspect_ratio=increase,"
-        "crop=2200:1240,setsar=1,"
-        "zoompan=z='min(zoom+0.000012,1.08)':"
-        "x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1920x1080:fps=30,"
+        "scale=2500:1408:force_original_aspect_ratio=increase,"
+        "crop=1920:1080:"
+        "x='(iw-ow)/2+140*sin(2*PI*t/180)+45*sin(2*PI*t/47)':"
+        "y='(ih-oh)/2+74*cos(2*PI*t/150)+28*sin(2*PI*t/59)',"
+        "eq=brightness='0.014*sin(2*PI*t/31)':"
+        "saturation='1.04+0.018*sin(2*PI*t/43)',"
         "format=yuv420p"
     )
     af = f"afade=t=in:st=0:d=2,afade=t=out:st={fade_out_start}:d=4"
@@ -248,7 +253,7 @@ def _write_public_kurage_job(
         "この動画はKurage Lo-Fiで生成しました。\n"
         "- BGM: Sunoなどで作成したlo-fi音源\n"
         "- ビジュアル: ERNIEで生成したlo-fiアート\n"
-        "- 動画生成: Kurage / HyperFrames系の長尺動画パイプライン\n\n"
+        "- 動画生成: Kurage Lo-Fi / FFmpeg motion pipeline\n\n"
         "Kurage Project:\n"
         "https://kurage.exbridge.jp/"
     )
@@ -257,7 +262,7 @@ def _write_public_kurage_job(
         "This video was created with Kurage Lo-Fi:\n"
         "- Music: Suno-generated lo-fi BGM\n"
         "- Visual: ERNIE-generated lo-fi artwork\n"
-        "- Video: Kurage / HyperFrames long-form video pipeline\n\n"
+        "- Video: Kurage Lo-Fi / FFmpeg motion pipeline\n\n"
         "Use it as background music for:\n"
         "study / work / coding / deep focus / coffee time / sleep\n\n"
         "Kurage Project:\n"
