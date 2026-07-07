@@ -243,6 +243,16 @@ def _write_public_kurage_job(
         canvas.save(thumb, "JPEG", quality=90)
 
     summary = (
+        f"{duration_minutes}分の作業用lo-fi BGM動画です。勉強、仕事、コーディング、深い集中、"
+        "コーヒータイム、リラックス、睡眠前のBGMとして使いやすい落ち着いた映像にしています。\n\n"
+        "この動画はKurage Lo-Fiで生成しました。\n"
+        "- BGM: Sunoなどで作成したlo-fi音源\n"
+        "- ビジュアル: ERNIEで生成したlo-fiアート\n"
+        "- 動画生成: Kurage / HyperFrames系の長尺動画パイプライン\n\n"
+        "Kurage Project:\n"
+        "https://kurage.exbridge.jp/"
+    )
+    youtube_description = (
         f"A calm {duration_minutes}-minute lo-fi mix for studying, working, coding, relaxing, or sleeping.\n\n"
         "This video was created with Kurage Lo-Fi:\n"
         "- Music: Suno-generated lo-fi BGM\n"
@@ -273,6 +283,7 @@ def _write_public_kurage_job(
         "tweet_text": summary,
         "summary": summary,
         "display_summary": summary,
+        "youtube_description": youtube_description,
         "duration_seconds": duration_seconds,
         "duration_minutes": duration_minutes,
         "video_file": str(video),
