@@ -278,16 +278,9 @@ function copy_detail_text_for_job($job) {
         : array('display_summary', 'summary', 'tweet_text', 'source_title', 'translated_text');
     foreach ($keys as $key) {
         $candidate = copy_detail_candidate($title, $job[$key] ?? '');
-        if ($candidate !== '') { return $candidate; }
+        if ($candidate !== '') { return list_text_excerpt($candidate); }
     }
-    $scenes = (!empty($job['script']['scenes']) && is_array($job['script']['scenes'])) ? $job['script']['scenes'] : [];
-    $narrations = array();
-    foreach ($scenes as $scene) {
-        $narration = trim((string)($scene['narration'] ?? ''));
-        if ($narration !== '') { $narrations[] = $narration; }
-    }
-    $candidate = copy_detail_candidate($title, implode("\n", $narrations));
-    return $candidate !== '' ? $candidate : '詳細は動画ページで確認できます。';
+    return '詳細は動画ページで確認できます。';
 }
 
 function shorten_share_detail($text, $limit = 90) {
@@ -1036,6 +1029,12 @@ function copyDetailCandidate(title, text) {
     return text;
 }
 
+function listTextExcerpt(text, limit) {
+    limit = limit || 240;
+    text = String(text || '').trim().replace(/\s+/g, ' ');
+    return text.length > limit ? text.slice(0, limit) + '…' : text;
+}
+
 function copyDetailTextForJob(v) {
     var title = displayTitleForJob(v);
     var keys = isVoiceProJob(v)
@@ -1043,14 +1042,9 @@ function copyDetailTextForJob(v) {
         : ['display_summary', 'summary', 'tweet_text', 'source_title', 'translated_text'];
     for (var i = 0; i < keys.length; i++) {
         var candidate = copyDetailCandidate(title, v[keys[i]]);
-        if (candidate) return candidate;
+        if (candidate) return listTextExcerpt(candidate);
     }
-    var scenes = v.script && Array.isArray(v.script.scenes) ? v.script.scenes : [];
-    var narrations = scenes.map(function(scene) {
-        return String((scene && scene.narration) || '').trim();
-    }).filter(Boolean).join('\n');
-    var sceneCandidate = copyDetailCandidate(title, narrations);
-    return sceneCandidate || '詳細は動画ページで確認できます。';
+    return '詳細は動画ページで確認できます。';
 }
 
 function shortenShareDetail(text, limit) {
