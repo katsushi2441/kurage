@@ -69,10 +69,15 @@ function is_entertainment_job($job) {
         || (strpos((string)($job['tweet_url'] ?? ''), '/entertainment.php') !== false);
 }
 
+function is_lofi_job($job) {
+    return (($job['source'] ?? '') === 'klofi') || (($job['content_type'] ?? '') === 'lofi_longform');
+}
+
 function job_tool_key($job) {
     $source = strtolower(trim((string)($job['source'] ?? '')));
     $content_type = strtolower(trim((string)($job['content_type'] ?? '')));
     if (is_voice_pro_job($job)) { return 'kuragevp'; }
+    if (is_lofi_job($job)) { return 'klofi'; }
     if ($source === 'kmontage') { return 'kmontage'; }
     if ($source === 'blog' || $content_type === 'blog') { return 'blog'; }
     if ($source === 'horizon') { return 'horizon'; }
@@ -150,6 +155,7 @@ function job_source_platform($job) {
 }
 
 function job_source_label($job) {
+    if (is_lofi_job($job)) { return '関連ページ:'; }
     if (is_entertainment_job($job)) { return '関連する考察記事:'; }
     if (is_voice_pro_job($job)) {
         $platform = job_source_platform($job);
@@ -157,10 +163,11 @@ function job_source_label($job) {
         if ($platform === 'x') { return '元のX投稿:'; }
         return '元動画:';
     }
-    return '元の投稿:';
+    return '元情報:';
 }
 
 function job_source_button_label($job) {
+    if (is_lofi_job($job)) { return 'Kurage Lo-Fiを開く'; }
     if (is_entertainment_job($job)) { return '考察記事を開く'; }
     if (is_voice_pro_job($job)) {
         $platform = job_source_platform($job);
@@ -168,13 +175,14 @@ function job_source_button_label($job) {
         if ($platform === 'x') { return '元のX投稿'; }
         return '元動画を開く';
     }
-    return '元の投稿を開く';
+    return '元情報を開く';
 }
 
 function job_body_label($job) {
+    if (is_lofi_job($job)) { return '動画の概要'; }
     if (is_voice_pro_job($job)) { return '動画の説明'; }
     if (is_entertainment_job($job)) { return '関連記事の要約'; }
-    return '元の投稿';
+    return '概要';
 }
 
 function job_display_title($job) {
@@ -919,10 +927,15 @@ function isEntertainmentJob(v) {
     return (v.source === 'entertainment') || (v.content_type === 'entertainment_short') || String(v.tweet_url || '').indexOf('/entertainment.php') !== -1;
 }
 
+function isLofiJob(v) {
+    return (v.source === 'klofi') || (v.content_type === 'lofi_longform');
+}
+
 function toolLabelForJob(v) {
     var source = String(v.source || '').toLowerCase();
     var contentType = String(v.content_type || '').toLowerCase();
     if (isVoiceProJob(v)) return 'Kurage Voice Pro';
+    if (isLofiJob(v)) return 'Kurage Lo-Fi';
     if (source === 'kmontage') return 'Kurage Montage';
     if (source === 'klofi') return 'Kurage Lo-Fi';
     if (source === 'blog' || contentType === 'blog') return 'Kurage Blog';
@@ -936,6 +949,7 @@ function toolHomeUrlForJob(v) {
     var source = String(v.source || '').toLowerCase();
     var contentType = String(v.content_type || '').toLowerCase();
     if (isVoiceProJob(v)) return 'kuragevp.php';
+    if (isLofiJob(v)) return 'klofi.php';
     if (source === 'kmontage') return 'kmontage.php';
     if (source === 'klofi') return 'klofi.php';
     if (source === 'horizon') return 'horizon.php';
@@ -967,6 +981,7 @@ function sourcePlatformForJob(v) {
 }
 
 function sourceButtonLabel(v) {
+    if (isLofiJob(v)) return 'Kurage Lo-Fiを開く';
     if (isEntertainmentJob(v)) return '考察記事を開く';
     if (isVoiceProJob(v)) {
         var platform = sourcePlatformForJob(v);
@@ -974,7 +989,7 @@ function sourceButtonLabel(v) {
         if (platform === 'x') return '元のX投稿';
         return '元動画を開く';
     }
-    return '元の投稿を開く';
+    return '元情報を開く';
 }
 
 function displayTitleForJob(v) {
