@@ -206,6 +206,7 @@ def _run_ffmpeg(job_id: str, duration_seconds: int) -> Path:
 
 
 def run_lofi_job(job_id: str, title: str, duration_minutes: int, image_prompt: str = "") -> None:
+    title = _safe_title(title)
     duration_minutes = max(1, min(180, int(duration_minutes or 60)))
     duration_seconds = duration_minutes * 60
     d = job_dir(job_id)

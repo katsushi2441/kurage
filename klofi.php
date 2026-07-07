@@ -70,8 +70,61 @@ function klofi_api_upload($timeout = 60) {
     return $json;
 }
 
+function klofi_proxy_backend_file($job_id, $name) {
+    global $KURAGE_API;
+    $url = $KURAGE_API . '/lofi/file/' . rawurlencode($job_id) . '/' . rawurlencode($name);
+    $headers = array();
+    if (!empty($_SERVER['HTTP_RANGE'])) {
+        $headers[] = 'Range: ' . $_SERVER['HTTP_RANGE'];
+    }
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_HEADERFUNCTION, function($ch, $header) {
+        $len = strlen($header);
+        $line = trim($header);
+        if ($line === '') return $len;
+        if (stripos($line, 'HTTP/') === 0) {
+            if (preg_match('/\s(206|200|404|416|500)\s/', $line, $m)) {
+                http_response_code((int)$m[1]);
+            }
+            return $len;
+        }
+        $allowed = array('content-type', 'content-length', 'content-range', 'accept-ranges', 'last-modified', 'etag');
+        $pos = strpos($line, ':');
+        if ($pos !== false) {
+            $key = strtolower(substr($line, 0, $pos));
+            if (in_array($key, $allowed, true)) {
+                header($line, true);
+            }
+        }
+        return $len;
+    });
+    curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($ch, $chunk) {
+        echo $chunk;
+        return strlen($chunk);
+    });
+    curl_exec($ch);
+    $err = curl_error($ch);
+    $status = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($err && !headers_sent()) {
+        http_response_code(502);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'backend file proxy failed';
+    } elseif ($status >= 400 && !headers_sent()) {
+        http_response_code($status);
+    }
+}
+
 $proxy = isset($_GET['proxy']) ? $_GET['proxy'] : '';
 if ($proxy !== '') {
+    if ($proxy === 'file' && isset($_GET['job_id'], $_GET['name'])) {
+        $jid = preg_replace('/[^A-Za-z0-9]/', '', $_GET['job_id']);
+        $name = preg_replace('/[^A-Za-z0-9_.-]/', '', $_GET['name']);
+        klofi_proxy_backend_file($jid, $name);
+        exit;
+    }
     if (!$logged_in) {
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(array('ok'=>false, 'error'=>'login required'), JSON_UNESCAPED_UNICODE);
@@ -98,12 +151,6 @@ if ($proxy !== '') {
         header('Content-Type: application/json; charset=utf-8');
         $jid = preg_replace('/[^A-Za-z0-9]/', '', $_GET['job_id']);
         echo json_encode(klofi_api_json('DELETE', '/lofi/jobs/' . $jid, null, 20), JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-    if ($proxy === 'file' && isset($_GET['job_id'], $_GET['name'])) {
-        $jid = preg_replace('/[^A-Za-z0-9]/', '', $_GET['job_id']);
-        $name = preg_replace('/[^A-Za-z0-9_.-]/', '', $_GET['name']);
-        header('Location: ' . $KURAGE_API . '/lofi/file/' . rawurlencode($jid) . '/' . rawurlencode($name));
         exit;
     }
     header('Content-Type: application/json; charset=utf-8');
