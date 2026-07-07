@@ -11,7 +11,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from config import ROOT, STORAGE_DIR
+from config import ROOT, STORAGE_DIR, JOBS_DIR
 from image_gen import generate_image
 
 LOFI_DIR = STORAGE_DIR / "lofi"
@@ -95,6 +95,14 @@ def delete_lofi_job(job_id: str) -> bool:
         found = True
     if d.exists():
         shutil.rmtree(d)
+        found = True
+    public_job_path = JOBS_DIR / f"{jid}.json"
+    public_job_dir = JOBS_DIR / jid
+    if public_job_path.exists():
+        public_job_path.unlink()
+        found = True
+    if public_job_dir.exists():
+        shutil.rmtree(public_job_dir)
         found = True
     return found
 
@@ -205,6 +213,77 @@ def _run_ffmpeg(job_id: str, duration_seconds: int) -> Path:
     return out
 
 
+def _write_public_kurage_job(
+    job_id: str,
+    *,
+    title: str,
+    original_filename: str,
+    duration_minutes: int,
+    duration_seconds: int,
+    video: Path,
+    cover: Path,
+    composition: Path,
+    created_at: str,
+) -> None:
+    """Expose a completed lo-fi render in the standard kuragev.php list."""
+    import hashlib
+    from PIL import Image
+
+    jid = _safe_id(job_id)
+    public_dir = JOBS_DIR / jid
+    public_dir.mkdir(parents=True, exist_ok=True)
+    thumb = public_dir / "thumbnail.jpg"
+    with Image.open(cover) as img:
+        img = img.convert("RGB")
+        img.thumbnail((1280, 720))
+        canvas = Image.new("RGB", (1280, 720), (248, 252, 253))
+        x = (1280 - img.width) // 2
+        y = (720 - img.height) // 2
+        canvas.paste(img, (x, y))
+        canvas.save(thumb, "JPEG", quality=90)
+
+    summary = (
+        f"Sunoなどで作成したBGMをもとに、ERNIEのlo-fiアートとKurage Lo-Fiの長尺動画生成で"
+        f"{duration_minutes}分の作業用BGM動画にしました。勉強、作業、コーディング、リラックス向けです。"
+    )
+    now = _now()
+    public_job = {
+        "job_id": jid,
+        "status": "done",
+        "progress": 100,
+        "source": "klofi",
+        "content_type": "lofi_longform",
+        "tool_key": "klofi",
+        "tool_label": "Kurage Lo-Fi",
+        "title": title,
+        "display_title": title,
+        "summary_title": title,
+        "source_title": original_filename,
+        "tweet_author": "Kurage Lo-Fi",
+        "tweet_author_name": "Kurage Lo-Fi",
+        "tweet_text": summary,
+        "summary": summary,
+        "display_summary": summary,
+        "duration_seconds": duration_seconds,
+        "duration_minutes": duration_minutes,
+        "video_file": str(video),
+        "thumbnail_file": str(thumb),
+        "lofi_audio_file": str(job_dir(jid) / "music.mp3"),
+        "lofi_cover_file": str(cover),
+        "lofi_composition_file": str(composition),
+        "created_at": created_at,
+        "updated_at": now,
+        "completed_at": now,
+        "views": 0,
+        "static_media_status": "local",
+        "source_hash": hashlib.sha256((original_filename + title).encode("utf-8")).hexdigest()[:16],
+    }
+    path = JOBS_DIR / f"{jid}.json"
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(public_job, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(path)
+
+
 def run_lofi_job(job_id: str, title: str, duration_minutes: int, image_prompt: str = "") -> None:
     title = _safe_title(title)
     duration_minutes = max(1, min(180, int(duration_minutes or 60)))
@@ -237,8 +316,44 @@ def run_lofi_job(job_id: str, title: str, duration_minutes: int, image_prompt: s
             composition_url=f"/lofi/file/{job_id}/composition.html",
             completed_at=_now(),
         )
+        lofi_state = load_lofi_job(job_id) or {}
+        _write_public_kurage_job(
+            job_id,
+            title=title,
+            original_filename=str(lofi_state.get("original_filename") or title),
+            duration_minutes=duration_minutes,
+            duration_seconds=duration_seconds,
+            video=video,
+            cover=cover,
+            composition=comp,
+            created_at=str(lofi_state.get("created_at") or _now()),
+        )
     except Exception as exc:
         update_lofi_job(job_id, status="error", progress=80, error=str(exc), message="生成に失敗しました")
+
+
+def publish_existing_lofi_job(job_id: str) -> dict[str, Any]:
+    """Publish an already completed lo-fi job into the standard Kurage listing."""
+    job = load_lofi_job(job_id)
+    if not job:
+        raise FileNotFoundError(f"lo-fi job not found: {job_id}")
+    if job.get("status") != "done":
+        raise ValueError(f"lo-fi job is not done: {job.get('status')}")
+    video = Path(str(job.get("video_file") or job_dir(job_id) / "output.mp4"))
+    cover = Path(str(job.get("cover_file") or job_dir(job_id) / "cover.png"))
+    comp = Path(str(job.get("composition_file") or job_dir(job_id) / "composition.html"))
+    _write_public_kurage_job(
+        job_id,
+        title=_safe_title(str(job.get("title") or job.get("original_filename") or "Kurage Lo-Fi")),
+        original_filename=str(job.get("original_filename") or ""),
+        duration_minutes=int(job.get("duration_minutes") or 60),
+        duration_seconds=int(job.get("duration_seconds") or int(job.get("duration_minutes") or 60) * 60),
+        video=video,
+        cover=cover,
+        composition=comp,
+        created_at=str(job.get("created_at") or _now()),
+    )
+    return load_lofi_job(job_id) or {}
 
 
 def create_lofi_job(audio_tmp: Path, original_filename: str, title: str = "", duration_minutes: int = 60, image_prompt: str = "") -> str:

@@ -91,6 +91,7 @@ function job_tool_label($job_or_key) {
         'kuragevp' => 'Kurage Voice Pro',
         'kmontage' => 'Kurage Montage',
         'entertainment' => 'Kurage Entertainment',
+        'klofi' => 'Kurage Lo-Fi',
     );
     return $labels[$key] ?? ($key !== '' ? $key : 'Kurage');
 }
@@ -923,6 +924,7 @@ function toolLabelForJob(v) {
     var contentType = String(v.content_type || '').toLowerCase();
     if (isVoiceProJob(v)) return 'Kurage Voice Pro';
     if (source === 'kmontage') return 'Kurage Montage';
+    if (source === 'klofi') return 'Kurage Lo-Fi';
     if (source === 'blog' || contentType === 'blog') return 'Kurage Blog';
     if (source === 'horizon') return 'Horizon';
     if (isEntertainmentJob(v)) return 'Kurage Entertainment';
@@ -935,6 +937,7 @@ function toolHomeUrlForJob(v) {
     var contentType = String(v.content_type || '').toLowerCase();
     if (isVoiceProJob(v)) return 'kuragevp.php';
     if (source === 'kmontage') return 'kmontage.php';
+    if (source === 'klofi') return 'klofi.php';
     if (source === 'horizon') return 'horizon.php';
     if (isEntertainmentJob(v)) return 'entertainment.php';
     if (source === 'blog' || contentType === 'blog') return 'kurage.php';
