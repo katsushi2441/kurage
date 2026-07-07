@@ -7,7 +7,7 @@ import time
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
@@ -17,6 +17,7 @@ from tts_gen import TTS_BACKEND, TTS_VOICE, TTS_RATE, TTS_PITCH, VOICEBOX_ENGINE
 from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, run_pipeline_from_entertainment_short, run_pipeline_from_script, load_job, update_job
 from video_styles import STYLE_PRESETS, resolve_video_style, style_names
 from typing import Any
+from lofi_gen import create_lofi_job, run_lofi_job, load_lofi_job, list_lofi_jobs, delete_lofi_job, lofi_public_file
 
 app = FastAPI(title="Kurage API", version="1.0.0")
 
@@ -374,6 +375,66 @@ def generate_entertainment_short(req: EntertainmentShortRequest):
     t = threading.Thread(target=run_pipeline_from_entertainment_short, args=(job_id, article, req.vtuber_mode, resolved_style), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
+
+
+@app.post("/lofi/generate")
+async def lofi_generate(
+    audio: UploadFile = File(...),
+    title: str = Form(""),
+    duration_minutes: int = Form(60),
+    image_prompt: str = Form(""),
+):
+    """Start a long-form lo-fi video job from an uploaded MP3."""
+    import tempfile
+    name = audio.filename or "lofi.mp3"
+    if not name.lower().endswith(".mp3"):
+        raise HTTPException(status_code=400, detail="audio file must be mp3")
+    suffix = Path(name).suffix or ".mp3"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp_path = Path(tmp.name)
+        while True:
+            chunk = await audio.read(1024 * 1024)
+            if not chunk:
+                break
+            tmp.write(chunk)
+    try:
+        if tmp_path.stat().st_size < 10_000:
+            raise HTTPException(status_code=400, detail="audio file is too small")
+        job_id = create_lofi_job(tmp_path, name, title=title, duration_minutes=duration_minutes, image_prompt=image_prompt)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+    t = threading.Thread(target=run_lofi_job, args=(job_id, title or name, duration_minutes, image_prompt), daemon=True)
+    t.start()
+    return {"ok": True, "job_id": job_id}
+
+
+@app.get("/lofi/status/{job_id}")
+def lofi_status(job_id: str):
+    job = load_lofi_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Lo-fi job not found")
+    return job
+
+
+@app.get("/lofi/jobs")
+def lofi_jobs(limit: int = 20):
+    return {"ok": True, "jobs": list_lofi_jobs(limit)}
+
+
+@app.delete("/lofi/jobs/{job_id}")
+def lofi_delete(job_id: str):
+    if not delete_lofi_job(job_id):
+        raise HTTPException(status_code=404, detail="Lo-fi job not found")
+    return {"ok": True, "job_id": job_id}
+
+
+@app.get("/lofi/file/{job_id}/{name}")
+def lofi_file(job_id: str, name: str):
+    path = lofi_public_file(job_id, name)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Lo-fi file not found")
+    media = "video/mp4" if name.endswith(".mp4") else "image/png" if name.endswith(".png") else "text/html" if name.endswith(".html") else "audio/mpeg"
+    return FileResponse(path=str(path), media_type=media, filename=f"kurage_lofi_{job_id}_{name}")
 
 
 @app.get("/status/{job_id}")
