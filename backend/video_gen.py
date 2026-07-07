@@ -707,7 +707,7 @@ def _overlay_thumbnail_title(image_path: Path, title: str | None) -> None:
             stroke_fill=(255, 255, 255, 255),
         )
 
-    sub = "AIが編集方針・強調テロップまで設計"
+    sub = "要点・手順・注意点を短く整理"
     sb = draw.textbbox((0, 0), sub, font=sub_font)
     sx = (w - (sb[2] - sb[0])) // 2
     sy = int(h * 0.68)
