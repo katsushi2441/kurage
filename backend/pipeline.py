@@ -341,7 +341,8 @@ def run_pipeline_from_news(job_id: str, news: dict, vtuber_mode: bool = False, v
         news_items = news.get("news_items") or []
         first = news_items[0] if news_items else {}
         tweet_text = "、".join(i.get("title", "") for i in news_items[:3])[:120]
-        resolved_style = resolve_video_style(video_style, content_type="news", vtuber_mode=vtuber_mode, title=news.get("title", tweet_text[:50]))
+        source_title = str(news.get("title") or first.get("title") or tweet_text[:80] or "Horizonニュース").strip()
+        resolved_style = resolve_video_style(video_style, content_type="news", vtuber_mode=vtuber_mode, title=source_title)
 
         update_job(job_id, status="scripting", progress=25, source="horizon",
                    vtuber_mode=vtuber_mode,
@@ -349,18 +350,25 @@ def run_pipeline_from_news(job_id: str, news: dict, vtuber_mode: bool = False, v
                    tweet_url=first.get("url", ""),
                    tweet_text=tweet_text,
                    tweet_author="Horizon",
-                   tweet_author_name=news.get("title", tweet_text[:50]))
+                   tweet_author_name=source_title,
+                   source_title=source_title,
+                   article_title=first.get("title", ""),
+                   title=source_title,
+                   display_title=source_title)
         print(f"[{job_id}] news: {len(news_items)}件 {tweet_text[:60]}", flush=True)
 
         NEWS_EXPECTED_SCENES = 12
         script = generate_news_script(news_items, video_style=resolved_style)
         summary = script_summary_text(script)
+        script_title = str(script.get("title") or "").strip()
+        display_title = source_title or script_title or "Horizonニュース"
         update_job(
             job_id,
             script=script,
-            title=script.get("title"),
-            display_title=script.get("title"),
-            summary_title=script.get("title"),
+            title=display_title,
+            display_title=display_title,
+            summary_title=script_title or display_title,
+            generated_title=script_title,
             tweet_text=summary,
             summary=summary,
             display_summary=summary,
