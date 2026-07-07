@@ -226,6 +226,25 @@ def normalize_provided_script(script: dict, video_style: str = "auto", scene_dur
             merged[-1] = f"{merged[-1]} {tail}"
         return merged
 
+    def _editor_scene_fields(scene: dict, *, include_overlay: bool) -> dict:
+        """Preserve upstream editor-plan metadata from kmontage/Kurage Montage."""
+        keep = {}
+        for key in (
+            "caption_keywords",
+            "layout",
+            "editor_tempo",
+            "editor_emphasis",
+            "editor_visual_note",
+            "stickman_overlay",
+        ):
+            if key in scene:
+                keep[key] = scene[key]
+        if include_overlay:
+            for key in ("overlay_badge", "overlay_headline", "overlay_subtitle"):
+                if key in scene:
+                    keep[key] = scene[key]
+        return keep
+
     for i, scene in enumerate(scenes):
         if not isinstance(scene, dict):
             continue
@@ -233,13 +252,16 @@ def normalize_provided_script(script: dict, video_style: str = "auto", scene_dur
         if not narration:
             continue
         prompt = str(scene.get("image_prompt") or "clean vertical explainer visual, 9:16").strip()
-        for chunk in _split_long_narration(narration):
-            out["scenes"].append({
+        chunks = _split_long_narration(narration)
+        for chunk_index, chunk in enumerate(chunks):
+            normalized = {
                 "index": len(out["scenes"]),
                 "narration": chunk,
                 "image_prompt": prompt,
                 "duration": int(scene.get("duration") or scene_duration),
-            })
+            }
+            normalized.update(_editor_scene_fields(scene, include_overlay=(chunk_index == 0)))
+            out["scenes"].append(normalized)
     if not out["scenes"]:
         raise ValueError("script.scenes has no usable narration")
 

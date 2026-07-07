@@ -644,49 +644,81 @@ def _overlay_thumbnail_title(image_path: Path, title: str | None) -> None:
 
     img = Image.open(image_path).convert("RGB")
     w, h = img.size
-    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
-
-    od.rectangle((0, int(h * 0.58), w, h), fill=(0, 0, 0, 115))
-    od.rectangle((0, 0, w, int(h * 0.15)), fill=(0, 0, 0, 75))
-    overlay = overlay.filter(ImageFilter.GaussianBlur(radius=1.5))
-    img = Image.alpha_composite(img.convert("RGBA"), overlay)
+    bg = img.resize((w, h)).filter(ImageFilter.GaussianBlur(radius=2.0)).convert("RGBA")
+    veil = Image.new("RGBA", img.size, (255, 255, 255, 90))
+    img = Image.alpha_composite(bg, veil)
     draw = ImageDraw.Draw(img)
 
     font_path = _find_japanese_font()
-    main_font = ImageFont.truetype(font_path, max(40, int(w * 0.115)))
-    sub_font = ImageFont.truetype(font_path, max(18, int(w * 0.045)))
-    badge_font = ImageFont.truetype(font_path, max(16, int(w * 0.04)))
+    main_font = ImageFont.truetype(font_path, max(38, int(w * 0.105)))
+    sub_font = ImageFont.truetype(font_path, max(20, int(w * 0.052)))
+    badge_font = ImageFont.truetype(font_path, max(18, int(w * 0.045)))
 
-    badge = "Kurage AI Video"
-    bx, by = int(w * 0.06), int(h * 0.055)
-    bb = draw.textbbox((0, 0), badge, font=badge_font)
+    # White Studio thumbnail: hide in-video captions and make one clear promise.
     draw.rounded_rectangle(
-        (bx - 12, by - 8, bx + (bb[2] - bb[0]) + 12, by + (bb[3] - bb[1]) + 10),
-        radius=10,
-        fill=(0, 127, 150, 230),
+        (int(w * 0.055), int(h * 0.08), int(w * 0.945), int(h * 0.90)),
+        radius=34,
+        fill=(255, 255, 255, 238),
+        outline=(133, 212, 228, 255),
+        width=3,
     )
-    draw.text((bx, by), badge, font=badge_font, fill=(255, 255, 255, 255), stroke_width=1, stroke_fill=(0, 0, 0, 180))
+    draw.rounded_rectangle(
+        (int(w * 0.08), int(h * 0.105), int(w * 0.55), int(h * 0.158)),
+        radius=999,
+        fill=(226, 248, 253, 255),
+        outline=(160, 225, 237, 255),
+        width=2,
+    )
+    draw.text(
+        (int(w * 0.115), int(h * 0.118)),
+        "Kurage解説",
+        font=badge_font,
+        fill=(0, 120, 145, 255),
+    )
+
+    draw.rounded_rectangle(
+        (int(w * 0.09), int(h * 0.19), int(w * 0.91), int(h * 0.285)),
+        radius=20,
+        fill=(255, 229, 74, 255),
+    )
+    draw.text(
+        (int(w * 0.13), int(h * 0.215)),
+        "見るべき要点",
+        font=sub_font,
+        fill=(21, 49, 58, 255),
+    )
 
     text = (title or "Kurage Video").replace(" | ", " ").replace("｜", " ")
-    text = text.split("\n", 1)[0][:34]
-    lines = _wrap_text(draw, text, main_font, int(w * 0.88))
-    line_h = int(main_font.size * 1.22)
+    text = text.split("\n", 1)[0][:42]
+    lines = _wrap_text(draw, text, main_font, int(w * 0.78))
+    line_h = int(main_font.size * 1.18)
     total_h = line_h * len(lines)
-    y = int(h * 0.70) - total_h // 2
+    y = int(h * 0.43) - total_h // 2
 
     for i, line in enumerate(lines):
-        tb = draw.textbbox((0, 0), line, font=main_font, stroke_width=4)
+        tb = draw.textbbox((0, 0), line, font=main_font, stroke_width=2)
         x = (w - (tb[2] - tb[0])) // 2
-        fill = (255, 230, 48, 255) if i == 0 else (255, 255, 255, 255)
-        draw.text((x, y + i * line_h), line, font=main_font, fill=fill, stroke_width=5, stroke_fill=(0, 0, 0, 235))
+        draw.text(
+            (x, y + i * line_h),
+            line,
+            font=main_font,
+            fill=(12, 38, 48, 255),
+            stroke_width=2,
+            stroke_fill=(255, 255, 255, 255),
+        )
 
-    sub = "AIが動画化"
+    sub = "AIが編集方針・強調テロップまで設計"
     sb = draw.textbbox((0, 0), sub, font=sub_font)
     sx = (w - (sb[2] - sb[0])) // 2
-    sy = min(h - int(h * 0.105), y + total_h + int(h * 0.025))
-    draw.rounded_rectangle((sx - 18, sy - 8, sx + (sb[2] - sb[0]) + 18, sy + (sb[3] - sb[1]) + 10), radius=12, fill=(255, 255, 255, 220))
-    draw.text((sx, sy), sub, font=sub_font, fill=(18, 24, 32, 255))
+    sy = int(h * 0.68)
+    draw.rounded_rectangle(
+        (sx - 18, sy - 10, sx + (sb[2] - sb[0]) + 18, sy + (sb[3] - sb[1]) + 12),
+        radius=16,
+        fill=(231, 249, 253, 255),
+        outline=(159, 225, 237, 255),
+        width=2,
+    )
+    draw.text((sx, sy), sub, font=sub_font, fill=(30, 82, 94, 255))
 
     img.convert("RGB").save(image_path, "JPEG", quality=92, optimize=True)
 
