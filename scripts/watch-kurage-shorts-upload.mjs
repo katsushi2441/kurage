@@ -179,7 +179,7 @@ function loadCandidates(limit = 50) {
       jobId,
       title: String(job.title || job.display_title || job.summary_title || jobId).trim(),
       descriptionText: String(job.display_summary || job.summary || job.tweet_text || '').trim(),
-      articleUrl: String(job.article_url || job.related_article_url || job.tweet_url || job.source_url || '').trim(),
+      articleUrl: String(job.article_url || job.related_article_url || job.tweet_url || job.source_url || job.original_url || '').trim(),
       source: job.source || '',
       contentType: job.content_type || '',
       views: Number.isFinite(views) ? Math.max(0, views) : 0,
@@ -251,9 +251,19 @@ function policyStatus(state, now = new Date()) {
 }
 
 function buildDescription(item) {
-  const summary = item.descriptionText ? `${item.descriptionText.slice(0, 500)}\n\n` : '';
-  const source = item.articleUrl ? `元情報:\n${item.articleUrl}\n\n` : '';
-  return `${summary}${source}Kurage動画:\n${item.kurageUrl}\n\n株式会社エクスブリッジ:\nhttps://exbridge.jp/\n\n#Shorts #Kurage #AI動画生成`;
+  return [
+    'この動画は、以下の元情報をもとにKurageが要点を整理し、解説・考察したショート動画です。',
+    '',
+    '元情報:',
+    item.articleUrl || '元情報URLはKurage動画ページで確認できます。',
+    '',
+    'Kurage動画:',
+    item.kurageUrl,
+    '',
+    'AI動画生成・要約・解説:',
+    'Kurage',
+    'https://kurage.exbridge.jp/',
+  ].join('\n');
 }
 
 function truncateText(text, limit) {
@@ -557,7 +567,7 @@ function loadItemByJobId(jobId) {
     jobId,
     title: String(job.title || job.display_title || job.summary_title || jobId).trim(),
     descriptionText: String(job.display_summary || job.summary || job.tweet_text || '').trim(),
-    articleUrl: String(job.article_url || job.related_article_url || job.tweet_url || job.source_url || '').trim(),
+    articleUrl: String(job.article_url || job.related_article_url || job.tweet_url || job.source_url || job.original_url || '').trim(),
     source: job.source || '',
     contentType: job.content_type || '',
     views: Number.isFinite(Number(job.views || 0)) ? Math.max(0, Number(job.views || 0)) : 0,
