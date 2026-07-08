@@ -320,8 +320,15 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
         if WAN_OPENING_ENABLED and (request.get("source") or "") == "kmontage_news":
             generate_wan_opening_assets(job_id, script, assets_dir)
 
+        # テロップ・システムv2: 編集判断(EDL)を作ってからレンダリング。
+        # editor_mode=llm は claude→gemma4→ヒューリスティックの順でfail-open。
+        editor_mode = str(request.get("editor_mode") or "normal").strip().lower()
+        from telop_gen import generate_edl
+        edl = generate_edl(script, editor_mode, job_dir)
+        update_job(job_id, editor_mode=editor_mode, telop_editor=edl.get("editor"))
+
         update_job(job_id, status="rendering", progress=75)
-        video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
+        video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode, edl=edl)
         thumb_path = job_dir / "thumbnail.jpg"
         mark_job_done(job_id, video_path, thumb_path)
         print(f"[{job_id}] script done: {video_path}", flush=True)

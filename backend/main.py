@@ -121,6 +121,8 @@ class ScriptVideoRequest(BaseModel):
     source: str = "kmontage"
     vtuber_mode: bool = False
     video_style: str = "auto"
+    # テロップ編集者: normal=決定的ヒューリスティック / llm=claude→gemma4 fail-open
+    editor_mode: str = "normal"
 
 
 class TTSRequest(BaseModel):

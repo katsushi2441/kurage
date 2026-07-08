@@ -169,6 +169,41 @@ def _stickman_css() -> str:
     }"""
 
 
+def compute_scene_timing(scenes: list[dict], total_dur: float,
+                         narration_duration: float) -> list[tuple[float, float]]:
+    """シーンの(開始, 長さ)を計算する。
+
+    ナレーションがある場合、従来は均等割りだったため長短のあるシーンで
+    音声とテロップ/絵の切り替えがズレていた。TTSがシーンごとに実測した
+    tts_duration(tts_gen.pyが書き込む)があればそれに比例配分し、無ければ
+    ナレーション文字数に比例配分する。
+    """
+    if not scenes:
+        return []
+    if narration_duration > 0:
+        weights = []
+        for scene in scenes:
+            w = float(scene.get("tts_duration") or 0)
+            if w <= 0:
+                w = max(1.0, float(len(str(scene.get("narration") or ""))))
+            weights.append(w)
+        total_w = sum(weights) or float(len(scenes))
+        timing = []
+        t = 0.0
+        for w in weights:
+            dur = total_dur * (w / total_w)
+            timing.append((t, dur))
+            t += dur
+        return timing
+    timing = []
+    t = 0.0
+    for scene in scenes:
+        dur = float(scene.get("duration") or 6)
+        timing.append((t, dur))
+        t += dur
+    return timing
+
+
 def build_html(script: dict, image_paths: list[Path], total_dur: float,
                narration_duration: float = 0.0, vtuber_mode: bool = False,
                scene_video_indexes: set[int] | None = None) -> str:
@@ -177,20 +212,7 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
     raw_title = script.get("title") or "Kurage Video"
     title = html.escape(raw_title)
 
-    # Cumulative timing — ナレーションがある場合はtotal_durを均等割り
-    scene_timing = []
-    if narration_duration > 0 and len(scenes) > 0:
-        per_scene = total_dur / len(scenes)
-        t = 0.0
-        for scene in scenes:
-            scene_timing.append((t, per_scene))
-            t += per_scene
-    else:
-        t = 0.0
-        for scene in scenes:
-            dur = float(scene.get("duration") or 6)
-            scene_timing.append((t, dur))
-            t += dur
+    scene_timing = compute_scene_timing(scenes, total_dur, narration_duration)
 
     # Build scene HTML blocks
     scene_blocks = []
@@ -416,7 +438,374 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
 '''
 
 
-def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path], vtuber_mode: bool = False) -> Path:
+V2_CSS = """
+    .scene::after {
+      background: linear-gradient(180deg, rgba(2,8,12,0.14) 0%, rgba(2,8,12,0.0) 30%,
+                                  rgba(2,8,12,0.0) 54%, rgba(3,9,13,0.58) 100%) !important;
+    }
+    .kin {
+      position: absolute; left: 44px; right: 44px; bottom: 106px; height: 300px;
+      z-index: 6; pointer-events: none;
+    }
+    .kin-chunk {
+      position: absolute; left: 0; right: 0; bottom: 40px; opacity: 0;
+      text-align: center; font-size: 43px; font-weight: 900; color: #ffffff;
+      line-height: 1.42; letter-spacing: 0.01em;
+      text-shadow: 0 3px 6px rgba(0,0,0,0.75), 0 0 34px rgba(0,0,0,0.5);
+      -webkit-text-stroke: 9px rgba(8,16,20,0.85);
+      paint-order: stroke fill;
+    }
+    .kin-chunk .kem {
+      font-style: normal; color: #ffb224;
+      -webkit-text-stroke: 9px rgba(30,18,2,0.9);
+    }
+    .kin-tick {
+      position: absolute; left: 50%; bottom: 0; width: 120px; height: 6px;
+      margin-left: -60px; border-radius: 3px; background: rgba(255,255,255,0.22);
+      overflow: hidden;
+    }
+    .kin-tick i {
+      position: absolute; inset: 0; border-radius: 3px; background: #1cb8d8;
+      transform: scaleX(0); transform-origin: left center; display: block;
+    }
+    .kin-eyebrow {
+      position: absolute; left: 0; right: 0; bottom: 262px; opacity: 0;
+      text-align: center; font-size: 18px; font-weight: 800; letter-spacing: 0.2em;
+      color: #4fd3ee; text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+    }
+    .mkh { position: relative; display: inline-block; padding: 2px 12px; margin: 0 2px; }
+    .mkh-bg {
+      position: absolute; inset: 0; border-radius: 8px;
+      background: linear-gradient(100deg, #ffb224 0%, #ffc95e 100%);
+      transform: skewX(-6deg) scaleX(0); transform-origin: left center;
+    }
+    .mkh-t {
+      position: relative; color: #161006; -webkit-text-stroke: 0;
+      text-shadow: none;
+    }
+    .lt {
+      position: absolute; z-index: 7; top: 112px; left: 32px; right: 32px;
+      padding: 26px 30px 22px; border-radius: 20px; opacity: 0;
+      background: rgba(9,20,26,0.78); backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.14); border-left: 10px solid #1cb8d8;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+    }
+    .lt-badge {
+      position: absolute; top: -26px; left: 20px;
+      font-size: 23px; font-weight: 900; letter-spacing: 0.08em; color: #1a1204;
+      background: linear-gradient(120deg, #ffb224, #ffca62);
+      padding: 8px 18px; border-radius: 12px; transform: rotate(-2deg);
+      box-shadow: 0 10px 26px rgba(0,0,0,0.35);
+    }
+    .lt-h {
+      font-size: 39px; font-weight: 900; color: #ffffff; line-height: 1.32;
+      letter-spacing: -0.01em;
+    }
+    .lt-s { margin-top: 10px; font-size: 22px; font-weight: 600; color: rgba(233,242,245,0.74); line-height: 1.5; }
+    .lt-meta {
+      margin-top: 16px; display: flex; align-items: center; gap: 14px;
+      font-size: 15px; font-weight: 700; color: #4fd3ee; letter-spacing: 0.12em;
+    }
+    .lt-bar { flex: 1; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.16); overflow: hidden; }
+    .lt-bar i { display: block; height: 100%; background: #1cb8d8; border-radius: 3px; }
+    .dc {
+      position: absolute; z-index: 7; left: 56px; right: 56px; top: 292px;
+      padding: 36px 34px 30px; border-radius: 26px; opacity: 0; text-align: center;
+      background: rgba(9,22,28,0.72); backdrop-filter: blur(16px);
+      border: 1px solid rgba(28,184,216,0.35);
+      box-shadow: 0 30px 70px rgba(0,0,0,0.5);
+    }
+    .dc-lab {
+      font-size: 19px; font-weight: 800; color: #4fd3ee;
+      letter-spacing: 0.18em; margin-bottom: 8px; min-height: 1em;
+    }
+    .dc-num {
+      font-size: 108px; font-weight: 900; color: #ffffff; line-height: 1.05;
+      letter-spacing: -0.03em; font-variant-numeric: tabular-nums;
+      text-shadow: 0 0 60px rgba(28,184,216,0.4);
+    }
+    .dc-num small { font-size: 42px; font-weight: 900; color: rgba(255,255,255,0.85); margin-left: 6px; }
+"""
+
+
+def _v2_chunk_html(scene_index: int, chunk_index: int, chunk: dict, marker_phrase: str) -> str:
+    text = str(chunk.get("text") or "")
+    emphasis = str(chunk.get("emphasis") or "")
+    if marker_phrase and marker_phrase in text:
+        pre, _, post = text.partition(marker_phrase)
+        inner = (
+            f"{html.escape(pre)}"
+            f'<span class="mkh"><i class="mkh-bg" id="mkh-{scene_index}"></i>'
+            f'<span class="mkh-t">{html.escape(marker_phrase)}</span></span>'
+            f"{html.escape(post)}"
+        )
+    elif emphasis and emphasis in text:
+        pre, _, post = text.partition(emphasis)
+        inner = (
+            f"{html.escape(pre)}<em class=\"kem\">{html.escape(emphasis)}</em>{html.escape(post)}"
+        )
+    else:
+        inner = html.escape(text)
+    return f'<div class="kin-chunk" id="kin-{scene_index}-{chunk_index}">{inner}</div>'
+
+
+def _v2_est_lines(text: str, per_line: float = 11.0) -> int:
+    """推定行数(全角=1、半角=0.55単位)。per_lineは1行に入る全角単位数。"""
+    units = sum(0.55 if ord(ch) < 0x2500 else 1.0 for ch in str(text or ""))
+    return max(1, math.ceil(units / per_line))
+
+
+def _v2_chunk_times(chunks: list[dict], start: float, dur: float) -> list[float]:
+    """シーン内の各文節の表示開始時刻(文字数比例)。"""
+    total_chars = sum(max(1, len(str(c.get("text") or ""))) for c in chunks) or 1
+    usable = max(0.8, dur - 0.6)
+    times = []
+    cum = 0
+    for c in chunks:
+        times.append(start + 0.12 + usable * (cum / total_chars))
+        cum += max(1, len(str(c.get("text") or "")))
+    return times
+
+
+def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
+                  narration_duration: float = 0.0, vtuber_mode: bool = False,
+                  scene_video_indexes: set[int] | None = None,
+                  edl: dict | None = None) -> str:
+    """テロップ・システムv2のHyperFrames index.htmlを生成する。
+
+    デザインはテンプレートA〜D(docs/telop-v2デザイン案)に固定。EDL(telop_gen)は
+    テンプレート選択と文節・強調語・文言だけを与える。ここに来るEDLは
+    sanitize済みである前提だが、欠損時は安全側(素のkinetic)に倒す。
+    """
+    scenes = script.get("scenes") or []
+    raw_title = script.get("title") or "Kurage Video"
+    title = html.escape(raw_title)
+    edl_scenes = (edl or {}).get("scenes") or []
+    scene_timing = compute_scene_timing(scenes, total_dur, narration_duration)
+    scene_video_indexes = scene_video_indexes or set()
+    n_scenes = max(1, len(scenes))
+
+    scene_blocks: list[str] = []
+    gsap_parts: list[str] = []
+
+    for i, (scene, (start, dur)) in enumerate(zip(scenes, scene_timing)):
+        e = edl_scenes[i] if i < len(edl_scenes) and isinstance(edl_scenes[i], dict) else {}
+        template = e.get("template") or "kinetic"
+        chunks = [c for c in (e.get("chunks") or []) if str(c.get("text") or "").strip()]
+        marker_phrase = str(e.get("marker_phrase") or "") if template == "marker" else ""
+        end = start + dur
+        fade_out = end - 0.5
+
+        img_src = f"assets/scene_{i:02d}.png"
+        video_src = f"assets/scene_{i:02d}.mp4"
+        media_html = (
+            f'<video class="scene-bg" src="{video_src}" muted playsinline preload="auto"></video>'
+            if i in scene_video_indexes
+            else f'<img class="scene-bg" src="{img_src}" alt="scene {i}">'
+        )
+        stickman_html = _build_stickman_overlay(i) if scene.get("stickman_overlay") else ""
+
+        overlay_html = ""
+        if template == "lower_third":
+            badge = html.escape(str(e.get("badge") or "").strip())
+            headline = html.escape(str(e.get("headline") or raw_title).strip())
+            subtitle = html.escape(str(e.get("subtitle") or "").strip())
+            badge_html = f'<div class="lt-badge">{badge}</div>' if badge else ""
+            subtitle_html = f'<div class="lt-s">{subtitle}</div>' if subtitle else ""
+            bar_pct = int(100 * (i + 1) / n_scenes)
+            overlay_html = f"""
+      <div class="lt" id="lt-{i}">{badge_html}
+        <div class="lt-h">{headline}</div>{subtitle_html}
+        <div class="lt-meta">SCENE {i + 1:02d}<span class="lt-bar"><i style="width:{bar_pct}%"></i></span>{len(scenes):02d}</div>
+      </div>"""
+        elif template == "data_card":
+            number = html.escape(str(e.get("number") or "").strip())
+            unit = html.escape(str(e.get("unit") or "").strip())
+            label = html.escape(str(e.get("label") or "").strip())
+            if number:
+                unit_html = f"<small>{unit}</small>" if unit else ""
+                overlay_html = f"""
+      <div class="dc" id="dc-{i}">
+        <div class="dc-lab">{label}</div>
+        <div class="dc-num">{number}{unit_html}</div>
+      </div>"""
+
+        kin_html = ""
+        if chunks:
+            chunk_divs = "\n      ".join(
+                _v2_chunk_html(i, k, c, marker_phrase) for k, c in enumerate(chunks))
+            eyebrow = html.escape(str(e.get("eyebrow") or "").strip()) if template == "marker" else ""
+            eyebrow_html = f'<div class="kin-eyebrow" id="kin-eb-{i}">{eyebrow}</div>' if eyebrow else ""
+            kin_html = f"""
+      <div class="kin">{eyebrow_html}
+      {chunk_divs}
+      <div class="kin-tick"><i id="kin-tick-{i}"></i></div>
+      </div>"""
+
+        scene_blocks.append(f"""
+    <!-- Scene {i} ({start:.1f}s - {end:.1f}s) [{template}] -->
+    <div class="scene clip" id="scene-{i}"
+         data-start="{start:.2f}" data-duration="{dur:.2f}">
+      {media_html}
+      {stickman_html}{overlay_html}{kin_html}
+    </div>""")
+
+        # ---- GSAP ----
+        direction = -1 if i % 2 else 1
+        js = [
+            f'tl.to("#scene-{i}", {{opacity:1, duration:0.5}}, {start:.2f})',
+            f'.fromTo("#scene-{i} .scene-bg", {{scale:1.035, x:{-18 * direction}, y:{-10 if i % 3 == 0 else 8}}},'
+            f' {{scale:1.12, x:{18 * direction}, y:{10 if i % 3 == 0 else -8}, duration:{dur:.2f}, ease:"none"}}, {start:.2f})',
+        ]
+        if scene.get("stickman_overlay"):
+            js.append(f'.to("#scene-{i} .stickman-layer", {{opacity:1, y:0, scale:1, duration:0.5, ease:"back.out(1.35)"}}, {start + 0.12:.2f})')
+        if template == "lower_third" and overlay_html:
+            js.append(f'.fromTo("#lt-{i}", {{opacity:0, y:18, scale:0.98}}, {{opacity:1, y:0, scale:1, duration:0.48, ease:"power3.out"}}, {start + 0.18:.2f})')
+        if template == "data_card" and overlay_html:
+            js.append(f'.fromTo("#dc-{i}", {{opacity:0, scale:0.92, y:14}}, {{opacity:1, scale:1, y:0, duration:0.5, ease:"back.out(1.4)"}}, {start + 0.28:.2f})')
+        if chunks:
+            times = _v2_chunk_times(chunks, start, dur)
+            for k in range(len(chunks)):
+                ck = times[k]
+                js.append(
+                    f'.fromTo("#kin-{i}-{k}", {{opacity:0, y:16}},'
+                    f' {{opacity:1, y:0, duration:0.18, ease:"power2.out"}}, {ck:.2f})')
+                if k + 1 < len(chunks):
+                    demote_at = times[k + 1]
+                    # 次(アクティブ)文節の行数分だけ上へ退避し、重なりを防ぐ。
+                    # 退避後のスタックが表示域(眉ラベルの下)に収まらない場合は
+                    # 退避せずフェードアウトする。
+                    per_line = 8.5 if vtuber_mode else 11.0
+                    next_lines = _v2_est_lines(chunks[k + 1].get("text") or "", per_line)
+                    prev_lines = _v2_est_lines(chunks[k].get("text") or "", per_line)
+                    demote_y = -(next_lines * 61 + 28)
+                    stack_h = next_lines * 61 + 28 + int(prev_lines * 61 * 0.52)
+                    limit_h = 190 if template == "marker" else 222
+                    if stack_h <= limit_h:
+                        js.append(
+                            f'.to("#kin-{i}-{k}", {{y:{demote_y}, scale:0.52, opacity:0.35,'
+                            f' transformOrigin:"50% 100%", duration:0.22, ease:"power2.inOut"}}, {demote_at:.2f})')
+                        hide_at = times[k + 2] if k + 2 < len(chunks) else fade_out
+                        js.append(f'.to("#kin-{i}-{k}", {{opacity:0, duration:0.18}}, {min(hide_at, fade_out):.2f})')
+                    else:
+                        js.append(f'.to("#kin-{i}-{k}", {{opacity:0, y:-24, duration:0.2}}, {demote_at:.2f})')
+                if marker_phrase and marker_phrase in str(chunks[k].get("text") or ""):
+                    js.append(f'.to("#mkh-{i}", {{scaleX:1, duration:0.4, ease:"power3.out"}}, {ck + 0.12:.2f})')
+                    js.append(f'.to("#kin-eb-{i}", {{opacity:1, duration:0.3}}, {ck:.2f})') if e.get("eyebrow") else None
+            js.append(f'.fromTo("#kin-tick-{i}", {{scaleX:0}}, {{scaleX:1, duration:{max(0.4, dur - 0.3):.2f}, ease:"none"}}, {start + 0.1:.2f})')
+        js.append(f'.to("#scene-{i}", {{opacity:0, duration:0.5}}, {fade_out:.2f});')
+        gsap_parts.append("\n  " + "\n    ".join(p for p in js if p))
+
+    scenes_html = "\n".join(scene_blocks)
+    gsap_js = "".join(gsap_parts)
+
+    vtuber_html = ""
+    vtuber_css = ""
+    vtuber_js = ""
+    body_class = ' class="vtuber-enabled"' if vtuber_mode else ""
+    if vtuber_mode:
+        vtuber_html, vtuber_css, vtuber_js = _build_vtuber_overlay(total_dur, raw_title)
+
+    audio_tag = ""
+    if narration_duration > 0:
+        audio_tag = (
+            f'\n    <audio id="narration" src="narration.mp3"'
+            f'\n           data-start="0" data-duration="{total_dur:.2f}"'
+            f'\n           data-track-index="5" data-volume="1"></audio>'
+        )
+
+    return f'''<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>{title}</title>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <style>
+    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+    html, body {{
+      width: 576px; height: 1024px; overflow: hidden; background: #0b1216;
+      font-family: "Noto Sans CJK JP", "Noto Sans JP", sans-serif;
+    }}
+    #composition {{
+      position: relative; width: 576px; height: 1024px; overflow: hidden;
+      background: #0b1216;
+    }}
+    .scene {{
+      position: absolute; top: 0; left: 0; width: 576px; height: 1024px;
+      opacity: 0; overflow: hidden;
+    }}
+    .scene-bg {{
+      width: 100%; height: 100%; object-fit: cover; display: block;
+      filter: saturate(0.98);
+      transform-origin: center center;
+      will-change: transform;
+    }}
+    .scene::after {{
+      content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+    }}
+    {V2_CSS}
+    {_stickman_css()}
+    #title-overlay {{
+      position: absolute; top: 0; left: 0; width: 576px; height: 1024px;
+      display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle at 50% 35%, #12242e, #0b1216 70%);
+      z-index: 10; opacity: 0;
+    }}
+    #title-overlay h1 {{
+      color: #eaf6f9; font-size: 32px; font-weight: 900;
+      text-align: center; padding: 0 32px; line-height: 1.4;
+    }}
+    {vtuber_css}
+    /* v2: アバターカードを縮小し、テロップと衝突しないよう左へ寄せる */
+    body.vtuber-enabled .vtuber-card {{
+      transform: scale(0.6); transform-origin: bottom right;
+      right: 12px; bottom: 12px;
+    }}
+    body.vtuber-enabled .kin {{ left: 28px; right: 186px; }}
+    body.vtuber-enabled .kin-chunk {{ font-size: 40px; }}
+  </style>
+</head>
+<body{body_class}>
+  <div id="composition"
+       data-composition-id="main"
+       data-width="576"
+       data-height="1024">
+
+    <div id="title-overlay">
+      <h1>{title}</h1>
+    </div>
+
+    {scenes_html}
+    {vtuber_html}
+    {audio_tag}
+  </div>
+
+  <script>
+  (function() {{
+    document.querySelectorAll("video.scene-bg").forEach((video) => {{
+      video.playbackRate = 1;
+      video.currentTime = 0;
+      video.play().catch(() => {{}});
+    }});
+    const tl = gsap.timeline({{ paused: true }});
+
+    tl.to("#title-overlay", {{opacity:1, duration:0.4}}, 0)
+      .to("#title-overlay", {{opacity:0, duration:0.4}}, 1.5);
+    {gsap_js}
+
+    {vtuber_js}
+
+    window.__timelines = window.__timelines || {{}};
+    window.__timelines["main"] = tl;
+  }})();
+  </script>
+</body>
+</html>
+'''
+
+
+def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path], vtuber_mode: bool = False,
+                      edl: dict | None = None) -> Path:
     """Create a HyperFrames project directory ready for rendering."""
     project_dir = job_dir / "hf_project"
     project_dir.mkdir(parents=True, exist_ok=True)
@@ -456,8 +845,14 @@ def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path], vtub
     else:
         total_dur = scene_dur
 
-    # Write index.html
-    html_content = build_html(script, image_paths, total_dur, narration_duration, vtuber_mode=show_avatar, scene_video_indexes=scene_video_indexes)
+    # Write index.html — EDLがあればテロップ・システムv2、無ければ従来テンプレート
+    if edl:
+        html_content = build_html_v2(script, image_paths, total_dur, narration_duration,
+                                     vtuber_mode=show_avatar, scene_video_indexes=scene_video_indexes,
+                                     edl=edl)
+    else:
+        html_content = build_html(script, image_paths, total_dur, narration_duration,
+                                  vtuber_mode=show_avatar, scene_video_indexes=scene_video_indexes)
     (project_dir / "index.html").write_text(html_content, encoding="utf-8")
 
     # Copy hyperframes.json template
@@ -559,92 +954,121 @@ def _wrap_text(draw, text: str, font, max_width: int) -> list[str]:
 
 
 def _overlay_thumbnail_title(image_path: Path, title: str | None) -> None:
-    from PIL import Image, ImageDraw, ImageFont, ImageFilter
+    """サムネにタイトルを載せる(テロップv2と同じデザイン言語)。
 
-    img = Image.open(image_path).convert("RGB")
+    旧実装(上下ベタ黒帯+中央寄せ黄色文字+白ピル)は情報過多で古い見た目
+    だったため、下部グラデーションスクリム+左寄せ白文字+teal背表紙+
+    ダークガラスのバッジに置き換えた。絵は上半分をそのまま見せる。
+    """
+    from PIL import Image, ImageDraw, ImageFont
+
+    img = Image.open(image_path).convert("RGBA")
     w, h = img.size
-    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    od = ImageDraw.Draw(overlay)
 
-    od.rectangle((0, int(h * 0.58), w, h), fill=(0, 0, 0, 115))
-    od.rectangle((0, 0, w, int(h * 0.15)), fill=(0, 0, 0, 75))
-    overlay = overlay.filter(ImageFilter.GaussianBlur(radius=1.5))
-    img = Image.alpha_composite(img.convert("RGBA"), overlay)
+    # 下部スクリム: 透明→濃紺黒のグラデーション(帯ではなく緩やかに)
+    scrim = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    sd = ImageDraw.Draw(scrim)
+    scrim_top = int(h * 0.46)
+    for y in range(scrim_top, h):
+        t = (y - scrim_top) / max(1, h - scrim_top)
+        alpha = int(215 * (t * t * (3 - 2 * t)))  # smoothstep
+        sd.line([(0, y), (w, y)], fill=(4, 11, 15, alpha))
+    img = Image.alpha_composite(img, scrim)
     draw = ImageDraw.Draw(img)
 
     font_path = _find_japanese_font()
-    main_font = ImageFont.truetype(font_path, max(40, int(w * 0.115)))
-    sub_font = ImageFont.truetype(font_path, max(18, int(w * 0.045)))
-    badge_font = ImageFont.truetype(font_path, max(16, int(w * 0.04)))
+    main_font = ImageFont.truetype(font_path, max(40, int(w * 0.1)))
+    badge_font = ImageFont.truetype(font_path, max(16, int(w * 0.038)))
 
-    badge = "Kurage AI Video"
-    bx, by = int(w * 0.06), int(h * 0.055)
+    teal = (28, 184, 216, 255)
+
+    # バッジ(左上): ダークガラス+tealドット
+    badge = "KURAGE AI"
+    bx, by = int(w * 0.055), int(h * 0.045)
     bb = draw.textbbox((0, 0), badge, font=badge_font)
+    bw, bh = bb[2] - bb[0], bb[3] - bb[1]
+    dot_r = max(4, int(w * 0.008))
+    pad_x, pad_y = 14, 9
+    pill_h = bh + pad_y * 2 + 4
     draw.rounded_rectangle(
-        (bx - 12, by - 8, bx + (bb[2] - bb[0]) + 12, by + (bb[3] - bb[1]) + 10),
-        radius=10,
-        fill=(0, 127, 150, 230),
+        (bx, by, bx + bw + pad_x * 2 + dot_r * 2 + 8, by + pill_h),
+        radius=999, fill=(9, 20, 26, 205), outline=(255, 255, 255, 45), width=1,
     )
-    draw.text((bx, by), badge, font=badge_font, fill=(255, 255, 255, 255), stroke_width=1, stroke_fill=(0, 0, 0, 180))
+    cy = by + pill_h // 2
+    draw.ellipse((bx + pad_x, cy - dot_r, bx + pad_x + dot_r * 2, cy + dot_r), fill=teal)
+    draw.text((bx + pad_x + dot_r * 2 + 8, by + (pill_h - bh) // 2 - bb[1]), badge,
+              font=badge_font, fill=(255, 255, 255, 240))
 
+    # タイトル(左下寄せ・最大3行・白+細めの縁取り)
     text = (title or "Kurage Video").replace(" | ", " ").replace("｜", " ")
-    text = text.split("\n", 1)[0][:34]
-    lines = _wrap_text(draw, text, main_font, int(w * 0.88))
-    line_h = int(main_font.size * 1.22)
+    text = text.split("\n", 1)[0]
+    margin_x = int(w * 0.075)
+    lines = _wrap_text(draw, text, main_font, int(w * 0.85) - margin_x)
+    if len(lines) == 3 and sum(len(x) for x in lines) < len(text):
+        lines[2] = lines[2][:-1] + "…"
+    line_h = int(main_font.size * 1.24)
     total_h = line_h * len(lines)
-    y = int(h * 0.70) - total_h // 2
+    y0 = h - int(h * 0.065) - total_h
 
+    # teal背表紙(タイトルブロックの左)
+    spine_w = max(6, int(w * 0.012))
+    draw.rounded_rectangle(
+        (margin_x - spine_w - 16, y0 + 6, margin_x - 16, y0 + total_h - int(line_h * 0.18)),
+        radius=spine_w // 2, fill=teal,
+    )
     for i, line in enumerate(lines):
-        tb = draw.textbbox((0, 0), line, font=main_font, stroke_width=4)
-        x = (w - (tb[2] - tb[0])) // 2
-        fill = (255, 230, 48, 255) if i == 0 else (255, 255, 255, 255)
-        draw.text((x, y + i * line_h), line, font=main_font, fill=fill, stroke_width=5, stroke_fill=(0, 0, 0, 235))
-
-    sub = "AIが動画化"
-    sb = draw.textbbox((0, 0), sub, font=sub_font)
-    sx = (w - (sb[2] - sb[0])) // 2
-    sy = min(h - int(h * 0.105), y + total_h + int(h * 0.025))
-    draw.rounded_rectangle((sx - 18, sy - 8, sx + (sb[2] - sb[0]) + 18, sy + (sb[3] - sb[1]) + 10), radius=12, fill=(255, 255, 255, 220))
-    draw.text((sx, sy), sub, font=sub_font, fill=(18, 24, 32, 255))
+        draw.text((margin_x, y0 + i * line_h), line, font=main_font,
+                  fill=(255, 255, 255, 255), stroke_width=3, stroke_fill=(5, 12, 16, 210))
 
     img.convert("RGB").save(image_path, "JPEG", quality=92, optimize=True)
 
 
 def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0, title: str | None = None) -> Path:
-    """Extract a stable poster frame from a generated video."""
+    """Generate a poster image.
+
+    テロップが焼き込まれた動画フレームに重ねるとタイトルが二重写りするため、
+    シーン0の元画像(テロップなし)があればそれをベースに使う。無い場合のみ
+    従来どおり動画からフレームを抜く。
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-ss",
-        f"{seek:.2f}",
-        "-i",
-        str(video_path),
-        "-frames:v",
-        "1",
-        "-q:v",
-        "3",
-        str(output_path),
-    ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-    if result.returncode != 0 or not output_path.exists() or output_path.stat().st_size <= 0:
-        raise RuntimeError(
-            f"thumbnail generation failed (rc={result.returncode})\n"
-            f"stdout: {result.stdout[-1000:]}\n"
-            f"stderr: {result.stderr[-1000:]}"
-        )
+    base_image = output_path.parent / "assets" / "scene_00.png"
+    if base_image.exists() and base_image.stat().st_size > 0:
+        from PIL import Image
+        Image.open(base_image).convert("RGB").save(output_path, "JPEG", quality=92)
+    else:
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-ss",
+            f"{seek:.2f}",
+            "-i",
+            str(video_path),
+            "-frames:v",
+            "1",
+            "-q:v",
+            "3",
+            str(output_path),
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        if result.returncode != 0 or not output_path.exists() or output_path.stat().st_size <= 0:
+            raise RuntimeError(
+                f"thumbnail generation failed (rc={result.returncode})\n"
+                f"stdout: {result.stdout[-1000:]}\n"
+                f"stderr: {result.stderr[-1000:]}"
+            )
     _overlay_thumbnail_title(output_path, title)
     return output_path
 
 
-def generate_video(script: dict, image_paths: list[Path], job_dir: Path, vtuber_mode: bool = False) -> Path:
+def generate_video(script: dict, image_paths: list[Path], job_dir: Path, vtuber_mode: bool = False,
+                   edl: dict | None = None) -> Path:
     """Full video generation pipeline: project setup + render.
 
     Returns:
         Path to the output MP4 file
     """
     output_path = job_dir / "output.mp4"
-    project_dir = create_hf_project(job_dir, script, image_paths, vtuber_mode=vtuber_mode)
+    project_dir = create_hf_project(job_dir, script, image_paths, vtuber_mode=vtuber_mode, edl=edl)
     print(f"  [video] HyperFrames project: {project_dir}", flush=True)
     render_video(project_dir, output_path)
     print(f"  [video] Rendered: {output_path} ({output_path.stat().st_size} bytes)", flush=True)

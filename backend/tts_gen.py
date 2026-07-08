@@ -456,6 +456,9 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
                     f"Voicebox TTS output is too long for scene {i}: "
                     f"{duration:.1f}s for {len(text)} chars (maximum {max_duration:.1f}s)"
                 )
+            # シーン実測秒をスクリプトに記録(video_gen.compute_scene_timingが
+            # シーン切替・テロップ同期に使う。均等割りによる音ズレ対策)
+            scene["tts_duration"] = round(duration, 3)
             part_paths.extend(scene_part_paths)
 
         if not part_paths:

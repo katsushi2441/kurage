@@ -59,6 +59,7 @@ if ($proxy_action !== '') {
         if (!is_array($payload)) { $payload = array(); }
         $payload['vtuber_mode'] = true;
         if (empty($payload['video_style'])) { $payload['video_style'] = 'ai_avatar_explainer'; }
+        $payload['editor_mode'] = (isset($payload['editor_mode']) && $payload['editor_mode'] === 'llm') ? 'llm' : 'normal';
         $res = kmontage_api('POST', '/api/jobs', $payload, 60);
         echo json_encode(isset($res['data']) ? $res['data'] : array('ok'=>false,'error'=>isset($res['error'])?$res['error']:'API unreachable'), JSON_UNESCAPED_UNICODE);
     } elseif ($proxy_action === 'regenerate' && isset($_GET['job_id']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -68,6 +69,7 @@ if ($proxy_action !== '') {
         if (!is_array($payload)) { $payload = array(); }
         $payload['vtuber_mode'] = true;
         if (empty($payload['video_style'])) { $payload['video_style'] = 'ai_avatar_explainer'; }
+        $payload['editor_mode'] = (isset($payload['editor_mode']) && $payload['editor_mode'] === 'llm') ? 'llm' : 'normal';
         $res = kmontage_api('POST', '/api/jobs/' . $jid . '/regenerate', $payload, 60);
         echo json_encode(isset($res['data']) ? $res['data'] : array('ok'=>false,'error'=>isset($res['error'])?$res['error']:'API unreachable'), JSON_UNESCAPED_UNICODE);
     } elseif ($proxy_action === 'status' && isset($_GET['job_id'])) {
@@ -106,6 +108,13 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
 </style>
 <style>
 .job-main{display:block;width:100%;text-align:left;border:1px solid transparent;border-radius:12px;background:#fff;color:var(--ink);box-shadow:none;padding:.55rem}.job-main:hover{border-color:#b9d8e8;background:#f9fdfe}@media(max-width:760px){.job{grid-template-columns:1fr}}
+.editor-mode{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:.7rem}
+.mode-pill{display:inline-flex;cursor:pointer}
+.mode-pill input{position:absolute;opacity:0;pointer-events:none}
+.mode-pill span{display:inline-flex;align-items:center;gap:.3rem;border:1px solid var(--line);border-radius:999px;padding:.34rem .85rem;font-size:.8rem;font-weight:800;color:var(--muted);background:#fff;transition:all .15s}
+.mode-pill em{font-style:normal;font-size:.62rem;font-weight:900;color:#fff;background:var(--accent2);border-radius:6px;padding:.06rem .32rem}
+.mode-pill input:checked+span{border-color:var(--accent);color:var(--accent);background:var(--soft);box-shadow:0 0 0 3px rgba(7,138,166,.08)}
+.mode-hint{color:var(--muted);font-size:.74rem}
 </style>
 <link rel="stylesheet" href="assets/kurage-avatar.css?v=20260704a">
 </head>
@@ -149,6 +158,11 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
         <input id="source-url" type="url" placeholder="https://x.com/... または https://example.com/article.pdf">
         <button id="generate" class="btn-primary">生成する</button>
       </div>
+      <div class="editor-mode" role="radiogroup" aria-label="テロップ編集モード">
+        <label class="mode-pill"><input type="radio" name="editor-mode" value="normal" checked><span>通常モード</span></label>
+        <label class="mode-pill"><input type="radio" name="editor-mode" value="llm"><span>LLM編集者モード <em>β</em></span></label>
+        <span class="mode-hint" id="mode-hint">テロップの文節割り・強調は自動ルールで決めます。</span>
+      </div>
       <div class="hint">長い動画や資料は、取得・文字起こし・本文解析に数分かかることがあります。生成完了後、Kurageの動画として表示されます。</div>
       <div id="message" class="toast"></div>
     </div>
@@ -187,6 +201,12 @@ let pollTimer = null;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function message(text){ $('message').textContent = text || ''; }
+function editorMode(){ const el = document.querySelector('input[name="editor-mode"]:checked'); return el && el.value === 'llm' ? 'llm' : 'normal'; }
+document.querySelectorAll('input[name="editor-mode"]').forEach(r => r.addEventListener('change', () => {
+  $('mode-hint').textContent = editorMode() === 'llm'
+    ? 'Claudeが編集者としてテロップの文節・強調・演出テンプレートを決めます（制限時はローカルgemma4に自動フォールバック）。'
+    : 'テロップの文節割り・強調は自動ルールで決めます。';
+}));
 function setActions(enabled){ $('copy').disabled = !enabled; $('post-x').disabled = !enabled; $('delete').disabled = !currentJobId; }
 function scriptLines(job){ const script = job.kurage_script || job.script || {}; const scenes = Array.isArray(script.scenes) ? script.scenes : []; if (scenes.length) return scenes.map(s => s.narration || '').filter(Boolean); return Array.isArray(job.script_outline) ? job.script_outline : []; }
 function statusLabel(job){ const labels = {queued:'待機中',analyzing:'URL解析中',downloading:'元動画取得中',transcribing:'文字起こし中',planning:'台本生成中',generating:'Kurage動画生成中',done:'完了',error:'エラー'}; return labels[job.status] || job.status || '不明'; }
@@ -221,7 +241,7 @@ async function poll(jobId){ const job = await fetchJson(`<?php echo h($THIS_FILE
 $('generate').addEventListener('click', async () => {
   const url = $('source-url').value.trim(); if (!url) return message('URLを入力してください');
   $('generate').disabled = true; message('生成ジョブを開始しています...');
-  try { const sameLoadedUrl = currentJobId && currentJobUrl && url === currentJobUrl; const endpoint = sameLoadedUrl ? `<?php echo h($THIS_FILE); ?>?proxy=regenerate&job_id=${encodeURIComponent(currentJobId)}` : '<?php echo h($THIS_FILE); ?>?proxy=create'; const data = await fetchJson(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url, vtuber_mode:true, video_style:'ai_avatar_explainer'})}); currentJobId = data.job_id; currentJobUrl = url; message(`${sameLoadedUrl ? '上書き再生成' : 'ジョブ開始'}: ${currentJobId}`); clearInterval(pollTimer); const job = await poll(currentJobId); if (!['done','error'].includes(job.status)) pollTimer = setInterval(() => poll(currentJobId), 5000); }
+  try { const sameLoadedUrl = currentJobId && currentJobUrl && url === currentJobUrl; const endpoint = sameLoadedUrl ? `<?php echo h($THIS_FILE); ?>?proxy=regenerate&job_id=${encodeURIComponent(currentJobId)}` : '<?php echo h($THIS_FILE); ?>?proxy=create'; const data = await fetchJson(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url, vtuber_mode:true, video_style:'ai_avatar_explainer', editor_mode: editorMode()})}); currentJobId = data.job_id; currentJobUrl = url; message(`${sameLoadedUrl ? '上書き再生成' : 'ジョブ開始'}: ${currentJobId}`); clearInterval(pollTimer); const job = await poll(currentJobId); if (!['done','error'].includes(job.status)) pollTimer = setInterval(() => poll(currentJobId), 5000); }
   catch(e){ message(e.message || String(e)); }
   finally { $('generate').disabled = false; }
 });
