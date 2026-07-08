@@ -16,6 +16,9 @@ TRANSIENT_GPU_ERRORS = (
     "cublas",
     "out of memory",
     "internal_error",
+    "timeout",
+    "timed out",
+    "connection refused",
 )
 
 
@@ -92,8 +95,12 @@ def voicebox_tts_job(
         "normalize": True,
     }
 
-    response = requests.post(f"{api}/generate", json=payload, timeout=60)
-    response.raise_for_status()
+    try:
+        response = requests.post(f"{api}/generate", json=payload, timeout=60)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        _recover_voicebox(api, str(exc))
+        raise
     generation = response.json()
     generation_id = generation.get("id")
     if not generation_id:
