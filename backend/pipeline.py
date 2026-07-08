@@ -399,8 +399,13 @@ def run_pipeline_from_news(job_id: str, news: dict, vtuber_mode: bool = False, v
             image_paths.append(path)
         update_job(job_id, image_count=len(image_paths))
 
+        # テロップ・システムv2(通常モード): horizonニュース動画にも適用
+        from telop_gen import generate_edl
+        edl = generate_edl(script, "normal", job_dir)
+        update_job(job_id, telop_editor=edl.get("editor"))
+
         update_job(job_id, status="rendering", progress=75)
-        video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
+        video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode, edl=edl)
         thumb_path = job_dir / "thumbnail.jpg"
         mark_job_done(job_id, video_path, thumb_path)
         print(f"[{job_id}] done: {video_path}", flush=True)
@@ -452,8 +457,13 @@ def run_pipeline_from_blog(job_id: str, article: dict, vtuber_mode: bool = False
             image_paths.append(path)
         update_job(job_id, image_count=len(image_paths))
 
+        # テロップ・システムv2(通常モード): ブログ考察動画にも適用
+        from telop_gen import generate_edl
+        edl = generate_edl(script, "normal", job_dir)
+        update_job(job_id, telop_editor=edl.get("editor"))
+
         update_job(job_id, status="rendering", progress=75)
-        video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode)
+        video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode, edl=edl)
         thumb_path = job_dir / "thumbnail.jpg"
         mark_job_done(job_id, video_path, thumb_path)
         print(f"[{job_id}] blog done: {video_path}", flush=True)
