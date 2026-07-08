@@ -444,21 +444,43 @@ V2_CSS = """
                                   rgba(2,8,12,0.0) 54%, rgba(3,9,13,0.58) 100%) !important;
     }
     .kin {
-      position: absolute; left: 44px; right: 44px; bottom: 106px; height: 300px;
+      position: absolute; left: 44px; right: 44px; bottom: 96px; height: 240px;
       z-index: 6; pointer-events: none;
     }
+    /* 字幕: 小さめ・文単位で情報量を確保(ナレーションの読み物レイヤ) */
     .kin-chunk {
-      position: absolute; left: 0; right: 0; bottom: 40px; opacity: 0;
-      text-align: center; font-size: 43px; font-weight: 900; color: #ffffff;
-      line-height: 1.42; letter-spacing: 0.01em;
-      text-shadow: 0 3px 6px rgba(0,0,0,0.75), 0 0 34px rgba(0,0,0,0.5);
-      -webkit-text-stroke: 9px rgba(8,16,20,0.85);
+      position: absolute; left: 0; right: 0; bottom: 26px; opacity: 0;
+      text-align: center; font-size: 27px; font-weight: 800; color: #ffffff;
+      line-height: 1.55; letter-spacing: 0.01em;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.8), 0 0 24px rgba(0,0,0,0.55);
+      -webkit-text-stroke: 6px rgba(8,16,20,0.85);
       paint-order: stroke fill;
     }
     .kin-chunk .kem {
-      font-style: normal; color: #ffb224;
-      -webkit-text-stroke: 9px rgba(30,18,2,0.9);
+      font-style: normal; color: #ffc95e;
+      -webkit-text-stroke: 6px rgba(30,18,2,0.9);
     }
+    /* 強調キーワード: 字幕の上に出す大テロップレイヤ */
+    .kw-pop {
+      position: absolute; left: 0; right: 0; bottom: 168px; opacity: 0;
+      text-align: center; font-size: 46px; font-weight: 900; color: #ffb224;
+      line-height: 1.3; letter-spacing: 0.01em;
+      text-shadow: 0 4px 10px rgba(0,0,0,0.7), 0 0 40px rgba(0,0,0,0.45);
+      -webkit-text-stroke: 10px rgba(30,18,2,0.9);
+      paint-order: stroke fill;
+    }
+    .kw-pop.kw-marker { color: #161006; -webkit-text-stroke: 0; }
+    .kw-pop.kw-marker .mkh-t {
+      position: relative; display: inline-block; padding: 4px 16px;
+      text-shadow: none;
+    }
+    .kw-pop.kw-marker .mkh-bg {
+      position: absolute; inset: 0; border-radius: 10px;
+      background: linear-gradient(100deg, #ffb224 0%, #ffc95e 100%);
+      transform: skewX(-6deg) scaleX(0); transform-origin: left center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+    }
+    .kw-pop.kw-marker .mkh-in { position: relative; }
     .kin-tick {
       position: absolute; left: 50%; bottom: 0; width: 120px; height: 6px;
       margin-left: -60px; border-radius: 3px; background: rgba(255,255,255,0.22);
@@ -469,19 +491,9 @@ V2_CSS = """
       transform: scaleX(0); transform-origin: left center; display: block;
     }
     .kin-eyebrow {
-      position: absolute; left: 0; right: 0; bottom: 262px; opacity: 0;
+      position: absolute; left: 0; right: 0; bottom: 252px; opacity: 0;
       text-align: center; font-size: 18px; font-weight: 800; letter-spacing: 0.2em;
       color: #4fd3ee; text-shadow: 0 2px 8px rgba(0,0,0,0.8);
-    }
-    .mkh { position: relative; display: inline-block; padding: 2px 12px; margin: 0 2px; }
-    .mkh-bg {
-      position: absolute; inset: 0; border-radius: 8px;
-      background: linear-gradient(100deg, #ffb224 0%, #ffc95e 100%);
-      transform: skewX(-6deg) scaleX(0); transform-origin: left center;
-    }
-    .mkh-t {
-      position: relative; color: #161006; -webkit-text-stroke: 0;
-      text-shadow: none;
     }
     .lt {
       position: absolute; z-index: 7; top: 112px; left: 32px; right: 32px;
@@ -528,31 +540,38 @@ V2_CSS = """
 """
 
 
-def _v2_chunk_html(scene_index: int, chunk_index: int, chunk: dict, marker_phrase: str) -> str:
+def _v2_chunk_html(scene_index: int, chunk_index: int, chunk: dict, marker_phrase: str) -> list[str]:
+    """字幕(小)と強調キーワード大テロップ(別レイヤ)のHTMLを返す。
+
+    字幕内の強調語はインラインの色替えのみ(サイズは変えない)。
+    大テロップは kw-pop 要素として字幕の上に出し、markerシーンでは
+    マーカー(黄帯)スタイルになる。
+    """
     text = str(chunk.get("text") or "")
     emphasis = str(chunk.get("emphasis") or "")
+    keyword = ""
     if marker_phrase and marker_phrase in text:
-        pre, _, post = text.partition(marker_phrase)
-        inner = (
-            f"{html.escape(pre)}"
-            f'<span class="mkh"><i class="mkh-bg" id="mkh-{scene_index}"></i>'
-            f'<span class="mkh-t">{html.escape(marker_phrase)}</span></span>'
-            f"{html.escape(post)}"
-        )
+        keyword = marker_phrase
     elif emphasis and emphasis in text:
-        pre, _, post = text.partition(emphasis)
-        inner = (
-            f"{html.escape(pre)}<em class=\"kem\">{html.escape(emphasis)}</em>{html.escape(post)}"
-        )
+        keyword = emphasis
+
+    if keyword:
+        pre, _, post = text.partition(keyword)
+        inner = f"{html.escape(pre)}<em class=\"kem\">{html.escape(keyword)}</em>{html.escape(post)}"
     else:
         inner = html.escape(text)
-    return f'<div class="kin-chunk" id="kin-{scene_index}-{chunk_index}">{inner}</div>'
+    parts = [f'<div class="kin-chunk" id="kin-{scene_index}-{chunk_index}">{inner}</div>']
 
-
-def _v2_est_lines(text: str, per_line: float = 11.0) -> int:
-    """推定行数(全角=1、半角=0.55単位)。per_lineは1行に入る全角単位数。"""
-    units = sum(0.55 if ord(ch) < 0x2500 else 1.0 for ch in str(text or ""))
-    return max(1, math.ceil(units / per_line))
+    if keyword:
+        if marker_phrase and keyword == marker_phrase:
+            parts.append(
+                f'<div class="kw-pop kw-marker" id="kw-{scene_index}-{chunk_index}">'
+                f'<span class="mkh-t"><i class="mkh-bg" id="mkh-{scene_index}-{chunk_index}"></i>'
+                f'<span class="mkh-in">{html.escape(keyword)}</span></span></div>')
+        else:
+            parts.append(
+                f'<div class="kw-pop" id="kw-{scene_index}-{chunk_index}">{html.escape(keyword)}</div>')
+    return parts
 
 
 def _v2_chunk_times(chunks: list[dict], start: float, dur: float) -> list[float]:
@@ -633,7 +652,8 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
         kin_html = ""
         if chunks:
             chunk_divs = "\n      ".join(
-                _v2_chunk_html(i, k, c, marker_phrase) for k, c in enumerate(chunks))
+                part for k, c in enumerate(chunks)
+                for part in _v2_chunk_html(i, k, c, marker_phrase))
             eyebrow = html.escape(str(e.get("eyebrow") or "").strip()) if template == "marker" else ""
             eyebrow_html = f'<div class="kin-eyebrow" id="kin-eb-{i}">{eyebrow}</div>' if eyebrow else ""
             kin_html = f"""
@@ -667,31 +687,28 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
             times = _v2_chunk_times(chunks, start, dur)
             for k in range(len(chunks)):
                 ck = times[k]
+                next_at = times[k + 1] if k + 1 < len(chunks) else fade_out
+                # 字幕: クロスフェードで文単位に切替(退避スタックは廃止)
                 js.append(
-                    f'.fromTo("#kin-{i}-{k}", {{opacity:0, y:16}},'
-                    f' {{opacity:1, y:0, duration:0.18, ease:"power2.out"}}, {ck:.2f})')
+                    f'.fromTo("#kin-{i}-{k}", {{opacity:0, y:12}},'
+                    f' {{opacity:1, y:0, duration:0.22, ease:"power2.out"}}, {ck:.2f})')
                 if k + 1 < len(chunks):
-                    demote_at = times[k + 1]
-                    # 次(アクティブ)文節の行数分だけ上へ退避し、重なりを防ぐ。
-                    # 退避後のスタックが表示域(眉ラベルの下)に収まらない場合は
-                    # 退避せずフェードアウトする。
-                    per_line = 8.5 if vtuber_mode else 11.0
-                    next_lines = _v2_est_lines(chunks[k + 1].get("text") or "", per_line)
-                    prev_lines = _v2_est_lines(chunks[k].get("text") or "", per_line)
-                    demote_y = -(next_lines * 61 + 28)
-                    stack_h = next_lines * 61 + 28 + int(prev_lines * 61 * 0.52)
-                    limit_h = 190 if template == "marker" else 222
-                    if stack_h <= limit_h:
-                        js.append(
-                            f'.to("#kin-{i}-{k}", {{y:{demote_y}, scale:0.52, opacity:0.35,'
-                            f' transformOrigin:"50% 100%", duration:0.22, ease:"power2.inOut"}}, {demote_at:.2f})')
-                        hide_at = times[k + 2] if k + 2 < len(chunks) else fade_out
-                        js.append(f'.to("#kin-{i}-{k}", {{opacity:0, duration:0.18}}, {min(hide_at, fade_out):.2f})')
-                    else:
-                        js.append(f'.to("#kin-{i}-{k}", {{opacity:0, y:-24, duration:0.2}}, {demote_at:.2f})')
-                if marker_phrase and marker_phrase in str(chunks[k].get("text") or ""):
-                    js.append(f'.to("#mkh-{i}", {{scaleX:1, duration:0.4, ease:"power3.out"}}, {ck + 0.12:.2f})')
-                    js.append(f'.to("#kin-eb-{i}", {{opacity:1, duration:0.3}}, {ck:.2f})') if e.get("eyebrow") else None
+                    js.append(f'.to("#kin-{i}-{k}", {{opacity:0, duration:0.16}}, {max(ck + 0.2, next_at - 0.16):.2f})')
+                text_k = str(chunks[k].get("text") or "")
+                emphasis_k = str(chunks[k].get("emphasis") or "")
+                is_marker_chunk = bool(marker_phrase and marker_phrase in text_k)
+                has_kw = is_marker_chunk or bool(emphasis_k and emphasis_k in text_k)
+                if has_kw:
+                    # 強調キーワードの大テロップ: 字幕より少し遅れてポップ
+                    js.append(
+                        f'.fromTo("#kw-{i}-{k}", {{opacity:0, scale:0.72, y:10}},'
+                        f' {{opacity:1, scale:1, y:0, duration:0.32, ease:"back.out(1.6)"}}, {ck + 0.1:.2f})')
+                    if k + 1 < len(chunks):
+                        js.append(f'.to("#kw-{i}-{k}", {{opacity:0, duration:0.16}}, {max(ck + 0.3, next_at - 0.16):.2f})')
+                    if is_marker_chunk:
+                        js.append(f'.to("#mkh-{i}-{k}", {{scaleX:1, duration:0.4, ease:"power3.out"}}, {ck + 0.16:.2f})')
+                        if e.get("eyebrow"):
+                            js.append(f'.to("#kin-eb-{i}", {{opacity:1, duration:0.3}}, {ck:.2f})')
             js.append(f'.fromTo("#kin-tick-{i}", {{scaleX:0}}, {{scaleX:1, duration:{max(0.4, dur - 0.3):.2f}, ease:"none"}}, {start + 0.1:.2f})')
         js.append(f'.to("#scene-{i}", {{opacity:0, duration:0.5}}, {fade_out:.2f});')
         gsap_parts.append("\n  " + "\n    ".join(p for p in js if p))
@@ -762,7 +779,8 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
       right: 12px; bottom: 12px;
     }}
     body.vtuber-enabled .kin {{ left: 28px; right: 186px; }}
-    body.vtuber-enabled .kin-chunk {{ font-size: 40px; }}
+    body.vtuber-enabled .kin-chunk {{ font-size: 24px; }}
+    body.vtuber-enabled .kw-pop {{ font-size: 40px; }}
   </style>
 </head>
 <body{body_class}>

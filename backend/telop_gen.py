@@ -34,8 +34,10 @@ OLLAMA_TIMEOUT = int(os.environ.get("KURAGE_EDITOR_OLLAMA_TIMEOUT", "300"))
 
 TEMPLATES = {"kinetic", "marker", "lower_third", "data_card"}
 MARKER_BUDGET = 3
-CHUNK_TARGET = 17   # 1文節の目安文字数
-CHUNK_MAX = 24
+# 字幕は「文」単位で出す(v2初版の8〜24字は字幕として文字数が少なすぎた。
+# 強調キーワードは別レイヤの大テロップで見せるので、字幕自体は小さく長く)
+CHUNK_TARGET = 32   # 1字幕の目安文字数
+CHUNK_MAX = 44
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[。！？!?])")
 _SOFT_SPLIT = re.compile(r"(?<=[、,])")
@@ -46,7 +48,7 @@ _QUOTED = re.compile(r"[「『]([^」』]{2,18})[」』]")
 
 # ---------------------------------------------------------------- chunks
 def split_chunks(text: str) -> list[str]:
-    """ナレーションを表示単位(8〜24字目安)の文節に割る。語句は改変しない。"""
+    """ナレーションを字幕単位(文ごと、最大44字目安)に割る。語句は改変しない。"""
     text = " ".join(str(text or "").split())
     if not text:
         return []
@@ -94,8 +96,8 @@ _PARTICLES = "のをにがはでとへもや、"
 
 def _natural_cut(text: str) -> int:
     """CHUNK_TARGET付近で最も自然な折り返し位置を返す(助詞・読点の直後)。"""
-    lo = max(6, CHUNK_TARGET - 7)
-    hi = min(len(text) - 4, CHUNK_MAX)
+    lo = max(10, CHUNK_TARGET - 14)
+    hi = min(len(text) - 6, CHUNK_MAX)
     best = -1
     for i in range(lo, hi):
         ch = text[i]
@@ -210,14 +212,14 @@ def _editor_prompt(script: dict, base: dict) -> str:
 {json.dumps(base, ensure_ascii=False)}
 
 # テンプレートの意味
-- kinetic: 文節同期字幕。chunksのtextはナレーションを順に区切ったもの(結合するとナレーション全文に一致すること)。emphasisは各chunk内の強調語(そのchunkの部分文字列、1つだけ、無ければ"")
-- marker: kineticと同じ+marker_phraseに指定した句がマーカー強調される。結論・言い切りのシーンにのみ使い、動画全体で{MARKER_BUDGET}回まで。eyebrowは12字以内の眉ラベル
+- kinetic: 音声同期の字幕(小さめ文字)+強調キーワードの大テロップ。chunksのtextはナレーションを文単位(20〜44字目安)で区切ったもの(結合するとナレーション全文に一致すること)。emphasisはそのchunkで大テロップとして目立たせる語(chunkの部分文字列、1つだけ、無ければ"")
+- marker: kineticと同じ+marker_phraseの句が黄色マーカーの大テロップになる。結論・言い切りのシーンにのみ使い、動画全体で{MARKER_BUDGET}回まで。eyebrowは12字以内の眉ラベル
 - lower_third: オープニング用。headline(15字前後、最大30字)/subtitle(最大44字)/badge(最大8字、例:【衝撃】)。scene 0以外では使わない
 - data_card: 数字が主役のシーン。number/unit/label(20字以内の説明)。ナレーションに実在する数字のみ
 
 # 改善の観点
-- 文節の区切りを読みやすく(8〜24字、意味の切れ目で)
-- 強調語は「そのシーンで一番伝えたい語」1つだけ。無理に付けない
+- 字幕の区切りは文単位で読みやすく(20〜44字、意味の切れ目で。細切れにしない)
+- emphasis(大テロップ)は「そのシーンで一番伝えたい語」1つだけ。無理に付けない
 - 数字が主役のシーンはdata_cardに、結論の言い切りはmarkerに
 - headline/badgeは煽りすぎず具体的に
 
