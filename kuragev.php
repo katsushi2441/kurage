@@ -216,6 +216,70 @@ function job_body_text($job) {
     return trim((string)($job['tweet_text'] ?? ''));
 }
 
+function clean_plain_text($text) {
+    $text = html_entity_decode(strip_tags((string)$text), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = str_replace("\xEF\xBF\xBD", '', $text);
+    $text = preg_replace('/\s+/u', ' ', $text);
+    return trim((string)$text);
+}
+
+function text_excerpt($text, $limit = 160) {
+    $text = clean_plain_text($text);
+    if ($text === '') { return ''; }
+    if (function_exists('mb_strlen') && function_exists('mb_substr')) {
+        return mb_strlen($text, 'UTF-8') > $limit ? mb_substr($text, 0, $limit, 'UTF-8') . '…' : $text;
+    }
+    return strlen($text) > $limit ? substr($text, 0, $limit) . '...' : $text;
+}
+
+function job_seo_keywords($job) {
+    $raw = $job['seo_keywords'] ?? array();
+    if (is_string($raw)) {
+        $raw = preg_split('/[,、\s]+/u', $raw);
+    }
+    $keywords = array();
+    if (is_array($raw)) {
+        foreach ($raw as $kw) {
+            $kw = clean_plain_text($kw);
+            if ($kw !== '' && !in_array($kw, $keywords, true)) { $keywords[] = $kw; }
+        }
+    }
+    foreach (array('AI動画', 'ショート動画', 'Kurage') as $fallback) {
+        if (!in_array($fallback, $keywords, true)) { $keywords[] = $fallback; }
+    }
+    return array_slice($keywords, 0, 12);
+}
+
+function job_seo_title($job) {
+    $seo = clean_plain_text($job['seo_title'] ?? '');
+    if ($seo !== '') { return $seo; }
+    return job_display_title($job);
+}
+
+function job_seo_description($job) {
+    foreach (array('seo_description', 'display_summary', 'summary', 'tweet_text', 'copy_summary', 'source_title') as $key) {
+        $desc = text_excerpt($job[$key] ?? '', 158);
+        if ($desc !== '') { return $desc; }
+    }
+    return text_excerpt(job_display_title($job) . ' のKurage AIショート動画です。', 158);
+}
+
+function job_seo_body($job) {
+    $body = trim((string)($job['seo_body'] ?? ''));
+    if ($body !== '') { return $body; }
+    $title = job_display_title($job);
+    $summary = job_body_text($job);
+    $tool = job_tool_label($job);
+    $keywords = job_seo_keywords($job);
+    $lines = array(
+        'この動画は「' . $title . '」について、' . $tool . 'で生成した要点解説動画です。',
+        '重要なポイントを短く整理し、スマートフォンでも見やすい縦型動画として公開しています。',
+    );
+    if ($keywords) { $lines[] = '主なテーマ: ' . implode('、', array_slice($keywords, 0, 8)); }
+    if ($summary !== '') { $lines[] = '動画の概要: ' . text_excerpt($summary, 520); }
+    return implode("\n", $lines);
+}
+
 function search_normalize($text) {
     $text = trim((string)$text);
     if ($text === '') { return ''; }
@@ -238,6 +302,9 @@ function job_matches_query($job, $query) {
         $job['source_title'] ?? '',
         $job['summary_title'] ?? '',
         $job['article_title'] ?? '',
+        $job['seo_title'] ?? '',
+        $job['seo_description'] ?? '',
+        $job['seo_body'] ?? '',
         $job['display_summary'] ?? '',
         $job['summary'] ?? '',
         $job['tweet_text'] ?? '',
@@ -327,7 +394,8 @@ function client_video_for_list($job) {
         'display_title', 'summary_title', 'article_title', 'title', 'source_title',
         'voice_pro_label', 'target_lang', 'audio_mode', 'source_url', 'original_url',
         'tweet_url', 'source_platform', 'created_at', 'updated_at', 'views',
-        'article_url', 'related_article_url', 'tweet_author'
+        'article_url', 'related_article_url', 'tweet_author',
+        'seo_title', 'seo_description', 'seo_body', 'seo_keywords'
     ];
     $out = [];
     foreach ($keys as $key) {
@@ -513,8 +581,8 @@ $client_videos = (!$detail_id && $videos) ? array_map('client_video_for_list', $
 
 /* ── SEO ─────────────────────────────────────────────── */
 if ($detail_job) {
-    $page_title = job_display_title($detail_job) . ' | ' . $SITE_NAME;
-    $page_desc  = mb_substr(str_replace("\n", ' ', job_body_text($detail_job)), 0, 160);
+    $page_title = job_seo_title($detail_job) . ' | ' . $SITE_NAME;
+    $page_desc  = job_seo_description($detail_job);
     $page_url   = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($detail_id);
     $page_image = static_media_url_for_job($detail_job, $detail_id, 'thumbnail');
     $page_video = static_media_url_for_job($detail_job, $detail_id, 'video');
@@ -546,7 +614,7 @@ $header_amazon_url = '/go.php?' . http_build_query(array(
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?php echo h($page_title); ?></title>
 <meta name="description" content="<?php echo h($page_desc); ?>">
-<meta name="keywords" content="AI動画生成,ショート動画,縦型動画,動画翻訳,自動生成,Kurage,クラゲ,AI">
+<meta name="keywords" content="<?php echo h($detail_job ? implode(',', job_seo_keywords($detail_job)) : 'AI動画生成,ショート動画,縦型動画,動画翻訳,自動生成,Kurage,クラゲ,AI'); ?>">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="<?php echo h($page_url); ?>">
 <meta property="og:type" content="website">
@@ -574,7 +642,7 @@ $header_amazon_url = '/go.php?' . http_build_query(array(
 $jsonld = array(
     '@context'    => 'https://schema.org',
     '@type'       => $detail_job ? 'VideoObject' : 'CollectionPage',
-    'name'        => $page_title,
+    'name'        => $detail_job ? job_seo_title($detail_job) : $page_title,
     'description' => $page_desc,
     'url'         => $page_url,
     'publisher'   => array('@type' => 'Organization', 'name' => '株式会社エクスブリッジ', 'url' => 'https://exbridge.jp/'),
@@ -585,6 +653,12 @@ if ($detail_job) {
     $jsonld['embedUrl'] = $page_url;
     $jsonld['inLanguage'] = 'ja-JP';
     $jsonld['isFamilyFriendly'] = true;
+    $jsonld['keywords'] = implode(', ', job_seo_keywords($detail_job));
+    $jsonld['interactionStatistic'] = array(
+        '@type' => 'InteractionCounter',
+        'interactionType' => array('@type' => 'WatchAction'),
+        'userInteractionCount' => (int)($detail_job['views'] ?? 0),
+    );
     if (!empty($detail_job['created_at'])) {
         $ts = strtotime((string)$detail_job['created_at']);
         $jsonld['uploadDate'] = $ts ? date('c', $ts) : (string)$detail_job['created_at'];
@@ -697,6 +771,10 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 .detail-meta{font-size:13px;color:#888;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;}
 .detail-body{padding:20px;}
 .section-title{font-size:12px;font-weight:700;color:#007f96;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;margin-top:20px;}
+.seo-body-text{background:linear-gradient(180deg,#fbfeff,#f3fbfd);border:1px solid #d8edf2;border-radius:12px;padding:15px 16px;font-size:14px;line-height:1.9;color:#24434c;white-space:pre-wrap;margin-bottom:10px;}
+.keyword-chips{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 12px;}
+.keyword-chip{display:inline-flex;align-items:center;border:1px solid #b2dde8;background:#fff;color:#007f96;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:900;text-decoration:none;}
+.keyword-chip:hover{background:#e8f8fb;}
 .tweet-body{background:#e8f8fb;border-left:3px solid #007f96;border-radius:0 8px 8px 0;padding:14px 16px;font-size:14px;line-height:1.8;color:#333;white-space:pre-wrap;margin-bottom:8px;}
 .video-wrap{width:100%;max-width:320px;margin:0 auto 4px;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:9/16;}
 .video-wrap video{width:100%;height:100%;object-fit:contain;display:block;}
@@ -786,6 +864,16 @@ $detail_body_text = job_body_text($detail_job);
              poster="<?php echo h($page_image); ?>"
              controls playsinline preload="metadata"></video>
     </div>
+
+    <div class="section-title">📝 この動画でわかること</div>
+    <div class="seo-body-text"><?php echo nl2br(h(job_seo_body($detail_job))); ?></div>
+    <?php $seo_keywords = job_seo_keywords($detail_job); if (!empty($seo_keywords)): ?>
+    <div class="keyword-chips" aria-label="関連テーマ">
+      <?php foreach ($seo_keywords as $kw): ?>
+      <a class="keyword-chip" href="<?php echo h($THIS_FILE . '?q=' . rawurlencode($kw)); ?>"><?php echo h($kw); ?></a>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
 
     <?php if ($detail_body_text !== ''): ?>
     <div class="section-title">📣 <?php echo h(job_body_label($detail_job)); ?></div>
