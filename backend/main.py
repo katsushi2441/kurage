@@ -28,6 +28,52 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+ACTIVE_THREAD_STATUSES = {"queued", "fetching", "scripting", "imaging", "wan_opening", "rendering"}
+
+
+def mark_interrupted_jobs_on_startup() -> None:
+    """Mark jobs that were owned by the previous API process as failed.
+
+    Kurage currently renders videos in in-process background threads. If the
+    service is restarted while a job is waiting on Voicebox/ffmpeg/HyperFrames,
+    that thread disappears and cannot resume. Without this startup sweep the UI
+    keeps showing a stale percentage forever, which hides the real failure.
+    """
+    JOBS_DIR.mkdir(parents=True, exist_ok=True)
+    restarted_at = time.strftime("%Y-%m-%d %H:%M:%S")
+    marked = 0
+    for path in JOBS_DIR.glob("*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        status = str(data.get("status") or "").lower()
+        if status not in ACTIVE_THREAD_STATUSES:
+            continue
+        job_id = path.stem
+        reason = (
+            f"Kurage API restarted while job was {status}; "
+            "the in-process generation thread was interrupted. Regenerate this job."
+        )
+        data.update({
+            "status": "error",
+            "error": reason,
+            "interrupted_status": status,
+            "failed_at_progress": data.get("progress", 0),
+            "interrupted_at": restarted_at,
+            "updated_at": restarted_at,
+        })
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"[{job_id}] marked interrupted job as error: {reason}", flush=True)
+        marked += 1
+    if marked:
+        print(f"[startup] marked {marked} interrupted Kurage job(s)", flush=True)
+
+
+@app.on_event("startup")
+def _startup_mark_interrupted_jobs() -> None:
+    mark_interrupted_jobs_on_startup()
+
 
 class GenerateRequest(BaseModel):
     tweet_url: str
@@ -275,7 +321,9 @@ def generate_from_script(req: ScriptVideoRequest):
     resolved_style = resolve_video_style(req.video_style, content_type="reference_script", vtuber_mode=req.vtuber_mode, title=source_title)
     data = _request_data(req)
     data["video_style"] = resolved_style
-    update_job(job_id, status="queued", progress=0, source=req.source or "kmontage",
+    update_job(job_id, status="queued", progress=0, error=None, traceback=None,
+               interrupted_status=None, interrupted_at=None, failed_at_progress=None,
+               source=req.source or "kmontage",
                content_type="reference_video_summary",
                vtuber_mode=req.vtuber_mode,
                video_style=resolved_style,
