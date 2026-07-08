@@ -220,6 +220,26 @@ def cleanup_voicebox_server() -> None:
             pass
 
 
+def wait_voicebox_server_ready(timeout_seconds: float = 60.0) -> bool:
+    """Wait for Voicebox to accept requests again after unload/restart."""
+    import requests
+
+    deadline = time.time() + timeout_seconds
+    last_error = ""
+    while time.time() < deadline:
+        try:
+            response = requests.get(f"{VOICEBOX_API}/health", timeout=8)
+            if response.status_code == 200:
+                health = response.json()
+                if health.get("status") in {"healthy", "ok"}:
+                    return True
+        except Exception as exc:
+            last_error = str(exc)
+        time.sleep(3.0)
+    print(f"  [tts] voicebox did not become ready within {timeout_seconds:.0f}s: {last_error}", flush=True)
+    return False
+
+
 def _run_voicebox_tts_engine(text: str, output_path: Path, engine: str) -> float:
     import requests
 
@@ -420,7 +440,7 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
                             flush=True,
                         )
                         cleanup_voicebox_server()
-                        time.sleep(3.0)
+                        wait_voicebox_server_ready()
                     if chunk_duration > max_chunk_duration:
                         print(
                             f"  [tts] voicebox scene {i} chunk {chunk_index} too long "
@@ -429,7 +449,7 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
                         )
                         if attempt < max(1, VOICEBOX_RETRY_ATTEMPTS):
                             cleanup_voicebox_server()
-                            time.sleep(3.0)
+                            wait_voicebox_server_ready()
                 if chunk_duration <= 0:
                     raise RuntimeError(
                         f"Voicebox TTS failed for scene {i} chunk {chunk_index}; "
