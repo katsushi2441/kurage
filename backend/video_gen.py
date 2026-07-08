@@ -450,7 +450,7 @@ V2_CSS = """
     /* 字幕: 小さめ・文単位で情報量を確保(ナレーションの読み物レイヤ) */
     .kin-chunk {
       position: absolute; left: 0; right: 0; bottom: 26px; opacity: 0;
-      text-align: center; font-size: 27px; font-weight: 800; color: #ffffff;
+      text-align: left; font-size: 27px; font-weight: 800; color: #ffffff;
       line-height: 1.55; letter-spacing: 0.01em;
       text-shadow: 0 2px 4px rgba(0,0,0,0.8), 0 0 24px rgba(0,0,0,0.55);
       -webkit-text-stroke: 6px rgba(8,16,20,0.85);
@@ -463,7 +463,7 @@ V2_CSS = """
     /* 強調キーワード: 字幕の上に出す大テロップレイヤ */
     .kw-pop {
       position: absolute; left: 0; right: 0; bottom: 168px; opacity: 0;
-      text-align: center; font-size: 46px; font-weight: 900; color: #ffb224;
+      text-align: left; font-size: 46px; font-weight: 900; color: #ffb224;
       line-height: 1.3; letter-spacing: 0.01em;
       text-shadow: 0 4px 10px rgba(0,0,0,0.7), 0 0 40px rgba(0,0,0,0.45);
       -webkit-text-stroke: 10px rgba(30,18,2,0.9);
@@ -482,8 +482,8 @@ V2_CSS = """
     }
     .kw-pop.kw-marker .mkh-in { position: relative; }
     .kin-tick {
-      position: absolute; left: 50%; bottom: 0; width: 120px; height: 6px;
-      margin-left: -60px; border-radius: 3px; background: rgba(255,255,255,0.22);
+      position: absolute; left: 2px; bottom: 0; width: 120px; height: 6px;
+      border-radius: 3px; background: rgba(255,255,255,0.22);
       overflow: hidden;
     }
     .kin-tick i {
@@ -492,7 +492,7 @@ V2_CSS = """
     }
     .kin-eyebrow {
       position: absolute; left: 0; right: 0; bottom: 252px; opacity: 0;
-      text-align: center; font-size: 18px; font-weight: 800; letter-spacing: 0.2em;
+      text-align: left; font-size: 18px; font-weight: 800; letter-spacing: 0.2em;
       color: #4fd3ee; text-shadow: 0 2px 8px rgba(0,0,0,0.8);
     }
     .lt {
