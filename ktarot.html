@@ -3,28 +3,266 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kurageちゃんタロット占い | Kurage Tarot</title>
-<meta name="description" content="大アルカナ22枚を使い、過去・現在・未来をテンポよく読み解く無料ブラウザタロット。占い結果をSNSで共有でき、Kurageキャラクターの認知拡大にもつながる小さな体験型コンテンツです。">
-<link rel="canonical" href="https://kurage.exbridge.jp/ktarot.html">
+<title>Kurageちゃんタロット占い — 大アルカナ22枚で今日の運勢を占う</title>
+<meta name="description" content="クラゲの女の子Kurageちゃんが大アルカナ22枚で「過去・現在・未来」を占ってくれる無料タロット占い。恋愛運・仕事運・金運・総合運。登録不要、ブラウザですぐ遊べます。">
 <meta property="og:title" content="Kurageちゃんタロット占い">
-<meta property="og:description" content="大アルカナ22枚を使い、過去・現在・未来をテンポよく読み解く無料ブラウザタロット。占い結果をSNSで共有でき、Kurageキャラクターの認知拡大にもつながる小さな体験型コンテンツです。">
+<meta property="og:description" content="Kurageちゃんが大アルカナ22枚で今日の運勢を占ってくれる無料ブラウザタロット🔮 結果はXでシェアできるよ。">
+<meta property="og:image" content="https://kurage.exbridge.jp/ktarot/assets/ogp.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta property="og:url" content="https://kurage.exbridge.jp/ktarot.html">
 <meta property="og:type" content="website">
-<meta name="twitter:card" content="summary">
+<meta name="twitter:card" content="summary_large_image">
 <style>
-:root{--accent:#8d6be8;--accent2:#ffcb7b;--ink:#17324d;--muted:#637f92;--line:#cfe9f1;--paper:rgba(255,255,255,.86);--soft:#f3fbff}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);font-family:"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;background:radial-gradient(980px 420px at 12% -8%,color-mix(in srgb,var(--accent) 18%,transparent),transparent 58%),radial-gradient(760px 360px at 92% 4%,color-mix(in srgb,var(--accent2) 24%,transparent),transparent 60%),linear-gradient(160deg,#fff 0%,#f3fbff 52%,#fffaf0 100%);min-height:100vh}a{color:inherit;text-decoration:none}.wrap{max-width:1120px;margin:0 auto;padding:0 24px}.top{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.82);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}.top-inner{height:66px;display:flex;align-items:center;justify-content:space-between;gap:14px}.brand{display:flex;align-items:center;gap:11px;font-weight:900}.brand-mark{width:36px;height:36px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;color:#fff;box-shadow:0 12px 28px color-mix(in srgb,var(--accent) 24%,transparent)}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:1px}.nav{display:flex;gap:10px;flex-wrap:wrap}.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;padding:11px 18px;font-weight:900;font-size:13px;border:1px solid var(--line);background:#fff;color:var(--ink)}.btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:0;box-shadow:0 14px 30px color-mix(in srgb,var(--accent) 24%,transparent)}.hero{padding:66px 0 34px}.hero-grid{display:grid;grid-template-columns:1.08fr .92fr;gap:34px;align-items:center}.eyebrow{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 14px;color:var(--accent);font-weight:900;font-size:12px;letter-spacing:.04em}.pulse{width:8px;height:8px;border-radius:99px;background:var(--accent);box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 32%,transparent);animation:pulse 2.4s infinite}@keyframes pulse{70%{box-shadow:0 0 0 12px transparent}}h1{font-size:clamp(34px,5vw,62px);line-height:1.08;letter-spacing:-.045em;margin:18px 0 18px}.lead{font-size:16.5px;line-height:1.92;color:#365970;max-width:650px}.cta-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.tag-row{display:flex;gap:9px;flex-wrap:wrap;margin-top:22px}.tag{font-size:12px;font-weight:900;color:#31556b;background:#fff;border:1px solid var(--line);border-radius:999px;padding:8px 12px}.showcase{background:var(--paper);border:1px solid var(--line);border-radius:34px;padding:26px;box-shadow:0 24px 80px rgba(30,90,120,.12);position:relative;overflow:hidden}.showcase:before{content:"";position:absolute;inset:auto -20% -35% -20%;height:60%;background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 12%,transparent),color-mix(in srgb,var(--accent2) 22%,transparent));filter:blur(20px)}.device{position:relative;background:#fff;border:1px solid var(--line);border-radius:28px;padding:20px;min-height:330px;display:flex;flex-direction:column;justify-content:space-between}.orb{width:112px;height:112px;border-radius:38px;background:radial-gradient(circle at 35% 28%,#fff 0 14%,var(--accent2) 15% 48%,var(--accent) 49% 100%);box-shadow:0 20px 54px color-mix(in srgb,var(--accent) 28%,transparent);display:grid;place-items:center;color:#fff;font-size:42px;font-weight:900}.meter{height:12px;border-radius:99px;background:#edf8fc;overflow:hidden}.meter span{display:block;height:100%;width:76%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent2))}.mini{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.mini div{border:1px solid var(--line);background:var(--soft);border-radius:18px;padding:14px;font-size:12px;font-weight:900;color:#42657a}.section{padding:36px 0}.section h2{font-size:clamp(25px,3.2vw,40px);letter-spacing:-.03em;margin:0 0 12px}.section p.section-lead{margin:0 0 24px;color:var(--muted);line-height:1.8}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{background:var(--paper);border:1px solid var(--line);border-radius:24px;padding:24px;box-shadow:0 16px 48px rgba(30,90,120,.08)}.card b{display:block;font-size:16px;margin-bottom:9px}.card p{margin:0;color:#4c6a7c;font-size:13.5px;line-height:1.78}.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.flow div{background:#fff;border:1px solid var(--line);border-radius:20px;padding:18px;font-weight:900;font-size:13px;color:#31556b}.copy-box{background:#fff;border:1px solid var(--line);border-radius:24px;padding:22px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap}.copy-box code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#31556b;font-size:13px;overflow-wrap:anywhere}.footer{margin-top:44px;border-top:1px solid var(--line);padding:26px 0;color:var(--muted);font-weight:800;font-size:13px}.footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}@media(max-width:860px){.hero-grid{grid-template-columns:1fr}.cards,.flow{grid-template-columns:1fr}.top-inner{height:auto;padding:12px 0;align-items:flex-start;flex-direction:column}.wrap{padding:0 18px}.hero{padding:42px 0 20px}.device{min-height:280px}}
+:root {
+  --ink:#f3ecff; --muted:#b9abdd; --gold:#e8c66a; --accent:#8e6fd8; --accent2:#6a4fc0;
+  --line:rgba(232,198,106,.35); --panel:rgba(255,255,255,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{color:var(--ink);font-family:"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;
+  background:radial-gradient(1100px 480px at 20% -10%,rgba(142,111,216,.28),transparent 55%),
+             radial-gradient(800px 400px at 90% 8%,rgba(232,198,106,.12),transparent 50%),
+             linear-gradient(165deg,#171029 0%,#1d1436 55%,#241a44 100%);
+  min-height:100vh;overflow-x:hidden}
+a{text-decoration:none;color:inherit}
+img{max-width:100%}
+
+header{position:sticky;top:0;z-index:40;background:rgba(23,16,41,.85);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;
+  padding:11px 24px;gap:12px}
+.hbrand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:16px}
+.hbrand .orb{width:32px;height:32px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#cdb8f5,#8e6fd8 55%,#5a3fa8);
+  box-shadow:0 4px 14px rgba(142,111,216,.5)}
+.hbrand sub{font-size:11px;font-weight:700;color:var(--muted);display:block;margin-top:-2px}
+.btn{border:0;border-radius:999px;padding:10px 20px;font-weight:800;cursor:pointer;font-size:13.5px;display:inline-flex;align-items:center;gap:7px}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 8px 22px rgba(106,79,192,.5)}
+.btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--gold)}
+
+.hero{max-width:1080px;margin:0 auto;padding:52px 24px 36px;
+  display:grid;grid-template-columns:1.15fr 1fr;gap:36px;align-items:center}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1.5px solid var(--line);
+  border-radius:999px;padding:7px 14px;font-size:12px;font-weight:800;color:var(--gold);margin-bottom:20px}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+h1{font-size:clamp(30px,4vw,52px);font-weight:900;line-height:1.18;letter-spacing:-.02em;margin-bottom:18px}
+h1 em{font-style:normal;color:var(--gold)}
+.lead{font-size:16px;line-height:1.9;color:var(--muted);margin-bottom:26px;max-width:540px}
+.hero-cta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.btn-hero{border-radius:16px;padding:15px 30px;font-size:16px}
+.hero-meta{display:flex;gap:18px;flex-wrap:wrap}
+.hero-meta span{font-size:13px;color:var(--muted);font-weight:700}
+.shot-frame{display:flex;justify-content:center}
+.shot-frame img{width:min(290px,78vw);border-radius:24px;border:1.5px solid var(--line);
+  box-shadow:0 24px 80px rgba(0,0,0,.55)}
+
+section{max-width:1080px;margin:0 auto;padding:42px 24px}
+.section-eyebrow{font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--gold);text-transform:uppercase;margin-bottom:10px}
+h2{font-size:clamp(22px,3vw,34px);font-weight:900;letter-spacing:-.02em;margin-bottom:12px}
+.section-lead{font-size:15px;color:var(--muted);line-height:1.8;max-width:640px;margin-bottom:30px}
+
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.step{background:var(--panel);border:1.5px solid var(--line);border-radius:20px;padding:24px 20px;text-align:center}
+.step .em{font-size:34px;display:block;margin-bottom:10px}
+.step .num{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;font-weight:900;
+  display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:14px}
+.step h3{font-size:15.5px;font-weight:900;margin-bottom:7px;color:var(--ink)}
+.step p{font-size:12.5px;color:var(--muted);line-height:1.75}
+
+.themes{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.theme{background:var(--panel);border:1.5px solid var(--line);border-radius:16px;padding:20px 12px;text-align:center}
+.theme .em{font-size:30px;display:block;margin-bottom:8px}
+.theme h4{font-size:14px;font-weight:900}
+
+.cards-wrap{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.mini-card{background:#f5eefc;color:#2a2140;border:1.5px solid var(--gold);border-radius:9px;
+  width:66px;padding:8px 4px;text-align:center}
+.mini-card .em{font-size:22px;display:block}
+.mini-card .nm{font-size:9.5px;font-weight:800;margin-top:3px;line-height:1.2}
+
+.share-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.share-card{background:var(--panel);border:1.5px solid var(--line);border-radius:20px;padding:24px}
+.share-card .em{font-size:28px;display:block;margin-bottom:10px}
+.share-card h3{font-size:15.5px;font-weight:900;margin-bottom:8px}
+.share-card p{font-size:13px;color:var(--muted);line-height:1.75}
+
+.cta-section{background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:28px;
+  padding:50px 34px;text-align:center;color:#fff;margin:0 auto 56px;max-width:1080px}
+.cta-section h2{color:#fff;margin-bottom:12px}
+.cta-section p{font-size:15px;opacity:.9;line-height:1.75;margin-bottom:26px}
+.btn-cta-white{background:#fff;color:var(--accent2);font-size:16.5px;padding:16px 36px;border-radius:16px;
+  box-shadow:0 8px 24px rgba(0,0,0,.3)}
+
+footer{background:rgba(23,16,41,.7);border-top:1px solid var(--line);padding:22px 24px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.footer-brand{font-size:13px;color:var(--muted);font-weight:700}
+.footer-links{display:flex;gap:18px}
+.footer-links a{font-size:13px;color:var(--muted);font-weight:700}
+.footer-links a:hover{color:var(--gold)}
+
+@media(max-width:840px){
+  .hero{grid-template-columns:1fr;padding:34px 18px 24px}
+  .steps{grid-template-columns:1fr}
+  .themes{grid-template-columns:1fr 1fr}
+  .share-grid{grid-template-columns:1fr}
+  section{padding:32px 18px}
+  .cta-section{margin:0 18px 40px;padding:38px 22px}
+  .hero-cta .btn-hero{width:100%;justify-content:center}
+}
 </style>
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Kurage Tarot", "alternateName": "Kurageちゃんタロット占い", "url": "https://kurage.exbridge.jp/ktarot.html", "description": "大アルカナ22枚を使い、過去・現在・未来をテンポよく読み解く無料ブラウザタロット。占い結果をSNSで共有でき、Kurageキャラクターの認知拡大にもつながる小さな体験型コンテンツです。", "applicationCategory": "AIApplication", "operatingSystem": "Web"}</script>
 </head>
 <body>
-<header class="top"><div class="wrap top-inner"><a class="brand" href="https://kurage.exbridge.jp/"><span class="brand-mark">K</span><span>Kurage Project<small>AI creation products by Exbridge</small></span></a><nav class="nav"><a class="btn" href="https://kurage.exbridge.jp/kuragev.php">動画一覧</a><a class="btn" href="https://kurage.exbridge.jp/kurage_knowledge.php">Knowledge</a></nav></div></header>
-<main>
-<section class="hero"><div class="wrap hero-grid"><div><div class="eyebrow"><span class="pulse"></span>Browser Game / Fortune Experience</div><h1>Kurageちゃんが、今日の迷いを3枚のカードでほどく。</h1><p class="lead">大アルカナ22枚を使い、過去・現在・未来をテンポよく読み解く無料ブラウザタロット。占い結果をSNSで共有でき、Kurageキャラクターの認知拡大にもつながる小さな体験型コンテンツです。</p><div class="cta-row"><a class="btn primary" href="https://kurage.exbridge.jp/ktarot/" target="_blank" rel="noopener">開く</a><a class="btn" href="https://kurage.exbridge.jp/">Kurageトップ</a></div><div class="tag-row"><span class="tag">Phaser 3</span><span class="tag">タロット占い</span><span class="tag">SNSシェア</span><span class="tag">Kurageキャラクター</span></div></div><div class="showcase"><div class="device"><div class="orb">✦</div><div><h2 style="margin:0 0 8px;font-size:26px;letter-spacing:-.02em">Kurage Tarot</h2><p style="margin:0;color:#557386;line-height:1.7;font-weight:700">Kurageちゃんタロット占い</p></div><div class="meter"><span></span></div><div class="mini"><div>AI / OSS</div><div>Kurage Series</div><div>Public LP</div><div>Share Ready</div></div></div></div></div></section>
-<section class="section"><div class="wrap"><h2>このプロジェクトでできること</h2><p class="section-lead">単なるリンク集ではなく、Kurageプロジェクト群の役割と価値が伝わるように整理した紹介ページです。</p><div class="cards"><article class="card"><b>3カードリーディング</b><p>過去・現在・未来の3枚を引き、恋愛・仕事・金運・総合のテーマごとに読み解きます。</p></article><article class="card"><b>ブラウザだけで遊べる</b><p>アプリ不要・登録不要。スマホでもPCでもすぐ開ける、軽量な静的ゲームです。</p></article><article class="card"><b>SNSで広がる導線</b><p>結果画像保存とX共有を前提に、遊んだあとに自然に広げられる設計です。</p></article></div></div></section>
-<section class="section"><div class="wrap"><h2>Kurageシリーズの中での位置づけ</h2><div class="flow"><div>1. アイデアを作る</div><div>2. AI/OSSで実装する</div><div>3. 動画・記事にする</div><div>4. SNSと検索に届ける</div></div></div></section>
-<section class="section"><div class="wrap"><div class="copy-box"><div><b>共有URL</b><br><code>https://kurage.exbridge.jp/ktarot.html</code></div><a class="btn primary" href="https://b.hatena.ne.jp/add?mode=confirm&url=https%3A%2F%2Fkurage.exbridge.jp%2Fktarot.html" target="_blank" rel="noopener">はてなブックマーク</a></div></div></section>
-</main>
-<footer class="footer"><div class="wrap"><span>© Exbridge / Kurage Project</span><span>AI, OSS, video, automation, and knowledge publishing.</span></div></footer>
+
+<header>
+  <a class="hbrand" href="https://kurage.exbridge.jp/">
+    <span class="orb"></span>
+    <span>Kurage<sub>AI Creator Series</sub></span>
+  </a>
+  <div style="display:flex;gap:10px">
+    <a class="btn btn-ghost" href="kclimbing.html">🪼 クライミングも遊ぶ</a>
+    <a class="btn btn-primary" href="ktarot/">占ってもらう →</a>
+  </div>
+</header>
+
+<!-- ===== HERO ===== -->
+<div class="hero">
+  <div>
+    <div class="eyebrow"><span class="dot"></span>無料・登録不要・スマホOK</div>
+    <h1>Kurageちゃん<br><em>タロット占い</em> 🔮</h1>
+    <p class="lead">
+      クラゲの女の子「Kurageちゃん」が、大アルカナ22枚から
+      あなたの「過去・現在・未来」を占ってくれるブラウザタロット。
+      カードをめくるたび、Kurageちゃんがやさしい言葉で読み解いてくれます。
+    </p>
+    <div class="hero-cta">
+      <a class="btn btn-primary btn-hero" href="ktarot/">🔮 いますぐ占ってもらう</a>
+    </div>
+    <div class="hero-meta">
+      <span>🃏 大アルカナ22枚</span>
+      <span>🪼 Kurageちゃんが解説</span>
+      <span>𝕏 結果をシェア</span>
+    </div>
+  </div>
+  <div class="shot-frame">
+    <a href="ktarot/"><img src="ktarot/assets/screenshot.png" alt="Kurageちゃんタロット占い プレイ画面"></a>
+  </div>
+</div>
+
+<!-- ===== HOW TO ===== -->
+<section>
+  <div class="section-eyebrow">How to play</div>
+  <h2>占いの流れ</h2>
+  <p class="section-lead">むずかしい操作はなし。カードを3枚選ぶだけです。</p>
+  <div class="steps">
+    <div class="step">
+      <span class="em">💗</span>
+      <div class="num">1</div>
+      <h3>占うテーマを選ぶ</h3>
+      <p>恋愛運・仕事運・金運・総合運の4つから、今日占いたいことを選びます</p>
+    </div>
+    <div class="step">
+      <span class="em">🃏</span>
+      <div class="num">2</div>
+      <h3>カードを3枚選ぶ</h3>
+      <p>シャッフルされたカードが扇状に並ぶので、直感で3枚タップ。過去・現在・未来のカードになります</p>
+    </div>
+    <div class="step">
+      <span class="em">🪼</span>
+      <div class="num">3</div>
+      <h3>Kurageちゃんが読み解く</h3>
+      <p>1枚ずつめくって、正位置・逆位置の意味をKurageちゃんがやさしく解説。最後にまとめのお告げ</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== THEMES ===== -->
+<section>
+  <div class="section-eyebrow">Themes</div>
+  <h2>占えるテーマ</h2>
+  <p class="section-lead">その日の気分で選んでください。何回でも無料です。</p>
+  <div class="themes">
+    <div class="theme"><span class="em">💗</span><h4>恋愛運</h4></div>
+    <div class="theme"><span class="em">💼</span><h4>仕事運</h4></div>
+    <div class="theme"><span class="em">💰</span><h4>金運</h4></div>
+    <div class="theme"><span class="em">🔮</span><h4>総合運</h4></div>
+  </div>
+</section>
+
+<!-- ===== CARDS ===== -->
+<section>
+  <div class="section-eyebrow">Major Arcana</div>
+  <h2>大アルカナ22枚、全部入り</h2>
+  <p class="section-lead">愚者から世界まで。それぞれに正位置・逆位置の意味をKurageちゃんの言葉で書き下ろしています。</p>
+  <div class="cards-wrap">
+    <div class="mini-card"><span class="em">🃏</span><div class="nm">愚者</div></div>
+    <div class="mini-card"><span class="em">🎩</span><div class="nm">魔術師</div></div>
+    <div class="mini-card"><span class="em">📖</span><div class="nm">女教皇</div></div>
+    <div class="mini-card"><span class="em">🌹</span><div class="nm">女帝</div></div>
+    <div class="mini-card"><span class="em">👑</span><div class="nm">皇帝</div></div>
+    <div class="mini-card"><span class="em">🙏</span><div class="nm">法王</div></div>
+    <div class="mini-card"><span class="em">💞</span><div class="nm">恋人</div></div>
+    <div class="mini-card"><span class="em">🏇</span><div class="nm">戦車</div></div>
+    <div class="mini-card"><span class="em">🦁</span><div class="nm">力</div></div>
+    <div class="mini-card"><span class="em">🏮</span><div class="nm">隠者</div></div>
+    <div class="mini-card"><span class="em">🎡</span><div class="nm">運命の輪</div></div>
+    <div class="mini-card"><span class="em">⚖️</span><div class="nm">正義</div></div>
+    <div class="mini-card"><span class="em">🙃</span><div class="nm">吊るされた男</div></div>
+    <div class="mini-card"><span class="em">🦴</span><div class="nm">死神</div></div>
+    <div class="mini-card"><span class="em">🫗</span><div class="nm">節制</div></div>
+    <div class="mini-card"><span class="em">😈</span><div class="nm">悪魔</div></div>
+    <div class="mini-card"><span class="em">🗼</span><div class="nm">塔</div></div>
+    <div class="mini-card"><span class="em">⭐</span><div class="nm">星</div></div>
+    <div class="mini-card"><span class="em">🌙</span><div class="nm">月</div></div>
+    <div class="mini-card"><span class="em">☀️</span><div class="nm">太陽</div></div>
+    <div class="mini-card"><span class="em">🎺</span><div class="nm">審判</div></div>
+    <div class="mini-card"><span class="em">🌏</span><div class="nm">世界</div></div>
+  </div>
+</section>
+
+<!-- ===== SHARE ===== -->
+<section>
+  <div class="section-eyebrow">Share</div>
+  <h2>お告げはシェアできる</h2>
+  <p class="section-lead">占い結果はそのままXにポストできます。</p>
+  <div class="share-grid">
+    <div class="share-card">
+      <span class="em">𝕏</span>
+      <h3>#Kurageタロット でポスト</h3>
+      <p>引いた3枚と正位置・逆位置がテキストになって、ワンタップでXの投稿画面へ。今日のお告げを友だちと見せ合おう。</p>
+    </div>
+    <div class="share-card">
+      <span class="em">📷</span>
+      <h3>結果画像も保存できる</h3>
+      <p>3枚のカードが並んだ結果画面を画像として保存できます。ポストに添付すれば、見た目もばっちり。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA ===== -->
+<div class="cta-section">
+  <h2>今日の運勢、聞いてみない？</h2>
+  <p>登録不要・無料。Kurageちゃんが待ってるよ。</p>
+  <a class="btn btn-cta-white" href="ktarot/">🔮 Kurageちゃんタロット占いで占う</a>
+</div>
+
+<footer>
+  <div class="footer-brand">© 2026 EXBRIDGE,Inc. — Kurage AI Creator Series</div>
+  <div class="footer-links">
+    <a href="ktarot/">タロット占い</a>
+    <a href="kclimbing.html">触手クライミング</a>
+    <a href="https://kurage.exbridge.jp/">Kurage トップ</a>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var s = document.createElement('script');
+  s.src = 'https://aiknowledgecms.exbridge.jp/simpletrack.php'
+        + '?url=' + encodeURIComponent(location.href)
+        + '&ref=' + encodeURIComponent(document.referrer);
+  document.head.appendChild(s);
+})();
+</script>
 </body>
 </html>
