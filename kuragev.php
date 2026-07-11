@@ -97,6 +97,7 @@ function job_tool_label($job_or_key) {
         'kmontage' => 'Kurage Montage',
         'entertainment' => 'Kurage Entertainment',
         'klofi' => 'Kurage Lo-Fi',
+        'kblender' => 'Kurage Blender',
     );
     return $labels[$key] ?? ($key !== '' ? $key : 'Kurage');
 }
