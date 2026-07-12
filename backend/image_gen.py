@@ -4,7 +4,7 @@ import base64
 import requests
 from pathlib import Path
 from config import ERNIE_URL
-from character_identity import CHARACTER_SEED, with_kurage_character
+from character_identity import CHARACTER_SEED, should_use_kurage_character, with_kurage_character
 
 
 def generate_image(prompt: str, output_path: Path, width: int = 384, height: int = 384) -> Path:
@@ -17,22 +17,29 @@ def generate_image(prompt: str, output_path: Path, width: int = 384, height: int
     Returns:
         Path to saved PNG file
     """
+    use_character = should_use_kurage_character(prompt)
     prompt = with_kurage_character(prompt)
+    negative_prompt = (
+        "horror, creepy, ghost, grotesque, gore, blood, bad anatomy, "
+        "blurry, low quality, dark horror, zombie, uncanny, watermark, text"
+    )
+    if use_character:
+        negative_prompt += (
+            ", different character, different hair color, long hair, blue eyes, "
+            "missing hair clips"
+        )
     payload = {
         "prompt": prompt,
-        "negative_prompt": (
-            "horror, creepy, ghost, grotesque, gore, blood, bad anatomy, "
-            "blurry, low quality, dark horror, zombie, uncanny, watermark, text, "
-            "different character, different hair color, long hair, blue eyes, missing hair clips"
-        ),
+        "negative_prompt": negative_prompt,
         "width": width,
         "height": height,
         "num_inference_steps": 4,
         "guidance_scale": 1.0,
         "use_pe": False,
-        "seed": CHARACTER_SEED,
         "output_format": "png",
     }
+    if use_character:
+        payload["seed"] = CHARACTER_SEED
 
     resp = requests.post(
         ERNIE_URL,
