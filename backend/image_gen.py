@@ -4,6 +4,7 @@ import base64
 import requests
 from pathlib import Path
 from config import ERNIE_URL
+from character_identity import CHARACTER_SEED, with_kurage_character
 
 
 def generate_image(prompt: str, output_path: Path, width: int = 384, height: int = 384) -> Path:
@@ -16,17 +17,20 @@ def generate_image(prompt: str, output_path: Path, width: int = 384, height: int
     Returns:
         Path to saved PNG file
     """
+    prompt = with_kurage_character(prompt)
     payload = {
         "prompt": prompt,
         "negative_prompt": (
             "horror, creepy, ghost, grotesque, gore, blood, bad anatomy, "
-            "blurry, low quality, dark horror, zombie, uncanny, watermark, text"
+            "blurry, low quality, dark horror, zombie, uncanny, watermark, text, "
+            "different character, different hair color, long hair, blue eyes, missing hair clips"
         ),
         "width": width,
         "height": height,
         "num_inference_steps": 4,
         "guidance_scale": 1.0,
         "use_pe": False,
+        "seed": CHARACTER_SEED,
         "output_format": "png",
     }
 

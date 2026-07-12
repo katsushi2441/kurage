@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from config import NVM_NODE, HYPERFRAMES_VERSION, ROOT
+from config import NVM_NODE, HYPERFRAMES_VERSION, ROOT, COMMERCIAL_OUTRO_ENABLED, COMMERCIAL_OUTRO_FILE
 from tts_gen import generate_scene_narration_audio
 
 
@@ -1078,6 +1078,36 @@ def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0, t
     return output_path
 
 
+def append_commercial_outro(video_path: Path) -> Path:
+    """Append the canonical Kurage FreqAI Trade commercial to a rendered video."""
+    if not COMMERCIAL_OUTRO_ENABLED or not COMMERCIAL_OUTRO_FILE.is_file():
+        if COMMERCIAL_OUTRO_ENABLED:
+            print(f"  [commercial] skipped; asset not found: {COMMERCIAL_OUTRO_FILE}", flush=True)
+        return video_path
+
+    merged = video_path.with_name(f"{video_path.stem}.commercial.mp4")
+    cmd = [
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", str(video_path), "-i", str(COMMERCIAL_OUTRO_FILE),
+        "-filter_complex",
+        "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,"
+        "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=#f7fbf8,fps=30,setsar=1[v0];"
+        "[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,"
+        "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=#f7fbf8,fps=30,setsar=1[v1];"
+        "[0:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a0];"
+        "[1:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a1];"
+        "[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]",
+        "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "medium",
+        "-crf", "20", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(merged),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=1800)
+    if result.returncode != 0 or not merged.is_file() or merged.stat().st_size == 0:
+        raise RuntimeError(f"commercial outro concat failed: {result.stderr[-1200:]}")
+    merged.replace(video_path)
+    print(f"  [commercial] appended Kurage FreqAI Trade: {COMMERCIAL_OUTRO_FILE.name}", flush=True)
+    return video_path
+
+
 def generate_video(script: dict, image_paths: list[Path], job_dir: Path, vtuber_mode: bool = False,
                    edl: dict | None = None) -> Path:
     """Full video generation pipeline: project setup + render.
@@ -1090,6 +1120,7 @@ def generate_video(script: dict, image_paths: list[Path], job_dir: Path, vtuber_
     print(f"  [video] HyperFrames project: {project_dir}", flush=True)
     render_video(project_dir, output_path)
     print(f"  [video] Rendered: {output_path} ({output_path.stat().st_size} bytes)", flush=True)
+    append_commercial_outro(output_path)
     thumb_path = generate_thumbnail(output_path, job_dir / "thumbnail.jpg", title=script.get("title"))
     print(f"  [video] Thumbnail: {thumb_path} ({thumb_path.stat().st_size} bytes)", flush=True)
     return output_path

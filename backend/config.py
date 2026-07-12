@@ -18,4 +18,10 @@ WAN_TEST_MODE = os.environ.get("WAN_TEST_MODE", "1")
 NVM_NODE = os.environ.get("NVM_NODE", "/home/kojima/.nvm/versions/node/v22.22.3/bin")
 HYPERFRAMES_VERSION = "0.4.44"
 
+COMMERCIAL_OUTRO_ENABLED = os.environ.get("KURAGE_COMMERCIAL_OUTRO_ENABLED", "1").lower() not in {"0", "false", "no", "off"}
+COMMERCIAL_OUTRO_FILE = Path(os.environ.get(
+    "KURAGE_COMMERCIAL_OUTRO_FILE",
+    str(ROOT / "assets" / "commercials" / "kfreqai-trade-short.mp4"),
+))
+
 PORT = int(os.environ.get("KURAGE_PORT", "18303"))
