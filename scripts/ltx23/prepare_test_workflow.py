@@ -32,6 +32,10 @@ def main() -> None:
     parser.add_argument("destination", type=Path)
     parser.add_argument("--prompt-file", type=Path)
     parser.add_argument("--filename-prefix", default="ltx23_kurage_test")
+    parser.add_argument("--input-image", default="kurage_bishoujo_idle.png")
+    parser.add_argument("--duration-seconds", type=int, default=3)
+    parser.add_argument("--width", type=int, default=480)
+    parser.add_argument("--height", type=int, default=832)
     args = parser.parse_args()
 
     workflow = json.loads(args.source.read_text(encoding="utf-8"))
@@ -42,6 +46,11 @@ def main() -> None:
 
     for node_id, widgets in NODE_WIDGETS.items():
         nodes[node_id]["widgets_values"] = widgets
+
+    nodes[167]["widgets_values"] = [args.input_image, "image"]
+    nodes[291]["widgets_values"] = [max(1, args.duration_seconds)]
+    nodes[292]["widgets_values"] = [max(64, args.width)]
+    nodes[293]["widgets_values"] = [max(64, args.height)]
 
     if args.prompt_file:
         prompt = args.prompt_file.read_text(encoding="utf-8").strip()

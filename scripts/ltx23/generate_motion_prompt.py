@@ -33,6 +33,7 @@ def main() -> None:
         {
             "model": args.model,
             "stream": False,
+            "think": False,
             "prompt": f"{SYSTEM_PROMPT}\n\nBrief: {args.brief}",
         }
     ).encode("utf-8")
