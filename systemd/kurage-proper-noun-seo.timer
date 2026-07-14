@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Kurage proper-noun SEO generator every 2 hours
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=2h
+Unit=kurage-proper-noun-seo.service
+
+[Install]
+WantedBy=timers.target

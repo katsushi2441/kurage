@@ -1,0 +1,9 @@
+[Unit]
+Description=Kurage proper-noun SEO metadata generator (recent done jobs)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/kojima/work/kurage
+ExecStart=/usr/bin/python3 /home/kojima/work/kurage/scripts/proper_noun_seo.py --recent 30
+TimeoutStartSec=1800
