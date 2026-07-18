@@ -11,7 +11,7 @@ import urllib.request
 from config import JOBS_DIR
 from tweet_fetch import fetch_tweet
 from script_gen import generate_script, generate_news_script, generate_blog_script, generate_entertainment_short_script
-from image_gen import generate_scene_images, generate_image
+from image_gen import generate_scene_images, generate_image, generate_or_reuse_image
 from video_gen import generate_video, generate_thumbnail
 from video_styles import apply_video_style, resolve_video_style
 from static_media import publish_static_media
@@ -310,8 +310,15 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
             print(f"  [script image] scene {idx}: {prompt[:60]}...", flush=True)
             if idx > 0:
                 time.sleep(3)
-            path = generate_image(prompt, out)
+            path = generate_or_reuse_image(prompt, out)
             image_paths.append(path)
+            update_job(
+                job_id,
+                status="imaging",
+                progress=min(69, 35 + round(34 * len(image_paths) / max(1, len(scenes)))),
+                image_count=len(image_paths),
+                current_scene=idx,
+            )
         update_job(job_id, image_count=len(image_paths))
 
         # WAN opening generation is disabled by default. Use only when explicitly
