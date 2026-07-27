@@ -198,7 +198,7 @@ $page_desc = 'Kurageさんに学びたいことを聞くと、テーマ別に整
 <meta property="og:type" content="website">
 <meta property="og:title" content="<?php echo h($page_title); ?>">
 <meta property="og:description" content="<?php echo h($page_desc); ?>">
-<meta property="og:image" content="<?php echo h($BASE_URL); ?>/avatar/lipsync/kurage_mouth_0.png">
+<meta property="og:image" content="<?php echo h($BASE_URL); ?>/images/kurage_avatar_face.webp">
 <meta property="og:url" content="<?php echo h($BASE_URL); ?>/kurage_knowledge.php">
 <style>
 :root{--ink:#17324d;--muted:#66839a;--sea:#55c7da;--line:#cbeef4;--accent:#2aa8c7;--accent2:#1e8fa8;--soft:#eef9fc;--paper:rgba(255,255,255,.92)}
@@ -307,7 +307,7 @@ footer{border-top:1px solid var(--line);background:rgba(255,255,255,.72);padding
     </div>
   </div>
   <div class="editor-card">
-    <span class="kurage-avatar-stage kurage-avatar-editor" role="img" aria-label="Kurage editor"><span class="kurage-avatar-motion"><span class="kurage-avatar-breath"><img class="kurage-avatar-frame kurage-avatar-frame-0" src="avatar/lipsync/kurage_mouth_0.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-1" src="avatar/lipsync/kurage_mouth_1.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-2" src="avatar/lipsync/kurage_mouth_2.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-3" src="avatar/lipsync/kurage_mouth_3.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-4" src="avatar/lipsync/kurage_mouth_4.png" alt=""></span></span></span>
+    <span class="kurage-avatar-stage kurage-avatar-editor" role="img" aria-label="Kurage editor"><img class="kurage-avatar-still" src="images/kurage_avatar_face.webp" alt=""></span>
     <h2>Kurageが編集します</h2>
     <p>新しい動画が増えるたびに、テーマ分類と要約を更新。動画単体では見えにくい知識のつながりを案内します。</p>
   </div>
@@ -316,7 +316,7 @@ footer{border-top:1px solid var(--line);background:rgba(255,255,255,.72);padding
 <section class="ask-card" aria-labelledby="ask-title">
   <div class="ask-inner">
     <div class="ask-avatar" aria-hidden="true">
-      <span class="kurage-avatar-stage" role="img" aria-label="Kurage"><span class="kurage-avatar-motion"><span class="kurage-avatar-breath"><img class="kurage-avatar-frame kurage-avatar-frame-0" src="avatar/lipsync/kurage_mouth_0.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-1" src="avatar/lipsync/kurage_mouth_1.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-2" src="avatar/lipsync/kurage_mouth_2.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-3" src="avatar/lipsync/kurage_mouth_3.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-4" src="avatar/lipsync/kurage_mouth_4.png" alt=""></span></span></span>
+      <span class="kurage-avatar-stage" role="img" aria-label="Kurage"><img class="kurage-avatar-still" src="images/kurage_avatar_face.webp" alt=""></span>
     </div>
     <div>
       <div class="ask-label">教えて！Kurageさん</div>

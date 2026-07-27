@@ -189,7 +189,7 @@ if ($detail_job) {
     $page_title = $SITE_NAME;
     $page_desc  = 'Horizonが収集したニュースをAIが縦型ショート動画に自動生成。毎日更新。';
     $page_url   = $BASE_URL . '/' . $THIS_FILE;
-    $page_image = $BASE_URL . '/avatar/lipsync/kurage_mouth_0.png';
+    $page_image = $BASE_URL . '/images/kurage_avatar_face.webp';
     $page_video = '';
 }
 ?><!DOCTYPE html>
@@ -354,7 +354,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 <!-- ── ヘッダー ── -->
 <header class="header">
   <div class="brand">
-    <span class="kurage-avatar-stage kurage-avatar-mini" role="img" aria-label="Kurage avatar"><span class="kurage-avatar-motion"><span class="kurage-avatar-breath"><img class="kurage-avatar-frame kurage-avatar-frame-0" src="avatar/lipsync/kurage_mouth_0.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-1" src="avatar/lipsync/kurage_mouth_1.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-2" src="avatar/lipsync/kurage_mouth_2.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-3" src="avatar/lipsync/kurage_mouth_3.png" alt=""><img class="kurage-avatar-frame kurage-avatar-frame-4" src="avatar/lipsync/kurage_mouth_4.png" alt=""></span></span></span>
+    <span class="kurage-avatar-stage kurage-avatar-mini" role="img" aria-label="Kurage avatar"><img class="kurage-avatar-still" src="images/kurage_avatar_face.webp" alt=""></span>
     <a class="brand-logo" href="horizonv.php">
       <span>Kurageプロジェクト</span>
       <span class="brand-sub">Horizon-AI生成ニュース動画</span>
