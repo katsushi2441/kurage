@@ -607,7 +607,8 @@ function kurl2earn_card_html($detail = false) {
         ? 'この動画ページのURLをXやブログで紹介すると'
         : 'Kurageの動画やサイトのURLをXやブログで紹介すると';
     return '<a class="k2e-card" href="https://kurl2earn.exbridge.jp/kurl2earn.html?ref=kuragev">'
-         . '<span class="k2e-jelly">🪼</span><span class="k2e-tx"><b>Kurage URL2Earn</b> — '
+         . '<img class="k2e-kurage" src="images/kurage_avatar.webp" alt="Kurage" loading="lazy">'
+         . '<span class="k2e-tx"><b>Kurage URL2Earn</b> — '
          . h($lead) . '、<b>10,000 URLAI</b> トークンをKurageさんがお届け（1人1回・先着制）。'
          . '<span class="k2e-cta">受け取り方を見る →</span></span></a>';
 }
@@ -798,7 +799,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 .detail-url-box{background:#f7f7f7;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#555;word-break:break-all;}
 .k2e-card{display:flex;align-items:center;gap:14px;margin:16px 0;padding:16px 20px;background:linear-gradient(135deg,#071228,#0d4a55);border-radius:14px;color:#eaf6fb;text-decoration:none;font-size:13.5px;line-height:1.75;box-shadow:0 6px 20px rgba(13,74,85,.25);transition:transform .15s, box-shadow .15s;}
 .k2e-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(13,74,85,.35);}
-.k2e-card .k2e-jelly{font-size:30px;flex:0 0 auto;filter:drop-shadow(0 0 8px rgba(79,227,242,.6));}
+.k2e-card .k2e-kurage{height:64px;width:auto;flex:0 0 auto;filter:drop-shadow(0 0 10px rgba(79,227,242,.55));}
 .k2e-card b{color:#ffcf5e;}
 .k2e-card .k2e-cta{display:inline-block;margin-left:6px;color:#4fe3f2;font-weight:700;white-space:nowrap;}
 .detail-url-box a{color:#007f96;}
