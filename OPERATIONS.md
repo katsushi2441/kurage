@@ -60,6 +60,17 @@ kdeck.phpでスマホから作業するときも同じ。YouTube投稿ツール�
 
 古い `kvtuber-youtube-shorts-upload-watcher.service` は二重投稿防止のため使わない。
 
+`invalid_grant`（refresh token失効）を検出すると、workerは別候補への投稿を繰り返さず
+`youtube-reauth-required` を返す。`node scripts/watch-kurage-shorts-upload.mjs status`
+で `youtubeAuth.required` を確認し、次の手順で再認証する。
+
+```bash
+cd /home/kojima/work/airadio-scripted-mv
+python3 tools/youtube/youtube_auth_paste.py
+```
+
+認証後はtokenの更新時刻を自動検出するため、状態ファイルを手で変更せず再実行できる。
+
 ## Kurage と Horizon の使い分け
 
 ユーザーが「Kurageで生成して」と言った場合は、`kurage.php` の通常生成ルートを使う。

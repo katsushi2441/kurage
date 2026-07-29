@@ -213,6 +213,41 @@ function readState() {
   };
 }
 
+function youtubeTokenPath() {
+  const uploadCwd = stringEnv('YOUTUBE_UPLOAD_CWD', DEFAULT_UPLOAD_CWD);
+  return stringEnv('YOUTUBE_TOKEN_PATH', join(uploadCwd, 'storage/youtube/token.json'));
+}
+
+function isYoutubeReauthError(error) {
+  const message = String(error instanceof Error ? error.message : error);
+  return /invalid_grant|token has been expired or revoked|credentials are invalid/i.test(message);
+}
+
+function youtubeAuthStatus(state) {
+  const tokenPath = youtubeTokenPath();
+  const tokenModifiedAtMs = existsSync(tokenPath) ? statSync(tokenPath).mtimeMs : 0;
+  const authFailure = [...(state.failures || [])]
+    .reverse()
+    .find((failure) => isYoutubeReauthError(failure?.error || ''));
+  const failedAtMs = Date.parse(authFailure?.failedAt || '') || 0;
+  const required = !existsSync(tokenPath) || Boolean(authFailure && failedAtMs >= tokenModifiedAtMs);
+  return {
+    required,
+    reason: !existsSync(tokenPath)
+      ? 'token-not-found'
+      : required
+        ? 'token-expired-or-revoked'
+        : 'ready',
+    tokenPath,
+    tokenModifiedAt: tokenModifiedAtMs ? new Date(tokenModifiedAtMs).toISOString() : null,
+    detectedAt: authFailure?.failedAt || null,
+    failedJobId: authFailure?.jobId || null,
+    recoveryCommand: required
+      ? 'cd /home/kojima/work/airadio-scripted-mv && python3 tools/youtube/youtube_auth_paste.py'
+      : null,
+  };
+}
+
 function uploadRecords(state) {
   return state.uploads.filter((item) => item && item.uploadedAt);
 }
@@ -471,7 +506,7 @@ async function announceUpload(item, upload) {
 function uploadToYoutube(item) {
   const uploadTool = stringEnv('YOUTUBE_UPLOAD_TOOL', DEFAULT_UPLOAD_TOOL);
   const uploadCwd = stringEnv('YOUTUBE_UPLOAD_CWD', DEFAULT_UPLOAD_CWD);
-  const tokenPath = stringEnv('YOUTUBE_TOKEN_PATH', join(uploadCwd, 'storage/youtube/token.json'));
+  const tokenPath = youtubeTokenPath();
   const outDir = join(uploadCwd, 'storage/youtube');
   mkdirSync(outDir, { recursive: true });
   const jsonOut = join(outDir, `kurage_auto_${item.jobId}_shorts_response.json`);
@@ -617,6 +652,16 @@ function nextCandidate(state) {
 
 async function runOnce(options = {}) {
   let state = readState();
+  const youtubeAuth = youtubeAuthStatus(state);
+  if (youtubeAuth.required) {
+    log('YouTube authentication must be renewed before upload', youtubeAuth);
+    return {
+      ok: false,
+      uploaded: false,
+      reason: 'youtube-reauth-required',
+      youtubeAuth,
+    };
+  }
   const policy = policyStatus(state);
   const candidates = loadCandidates(numberEnv('KURAGE_SHORTS_UPLOAD_CANDIDATE_LIMIT', 50));
   if (!policy.allowed && !options.force) {
@@ -686,6 +731,7 @@ function status() {
         pid,
         running: isPidAlive(pid),
         policy: policyStatus(state),
+        youtubeAuth: youtubeAuthStatus(state),
         uploadedCount: state.uploads.length,
         failureCount: state.failures.length,
         announcement: {

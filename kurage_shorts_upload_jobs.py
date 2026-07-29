@@ -70,6 +70,8 @@ def run_kurage_shorts_upload_job(force: bool = False, **kwargs: Any) -> dict[str
         "source": str(kwargs.get("source") or "rqdb4ai"),
         "youtube_url": parsed.get("youtubeUrl") or "",
         "reason": parsed.get("reason") or "",
+        "auth_required": bool((parsed.get("youtubeAuth") or {}).get("required")),
+        "recovery_command": (parsed.get("youtubeAuth") or {}).get("recoveryCommand") or "",
         "result": parsed,
     }
     if proc.stderr.strip():
