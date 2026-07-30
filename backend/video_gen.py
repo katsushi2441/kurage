@@ -8,7 +8,11 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from config import NVM_NODE, HYPERFRAMES_VERSION, ROOT, COMMERCIAL_OUTRO_ENABLED, COMMERCIAL_OUTRO_FILE
+from config import (
+    NVM_NODE, HYPERFRAMES_VERSION, ROOT,
+    COMMERCIAL_OUTRO_ENABLED, COMMERCIAL_OUTRO_FILE,
+    CHANNEL_OUTRO_ENABLED, CHANNEL_OUTRO_FILE,
+)
 from tts_gen import generate_scene_narration_audio
 
 
@@ -1079,24 +1083,40 @@ def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0, t
 
 
 def append_commercial_outro(video_path: Path) -> Path:
-    """Append the canonical Kurage FreqAI Trade commercial to a rendered video."""
-    if not COMMERCIAL_OUTRO_ENABLED or not COMMERCIAL_OUTRO_FILE.is_file():
-        if COMMERCIAL_OUTRO_ENABLED:
-            print(f"  [commercial] skipped; asset not found: {COMMERCIAL_OUTRO_FILE}", flush=True)
+    """Append the canonical outros: Kurage FreqAI Trade commercial, then the channel outro."""
+    outros: list[Path] = []
+    for enabled, outro_file in (
+        (COMMERCIAL_OUTRO_ENABLED, COMMERCIAL_OUTRO_FILE),
+        (CHANNEL_OUTRO_ENABLED, CHANNEL_OUTRO_FILE),
+    ):
+        if not enabled:
+            continue
+        if not outro_file.is_file():
+            print(f"  [commercial] skipped; asset not found: {outro_file}", flush=True)
+            continue
+        outros.append(outro_file)
+    if not outros:
         return video_path
 
     merged = video_path.with_name(f"{video_path.stem}.commercial.mp4")
-    cmd = [
-        "ffmpeg", "-y", "-loglevel", "error",
-        "-i", str(video_path), "-i", str(COMMERCIAL_OUTRO_FILE),
+    inputs = [video_path, *outros]
+    cmd = ["ffmpeg", "-y", "-loglevel", "error"]
+    for input_file in inputs:
+        cmd += ["-i", str(input_file)]
+    filters = []
+    concat_refs = ""
+    for i in range(len(inputs)):
+        filters.append(
+            f"[{i}:v]scale=1080:1920:force_original_aspect_ratio=decrease,"
+            f"pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=#f7fbf8,fps=30,setsar=1[v{i}]"
+        )
+        filters.append(
+            f"[{i}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a{i}]"
+        )
+        concat_refs += f"[v{i}][a{i}]"
+    cmd += [
         "-filter_complex",
-        "[0:v]scale=1080:1920:force_original_aspect_ratio=decrease,"
-        "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=#f7fbf8,fps=30,setsar=1[v0];"
-        "[1:v]scale=1080:1920:force_original_aspect_ratio=decrease,"
-        "pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=#f7fbf8,fps=30,setsar=1[v1];"
-        "[0:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a0];"
-        "[1:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a1];"
-        "[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]",
+        ";".join(filters) + f";{concat_refs}concat=n={len(inputs)}:v=1:a=1[v][a]",
         "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset", "medium",
         "-crf", "20", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(merged),
     ]
@@ -1104,7 +1124,7 @@ def append_commercial_outro(video_path: Path) -> Path:
     if result.returncode != 0 or not merged.is_file() or merged.stat().st_size == 0:
         raise RuntimeError(f"commercial outro concat failed: {result.stderr[-1200:]}")
     merged.replace(video_path)
-    print(f"  [commercial] appended Kurage FreqAI Trade: {COMMERCIAL_OUTRO_FILE.name}", flush=True)
+    print(f"  [commercial] appended outros: {', '.join(o.name for o in outros)}", flush=True)
     return video_path
 
 

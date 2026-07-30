@@ -24,4 +24,11 @@ COMMERCIAL_OUTRO_FILE = Path(os.environ.get(
     str(ROOT / "assets" / "commercials" / "kfreqai-trade-short.mp4"),
 ))
 
+# Channel outro (高評価・チャンネル登録), appended after the commercial
+CHANNEL_OUTRO_ENABLED = os.environ.get("KURAGE_CHANNEL_OUTRO_ENABLED", "1").lower() not in {"0", "false", "no", "off"}
+CHANNEL_OUTRO_FILE = Path(os.environ.get(
+    "KURAGE_CHANNEL_OUTRO_FILE",
+    str(ROOT / "assets" / "commercials" / "kurage_shorts_outro.mp4"),
+))
+
 PORT = int(os.environ.get("KURAGE_PORT", "18303"))
