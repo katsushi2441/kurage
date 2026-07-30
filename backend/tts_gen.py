@@ -12,6 +12,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from tts_normalizer import normalize_tts_text as normalize_text_for_tts, numerals_to_jp
+from tts_reading import to_reading_text
 
 ROOT = Path(__file__).resolve().parents[1]
 TTS_VOICE = "ja-JP-NanamiNeural"
@@ -32,6 +33,11 @@ VOICEBOX_RETRY_ATTEMPTS = int(os.environ.get("VOICEBOX_RETRY_ATTEMPTS", "2"))
 VOICEBOX_USE_RQDB4AI = os.environ.get("VOICEBOX_USE_RQDB4AI", "1").lower() not in {"0", "false", "no", "off"}
 VOICEBOX_RQDB4AI_QUEUE_CLASS = os.environ.get("VOICEBOX_RQDB4AI_QUEUE_CLASS", "web")
 VOICEBOX_DIRECT_FALLBACK = os.environ.get("VOICEBOX_DIRECT_FALLBACK", "0").lower() not in {"0", "false", "no", "off"}
+# kurage話者TTSの主エンジン。audio8=ローカルAudio8サービス(:18350)を先に使い、
+# 失敗時のみVoiceboxへフォールバック。"voicebox"で従来動作に戻る。
+KURAGE_TTS_PRIMARY = os.environ.get("KURAGE_TTS_PRIMARY", "audio8").strip().lower()
+AUDIO8_API = os.environ.get("AUDIO8_API", "http://127.0.0.1:18350").rstrip("/")
+AUDIO8_TIMEOUT = int(os.environ.get("AUDIO8_TIMEOUT", "300"))
 
 
 def prepare_prosody_text(text: str) -> str:
@@ -97,6 +103,55 @@ def run_edge_tts(text: str, output_path: Path) -> float:
     duration = get_audio_duration(output_path)
     print(f"  [tts] {output_path.name} ({duration:.1f}s)", flush=True)
     return duration
+
+
+def run_audio8_tts(text: str, output_path: Path) -> float:
+    """Audio8 (kurage話者クローン, ローカル:18350) TTS。失敗時は0.0を返す."""
+    import requests
+
+    text = prepare_prosody_text(text)
+    if not text:
+        return 0.0
+    print(f"  [tts] generating (audio8): {text[:60]}...", flush=True)
+    try:
+        response = requests.post(f"{AUDIO8_API}/tts", json={"text": text}, timeout=AUDIO8_TIMEOUT)
+        response.raise_for_status()
+    except Exception as exc:
+        print(f"  [tts] audio8 failed: {exc}", flush=True)
+        return 0.0
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile(suffix=".wav", dir=str(output_path.parent), delete=False) as tmp:
+        tmp.write(response.content)
+        tmp_path = Path(tmp.name)
+    try:
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-i", str(tmp_path), "-codec:a", "libmp3lame", "-q:a", "2",
+                str(output_path),
+            ],
+            check=True,
+        )
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    if not output_path.exists():
+        print("  [tts] audio8 failed: output not created", flush=True)
+        return 0.0
+    duration = get_audio_duration(output_path)
+    print(f"  [tts] {output_path.name} ({duration:.1f}s, audio8)", flush=True)
+    return duration
+
+
+def run_cloned_tts(text: str, output_path: Path) -> float:
+    """kurage話者TTS: Audio8を主、Voiceboxをフォールバックに使う."""
+    if KURAGE_TTS_PRIMARY == "audio8":
+        duration = run_audio8_tts(text, output_path)
+        if duration > 0:
+            return duration
+        print("  [tts] audio8 failed; falling back to voicebox", flush=True)
+    return run_voicebox_tts(text, output_path)
 
 
 def run_voicebox_tts(text: str, output_path: Path) -> float:
@@ -393,7 +448,9 @@ def generate_scene_narration_audio(scenes: list[dict], project_dir: Path) -> flo
         return generate_scene_narration_audio_voicebox(scenes, project_dir)
 
     narration_text = "\n".join(
-        prepare_prosody_text(scene.get("narration", "")) for scene in scenes if scene.get("narration")
+        prepare_prosody_text(to_reading_text(scene.get("narration", "")))
+        for scene in scenes
+        if scene.get("narration")
     )
     if not narration_text.strip():
         return 0.0
@@ -420,7 +477,11 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
             text = str(scene.get("narration") or "").strip()
             if not text:
                 continue
-            scene_chunks = split_voicebox_scene_text(text)
+            # TTSにだけ読み台本(固有名詞・数字をカナに開いたもの)を渡す。字幕は元テキストのまま
+            reading_text = to_reading_text(text)
+            if reading_text != text:
+                scene["tts_reading"] = reading_text
+            scene_chunks = split_voicebox_scene_text(reading_text)
             scene_part_paths: list[Path] = []
             duration = 0.0
             for chunk_index, chunk in enumerate(scene_chunks):
@@ -430,7 +491,7 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
                 max_chunk_duration = max_expected_tts_duration(chunk)
                 for attempt in range(1, max(1, VOICEBOX_RETRY_ATTEMPTS) + 1):
                     part_path.unlink(missing_ok=True)
-                    chunk_duration = run_voicebox_tts(chunk, part_path)
+                    chunk_duration = run_cloned_tts(chunk, part_path)
                     if 0 < chunk_duration <= max_chunk_duration:
                         break
                     if chunk_duration <= 0 and attempt < max(1, VOICEBOX_RETRY_ATTEMPTS):
@@ -452,12 +513,12 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
                             wait_voicebox_server_ready()
                 if chunk_duration <= 0:
                     raise RuntimeError(
-                        f"Voicebox TTS failed for scene {i} chunk {chunk_index}; "
+                        f"TTS (audio8+voicebox) failed for scene {i} chunk {chunk_index}; "
                         "aborting instead of creating a mixed/fallback voice video"
                     )
                 if chunk_duration > max_chunk_duration:
                     raise RuntimeError(
-                        f"Voicebox TTS output is too long for scene {i} chunk {chunk_index}: "
+                        f"TTS output is too long for scene {i} chunk {chunk_index}: "
                         f"{chunk_duration:.1f}s for {len(chunk)} chars (maximum {max_chunk_duration:.1f}s)"
                     )
                 duration += chunk_duration
@@ -467,13 +528,13 @@ def generate_scene_narration_audio_voicebox(scenes: list[dict], project_dir: Pat
             min_duration = max(1.2 if len(text) <= 24 else 2.5, len(text) / 18.0)
             if duration < min_duration:
                 raise RuntimeError(
-                    f"Voicebox TTS output is too short for scene {i}: "
+                    f"TTS output is too short for scene {i}: "
                     f"{duration:.1f}s for {len(text)} chars (minimum {min_duration:.1f}s)"
                 )
             max_duration = max_expected_tts_duration(text)
             if duration > max_duration:
                 raise RuntimeError(
-                    f"Voicebox TTS output is too long for scene {i}: "
+                    f"TTS output is too long for scene {i}: "
                     f"{duration:.1f}s for {len(text)} chars (maximum {max_duration:.1f}s)"
                 )
             # シーン実測秒をスクリプトに記録(video_gen.compute_scene_timingが
