@@ -297,6 +297,12 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
         print(f"[{job_id}] provided script: {script.get('title')} ({len(script.get('scenes', []))} scenes)", flush=True)
 
         scenes = script.get("scenes") or []
+        # kmontage系(標準/news)の絵の単調さ対策: プロンプトだけにスタイル+構図を
+        # 前置する(枚数/解像度/ステップ不変)。対象sourceを限定し他フローは従来通り。
+        _src = str(request.get("source") or "kmontage")
+        if _src.startswith("kmontage"):
+            from visual_styles import apply_visual_variety
+            scenes = apply_visual_variety(scenes, _src, job_id, source_title)
         assets_dir = job_dir / "assets"
         assets_dir.mkdir(parents=True, exist_ok=True)
 
@@ -511,6 +517,11 @@ def run_pipeline_from_entertainment_short(job_id: str, article: dict, vtuber_mod
         scenes = script.get("scenes") or []
         assets_dir = job_dir / "assets"
         assets_dir.mkdir(parents=True, exist_ok=True)
+
+        # entertainment(1日120本規模)の絵の単調さ対策。スタイルは日替わりにして
+        # 同日内のプロンプトキャッシュヒットを維持する(=GPU負荷を増やさない)。
+        from visual_styles import apply_visual_variety
+        scenes = apply_visual_variety(scenes, "entertainment", job_id, str(script.get("title") or ""))
 
         update_job(job_id, status="imaging", progress=40)
         image_paths = []
