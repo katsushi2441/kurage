@@ -4,6 +4,10 @@
 辞書ベースのtts_normalizer(既知の製品名など)を補完し、任意の固有名詞・
 数字・英略語の読み間違いを減らす。変換結果が検証を通らない場合は
 必ず元テキストを返す(フェイルセーフ。読み台本で動画を壊さない)。
+
+LLMによる全文変換は、読み以外の語を誤変換したり英字・中国字を混入することが
+あるため、標準では無効。通常はtts_normalizerの決定的な辞書・数値変換を使い、
+明示的な検証時だけKURAGE_TTS_READING_ENABLED=1で有効にする。
 """
 from __future__ import annotations
 
@@ -14,7 +18,7 @@ import requests
 
 from config import OLLAMA_URL, OLLAMA_MODEL
 
-READING_ENABLED = os.environ.get("KURAGE_TTS_READING_ENABLED", "1").lower() not in {"0", "false", "no", "off"}
+READING_ENABLED = os.environ.get("KURAGE_TTS_READING_ENABLED", "0").lower() not in {"0", "false", "no", "off"}
 READING_TIMEOUT = int(os.environ.get("KURAGE_TTS_READING_TIMEOUT", "120"))
 
 _PROMPT = """あなたは日本語TTSの読み上げ原稿を作る変換器です。次の文を、TTSが読み間違えないように変換してください。
