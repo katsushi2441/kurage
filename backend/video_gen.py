@@ -401,6 +401,8 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
 <body{body_class}>
   <div id="composition"
        data-composition-id="main"
+       data-start="0"
+       data-duration="{total_dur:.2f}"
        data-width="576"
        data-height="1024">
 
@@ -544,7 +546,127 @@ V2_CSS = """
 """
 
 
-def _v2_chunk_html(scene_index: int, chunk_index: int, chunk: dict, marker_phrase: str) -> list[str]:
+WHITE_STUDIO_CM_CSS = """
+    body.telop-white-studio-cm,
+    body.telop-white-studio-cm #composition {
+      background: #f7fbf8;
+      color: #143844;
+    }
+    body.telop-white-studio-cm .scene-bg {
+      filter: saturate(0.88) brightness(1.04) contrast(0.94);
+    }
+    body.telop-white-studio-cm .scene::after {
+      background:
+        linear-gradient(180deg, rgba(247,251,248,0.92) 0%, rgba(247,251,248,0.64) 27%,
+                        rgba(247,251,248,0.08) 54%, rgba(247,251,248,0.55) 76%,
+                        rgba(247,251,248,0.92) 100%) !important;
+    }
+    .cm-frame {
+      position: absolute; inset: 20px; z-index: 3; pointer-events: none;
+      border: 1px solid rgba(22,175,196,0.26);
+    }
+    .cm-frame::before, .cm-frame::after {
+      content: ""; position: absolute; width: 34px; height: 4px; background: #f6b73c;
+    }
+    .cm-frame::before { left: -1px; top: -2px; }
+    .cm-frame::after { right: -1px; bottom: -2px; }
+    .cm-copy {
+      position: absolute; z-index: 6; top: 78px; left: 36px; right: 34px;
+      color: #143844; pointer-events: none;
+    }
+    .cm-eyebrow {
+      font-family: "Montserrat", "Noto Sans CJK JP", sans-serif;
+      font-size: 12px; line-height: 1.2; font-weight: 800; letter-spacing: 0.18em;
+      color: #16afc4; text-transform: uppercase; opacity: 0;
+    }
+    .cm-headline {
+      max-width: 490px; margin-top: 11px; font-size: 42px; line-height: 1.12;
+      font-weight: 900; letter-spacing: -0.035em; color: #143844;
+      text-wrap: balance; opacity: 0;
+    }
+    .cm-headline.cm-headline-long { font-size: 34px; line-height: 1.18; max-width: 500px; }
+    .cm-headline.cm-headline-short { font-size: 47px; }
+    .cm-headline strong { color: #ff725e; font-weight: 900; }
+    .cm-rule { margin-top: 16px; width: 104px; height: 5px; background: rgba(22,175,196,0.18); }
+    .cm-rule i {
+      display: block; width: 100%; height: 100%; background: #16afc4;
+      transform: scaleX(0); transform-origin: left center;
+    }
+    .cm-ghost {
+      position: absolute; z-index: 2; left: 26px; bottom: 222px;
+      font-family: "Montserrat", sans-serif; font-size: 86px; line-height: 0.8;
+      font-weight: 900; letter-spacing: -0.06em; color: rgba(22,175,196,0.15);
+      opacity: 0; pointer-events: none; white-space: nowrap;
+    }
+    .cm-diamond {
+      position: absolute; z-index: 6; right: 38px; top: 278px; width: 13px; height: 13px;
+      border: 3px solid #f6b73c; transform: rotate(45deg); opacity: 0;
+    }
+    .cm-scan {
+      position: absolute; z-index: 4; left: 26px; right: 26px; top: 346px;
+      height: 1px; background: rgba(22,175,196,0.28); transform: scaleX(0);
+      transform-origin: left center;
+    }
+    .cm-brand {
+      position: absolute; z-index: 12; top: 22px; right: 22px; width: 246px;
+      min-height: 47px; padding: 9px 14px 8px 17px;
+      background: rgba(255,255,255,0.94); border: 1px solid rgba(22,175,196,0.28);
+      border-left: 5px solid #16afc4; box-shadow: 0 10px 26px rgba(20,56,68,0.12);
+      opacity: 0; pointer-events: none;
+    }
+    .cm-brand-name {
+      font-family: "Montserrat", "Noto Sans CJK JP", sans-serif;
+      font-size: 17px; line-height: 1; font-weight: 900; color: #143844;
+      letter-spacing: -0.02em;
+    }
+    .cm-brand-url {
+      margin-top: 5px; font-family: "Montserrat", sans-serif;
+      font-size: 10px; line-height: 1; font-weight: 800; color: #ff725e;
+      letter-spacing: 0.04em;
+    }
+    body.telop-white-studio-cm .kin {
+      left: 32px; right: 32px; bottom: 42px; height: 142px; z-index: 8;
+    }
+    body.telop-white-studio-cm .kin-chunk {
+      left: 0; right: 0; bottom: 0; min-height: 118px;
+      display: block; padding: 20px 24px 22px 28px;
+      color: #143844; background: rgba(255,255,255,0.94);
+      border: 1px solid rgba(22,175,196,0.22); border-left: 6px solid #16afc4;
+      border-radius: 2px; box-shadow: 0 16px 42px rgba(20,56,68,0.16);
+      font-size: 23px; line-height: 1.48; font-weight: 800;
+      letter-spacing: 0; text-shadow: none; -webkit-text-stroke: 0;
+    }
+    body.telop-white-studio-cm .kin-chunk .kem {
+      color: #ff725e; font-style: normal; -webkit-text-stroke: 0;
+    }
+    body.telop-white-studio-cm .kin-tick {
+      left: 0; bottom: -8px; width: 100%; height: 3px; border-radius: 0;
+      background: rgba(22,175,196,0.14);
+    }
+    body.telop-white-studio-cm .kin-tick i { background: #16afc4; border-radius: 0; }
+    body.telop-white-studio-cm .kin-eyebrow { display: none; }
+    body.telop-white-studio-cm .dc {
+      left: 48px; right: 48px; top: 360px; padding: 26px 28px 24px;
+      border-radius: 3px; background: rgba(255,255,255,0.91);
+      border: 1px solid rgba(22,175,196,0.35); border-top: 6px solid #16afc4;
+      box-shadow: 0 22px 52px rgba(20,56,68,0.16); backdrop-filter: blur(8px);
+    }
+    body.telop-white-studio-cm .dc-lab { color: #16afc4; font-size: 16px; }
+    body.telop-white-studio-cm .dc-num {
+      color: #143844; font-size: 86px; text-shadow: none;
+    }
+    body.telop-white-studio-cm .dc-num small { color: #ff725e; font-size: 34px; }
+    body.telop-white-studio-cm.vtuber-enabled .vtuber-card {
+      right: 18px; bottom: 176px; transform: scale(0.48); transform-origin: bottom right;
+    }
+    body.telop-white-studio-cm.vtuber-enabled .vtuber-badge { display: none; }
+    body.telop-white-studio-cm.vtuber-enabled .kin { left: 32px; right: 32px; }
+    body.telop-white-studio-cm.vtuber-enabled .kin-chunk { font-size: 23px; }
+"""
+
+
+def _v2_chunk_html(scene_index: int, chunk_index: int, chunk: dict, marker_phrase: str,
+                   include_keyword_pop: bool = True) -> list[str]:
     """字幕(小)と強調キーワード大テロップ(別レイヤ)のHTMLを返す。
 
     字幕内の強調語はインラインの色替えのみ(サイズは変えない)。
@@ -566,7 +688,7 @@ def _v2_chunk_html(scene_index: int, chunk_index: int, chunk: dict, marker_phras
         inner = html.escape(text)
     parts = [f'<div class="kin-chunk" id="kin-{scene_index}-{chunk_index}">{inner}</div>']
 
-    if keyword:
+    if keyword and include_keyword_pop:
         if marker_phrase and keyword == marker_phrase:
             parts.append(
                 f'<div class="kw-pop kw-marker" id="kw-{scene_index}-{chunk_index}">'
@@ -590,6 +712,26 @@ def _v2_chunk_times(chunks: list[dict], start: float, dur: float) -> list[float]
     return times
 
 
+def _cm_headline(chunks: list[dict], fallback: str) -> tuple[str, str]:
+    """Return compact, escaped White Studio headline HTML and its length class."""
+    first = chunks[0] if chunks else {"text": fallback, "emphasis": ""}
+    source = str(first.get("text") or fallback).strip()
+    for separator in ("。", "！", "？"):
+        if separator in source:
+            source = source.split(separator, 1)[0] + separator
+            break
+    if len(source) > 32:
+        source = source[:31].rstrip("、，, ") + "…"
+    emphasis = str(first.get("emphasis") or "").strip()
+    if emphasis and emphasis in source:
+        before, _, after = source.partition(emphasis)
+        rendered = f"{html.escape(before)}<strong>{html.escape(emphasis)}</strong>{html.escape(after)}"
+    else:
+        rendered = html.escape(source)
+    length_class = "cm-headline-short" if len(source) <= 12 else "cm-headline-long" if len(source) >= 23 else ""
+    return rendered, length_class
+
+
 def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
                   narration_duration: float = 0.0, vtuber_mode: bool = False,
                   scene_video_indexes: set[int] | None = None,
@@ -604,6 +746,8 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
     raw_title = script.get("title") or "Kurage Video"
     title = html.escape(raw_title)
     edl_scenes = (edl or {}).get("scenes") or []
+    visual_preset = str((edl or {}).get("visual_preset") or "").strip().lower()
+    white_studio_cm = visual_preset == "white_studio_cm"
     scene_timing = compute_scene_timing(scenes, total_dur, narration_duration)
     scene_video_indexes = scene_video_indexes or set()
     n_scenes = max(1, len(scenes))
@@ -629,7 +773,7 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
         stickman_html = _build_stickman_overlay(i) if scene.get("stickman_overlay") else ""
 
         overlay_html = ""
-        if template == "lower_third":
+        if template == "lower_third" and not white_studio_cm:
             badge = html.escape(str(e.get("badge") or "").strip())
             headline = html.escape(str(e.get("headline") or raw_title).strip())
             subtitle = html.escape(str(e.get("subtitle") or "").strip())
@@ -657,7 +801,8 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
         if chunks:
             chunk_divs = "\n      ".join(
                 part for k, c in enumerate(chunks)
-                for part in _v2_chunk_html(i, k, c, marker_phrase))
+                for part in _v2_chunk_html(i, k, c, marker_phrase,
+                                           include_keyword_pop=not white_studio_cm))
             eyebrow = html.escape(str(e.get("eyebrow") or "").strip()) if template == "marker" else ""
             eyebrow_html = f'<div class="kin-eyebrow" id="kin-eb-{i}">{eyebrow}</div>' if eyebrow else ""
             kin_html = f"""
@@ -666,12 +811,26 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
       <div class="kin-tick"><i id="kin-tick-{i}"></i></div>
       </div>"""
 
+        cm_html = ""
+        if white_studio_cm:
+            cm_headline, cm_headline_class = _cm_headline(chunks, str(scene.get("narration") or raw_title))
+            cm_html = f"""
+      <div class="cm-frame"></div>
+      <div class="cm-copy" id="cm-copy-{i}">
+        <div class="cm-eyebrow" id="cm-eyebrow-{i}">KURAGE MONTAGE / SCENE {i + 1:02d}</div>
+        <div class="cm-headline {cm_headline_class}" id="cm-headline-{i}">{cm_headline}</div>
+        <div class="cm-rule"><i id="cm-rule-{i}"></i></div>
+      </div>
+      <div class="cm-ghost" id="cm-ghost-{i}">INSIGHT {i + 1:02d}</div>
+      <i class="cm-diamond" id="cm-diamond-{i}"></i>
+      <i class="cm-scan" id="cm-scan-{i}"></i>"""
+
         scene_blocks.append(f"""
     <!-- Scene {i} ({start:.1f}s - {end:.1f}s) [{template}] -->
     <div class="scene clip" id="scene-{i}"
          data-start="{start:.2f}" data-duration="{dur:.2f}">
       {media_html}
-      {stickman_html}{overlay_html}{kin_html}
+      {stickman_html}{cm_html}{overlay_html}{kin_html}
     </div>""")
 
         # ---- GSAP ----
@@ -686,7 +845,17 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
         if template == "lower_third" and overlay_html:
             js.append(f'.fromTo("#lt-{i}", {{opacity:0, y:18, scale:0.98}}, {{opacity:1, y:0, scale:1, duration:0.48, ease:"power3.out"}}, {start + 0.18:.2f})')
         if template == "data_card" and overlay_html:
-            js.append(f'.fromTo("#dc-{i}", {{opacity:0, scale:0.92, y:14}}, {{opacity:1, scale:1, y:0, duration:0.5, ease:"back.out(1.4)"}}, {start + 0.28:.2f})')
+            card_ease = "power3.out" if white_studio_cm else "back.out(1.4)"
+            js.append(f'.fromTo("#dc-{i}", {{opacity:0, scale:0.92, y:14}}, {{opacity:1, scale:1, y:0, duration:0.5, ease:"{card_ease}"}}, {start + 0.28:.2f})')
+        if white_studio_cm:
+            js.extend([
+                f'.fromTo("#cm-eyebrow-{i}", {{opacity:0, x:-46}}, {{opacity:1, x:0, duration:0.34, ease:"expo.out"}}, {start + 0.08:.2f})',
+                f'.fromTo("#cm-headline-{i}", {{opacity:0.18, x:-18, clipPath:"inset(0 100% 0 0)"}}, {{opacity:1, x:0, clipPath:"inset(0 0% 0 0)", duration:0.54, ease:"power4.out"}}, {start + 0.16:.2f})',
+                f'.fromTo("#cm-rule-{i}", {{scaleX:0}}, {{scaleX:1, duration:0.42, ease:"power3.out"}}, {start + 0.36:.2f})',
+                f'.fromTo("#cm-ghost-{i}", {{opacity:0, x:-50}}, {{opacity:1, x:0, duration:0.7, ease:"sine.out"}}, {start + 0.18:.2f})',
+                f'.fromTo("#cm-diamond-{i}", {{opacity:0, scale:0}}, {{opacity:1, scale:1, duration:0.38, ease:"power3.out"}}, {start + 0.42:.2f})',
+                f'.fromTo("#cm-scan-{i}", {{scaleX:0}}, {{scaleX:1, duration:0.7, ease:"power3.out"}}, {start + 0.30:.2f})',
+            ])
         if chunks:
             times = _v2_chunk_times(chunks, start, dur)
             for k in range(len(chunks)):
@@ -701,7 +870,7 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
                 text_k = str(chunks[k].get("text") or "")
                 emphasis_k = str(chunks[k].get("emphasis") or "")
                 is_marker_chunk = bool(marker_phrase and marker_phrase in text_k)
-                has_kw = is_marker_chunk or bool(emphasis_k and emphasis_k in text_k)
+                has_kw = (is_marker_chunk or bool(emphasis_k and emphasis_k in text_k)) and not white_studio_cm
                 if has_kw:
                     # 強調キーワードの大テロップ: 字幕より少し遅れてポップ
                     js.append(
@@ -723,7 +892,12 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
     vtuber_html = ""
     vtuber_css = ""
     vtuber_js = ""
-    body_class = ' class="vtuber-enabled"' if vtuber_mode else ""
+    body_classes = []
+    if vtuber_mode:
+        body_classes.append("vtuber-enabled")
+    if white_studio_cm:
+        body_classes.append("telop-white-studio-cm")
+    body_class = f' class="{" ".join(body_classes)}"' if body_classes else ""
     if vtuber_mode:
         vtuber_html, vtuber_css, vtuber_js = _build_vtuber_overlay(total_dur, raw_title)
 
@@ -734,6 +908,23 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
             f'\n           data-start="0" data-duration="{total_dur:.2f}"'
             f'\n           data-track-index="5" data-volume="1"></audio>'
         )
+
+    cm_brand_html = ""
+    cm_brand_js = ""
+    title_overlay_html = f'''<div id="title-overlay">
+      <h1>{title}</h1>
+    </div>'''
+    title_timeline_js = '''tl.to("#title-overlay", {opacity:1, duration:0.4}, 0)
+      .to("#title-overlay", {opacity:0, duration:0.4}, 1.5);'''
+    if white_studio_cm:
+        cm_brand_html = '''<div class="cm-brand" id="cm-brand">
+      <div class="cm-brand-name">Kurage Montage</div>
+      <div class="cm-brand-url">kurage.exbridge.jp</div>
+    </div>'''
+        cm_brand_js = '''tl.fromTo("#cm-brand", {opacity:0, y:-22},
+      {opacity:1, y:0, duration:0.42, ease:"power3.out"}, 0.08);'''
+        title_overlay_html = ""
+        title_timeline_js = ""
 
     return f'''<!DOCTYPE html>
 <html lang="ja">
@@ -765,6 +956,7 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
       content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
     }}
     {V2_CSS}
+    {WHITE_STUDIO_CM_CSS if white_studio_cm else ""}
     {_stickman_css()}
     #title-overlay {{
       position: absolute; top: 0; left: 0; width: 576px; height: 1024px;
@@ -790,14 +982,15 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
 <body{body_class}>
   <div id="composition"
        data-composition-id="main"
+       data-start="0"
+       data-duration="{total_dur:.2f}"
        data-width="576"
        data-height="1024">
 
-    <div id="title-overlay">
-      <h1>{title}</h1>
-    </div>
+    {title_overlay_html}
 
     {scenes_html}
+    {cm_brand_html}
     {vtuber_html}
     {audio_tag}
   </div>
@@ -811,8 +1004,8 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
     }});
     const tl = gsap.timeline({{ paused: true }});
 
-    tl.to("#title-overlay", {{opacity:1, duration:0.4}}, 0)
-      .to("#title-overlay", {{opacity:0, duration:0.4}}, 1.5);
+    {title_timeline_js}
+    {cm_brand_js}
     {gsap_js}
 
     {vtuber_js}

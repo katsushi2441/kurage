@@ -177,7 +177,9 @@ def mark_job_done(job_id: str, video_path: Path, thumb_path: Path):
                thumbnail_file=str(thumb_path) if thumb_path.exists() else "",
                error=None, traceback=None, static_media_error=None)
     try:
-        result = publish_static_media(job_id)
+        # A completed job may be a rerender with the same public URL. Force the
+        # upload so URL metadata cannot make a newly rendered MP4 look synced.
+        result = publish_static_media(job_id, force=True)
         if result.get("ok"):
             update_job(job_id, static_media_status="synced")
         else:
@@ -207,10 +209,13 @@ def run_render_existing_assets(job_id: str) -> None:
             if not path.is_file() or path.stat().st_size < 1024:
                 raise RuntimeError(f"stored image is unavailable: {path.name}")
             image_paths.append(path)
-        from telop_gen import generate_edl
+        from telop_gen import WHITE_STUDIO_CM_PRESET, generate_edl
 
         editor_mode = str(job.get("editor_mode") or "normal").strip().lower()
         edl = generate_edl(script, editor_mode, job_dir)
+        visual_preset = WHITE_STUDIO_CM_PRESET if str(job.get("source") or "").startswith("kmontage") else ""
+        if visual_preset:
+            edl["visual_preset"] = visual_preset
         update_job(
             job_id,
             status="rendering",
@@ -219,6 +224,7 @@ def run_render_existing_assets(job_id: str) -> None:
             traceback=None,
             image_count=len(image_paths),
             telop_editor=edl.get("editor"),
+            telop_visual_preset=visual_preset or None,
         )
         video_path = generate_video(
             script,
@@ -447,9 +453,13 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
         # テロップ・システムv2: 編集判断(EDL)を作ってからレンダリング。
         # editor_mode=llm は claude→gemma4→ヒューリスティックの順でfail-open。
         editor_mode = str(request.get("editor_mode") or "normal").strip().lower()
-        from telop_gen import generate_edl
+        from telop_gen import WHITE_STUDIO_CM_PRESET, generate_edl
         edl = generate_edl(script, editor_mode, job_dir)
-        update_job(job_id, editor_mode=editor_mode, telop_editor=edl.get("editor"))
+        visual_preset = WHITE_STUDIO_CM_PRESET if _src.startswith("kmontage") else ""
+        if visual_preset:
+            edl["visual_preset"] = visual_preset
+        update_job(job_id, editor_mode=editor_mode, telop_editor=edl.get("editor"),
+                   telop_visual_preset=visual_preset or None)
 
         update_job(job_id, status="rendering", progress=75)
         video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode, edl=edl)

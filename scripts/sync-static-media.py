@@ -71,7 +71,8 @@ def ftp_upload(local: Path, remote_name: str, timeout: int) -> None:
         raise RuntimeError(tail)
 
 
-def sync_one(job_file: Path, dry_run: bool, no_ftp: bool, timeout: int) -> dict[str, Any]:
+def sync_one(job_file: Path, dry_run: bool, no_ftp: bool, timeout: int,
+             force: bool = False) -> dict[str, Any]:
     job = load_job(job_file)
     if not job:
         return {"ok": False, "job_file": str(job_file), "error": "invalid-json"}
@@ -81,7 +82,8 @@ def sync_one(job_file: Path, dry_run: bool, no_ftp: bool, timeout: int) -> dict[
     expected_video_url = f"{BASE_URL}/videos/{job_id}.mp4"
     expected_thumb_url = f"{BASE_URL}/thumbs/{job_id}.jpg"
     if (
-        not dry_run
+        not force
+        and not dry_run
         and not no_ftp
         and job.get("static_video_url") == expected_video_url
         and job.get("static_thumbnail_url") == expected_thumb_url
@@ -158,12 +160,13 @@ def main() -> int:
     parser.add_argument("--no-ftp", action="store_true", help="Only write static URL metadata")
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--timeout", type=int, default=600)
+    parser.add_argument("--force", action="store_true", help="Upload even when static URL metadata already exists")
     args = parser.parse_args()
 
     results = []
     ok_count = 0
     for job_file in iter_job_files(args.job_id, args.limit):
-        result = sync_one(job_file, args.dry_run, args.no_ftp, args.timeout)
+        result = sync_one(job_file, args.dry_run, args.no_ftp, args.timeout, force=args.force)
         results.append(result)
         if result.get("ok"):
             ok_count += 1

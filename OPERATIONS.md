@@ -28,6 +28,15 @@ Kurageの動画生成APIは `video_style` を受け取る。
 
 実装は `backend/video_styles.py` に集約する。外部AI動画生成ツールを直接呼ぶ機能ではなく、台本生成と画像プロンプトに、2秒フック、カメラ移動、照明、余白、音響方向などの演出指示を入れる仕組み。
 
+### kmontage White Studio CM風テロップ
+
+`/generate_from_script` から `source=kmontage*` で投入された動画には、HyperFramesの
+`white_studio_cm` ビジュアルプリセットを自動適用する。明るいオフホワイトの画面、
+濃紺の見出し、コーラルの強調語、アクアの罫線、白い字幕レール、右上のブランド表示を
+kfreqai CMと同じデザイン言語で構成する。既存画像からの再レンダリングでも、ジョブの
+`source` を見て同じプリセットを維持する。ジョブJSONの
+`telop_visual_preset=white_studio_cm` で適用を確認できる。
+
 新しいスタイルを追加するときは、`STYLE_PRESETS` に `label`、`best_for`、`system`、`image_suffixes` を追加し、必要なら `resolve_video_style()` の自動選択ルールも更新する。
 
 画面反映が必要な場合は、公開PHPを必ず公開サーバへFTPアップロードする。対象例は `kurage.php`、`horizon.php`、`kuragev.php`、`kmontage.php`、`entertainment.php`、`index.php`。ローカルGit更新だけでは完了ではない。

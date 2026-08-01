@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SYNC_SCRIPT = ROOT / "scripts" / "sync-static-media.py"
 
 
-def publish_static_media(job_id: str, timeout: int = 900) -> dict[str, Any]:
+def publish_static_media(job_id: str, timeout: int = 900, force: bool = False) -> dict[str, Any]:
     """Upload one completed job's MP4 and thumbnail to /videos and /thumbs.
 
     The uploader is intentionally best-effort: callers should record failures
@@ -20,8 +20,11 @@ def publish_static_media(job_id: str, timeout: int = 900) -> dict[str, Any]:
         return {"ok": False, "error": "empty job id"}
     if not SYNC_SCRIPT.is_file():
         return {"ok": False, "error": f"sync script not found: {SYNC_SCRIPT}"}
+    command = ["python3", str(SYNC_SCRIPT), "--job-id", clean_job_id, "--limit", "0"]
+    if force:
+        command.append("--force")
     proc = subprocess.run(
-        ["python3", str(SYNC_SCRIPT), "--job-id", clean_job_id, "--limit", "0"],
+        command,
         cwd=str(ROOT),
         text=True,
         capture_output=True,

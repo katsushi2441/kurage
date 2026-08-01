@@ -33,6 +33,7 @@ CLAUDE_TIMEOUT = int(os.environ.get("KURAGE_EDITOR_CLAUDE_TIMEOUT", "180"))
 OLLAMA_TIMEOUT = int(os.environ.get("KURAGE_EDITOR_OLLAMA_TIMEOUT", "300"))
 
 TEMPLATES = {"kinetic", "marker", "lower_third", "data_card"}
+WHITE_STUDIO_CM_PRESET = "white_studio_cm"
 MARKER_BUDGET = 3
 # 字幕は「文」単位で出す(v2初版の8〜24字は字幕として文字数が少なすぎた。
 # 強調キーワードは別レイヤの大テロップで見せるので、字幕自体は小さく長く)
