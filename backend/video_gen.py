@@ -1369,7 +1369,7 @@ def append_commercial_outro(video_path: Path) -> Path:
 
 
 def generate_video(script: dict, image_paths: list[Path], job_dir: Path, vtuber_mode: bool = False,
-                   edl: dict | None = None) -> Path:
+                   edl: dict | None = None, include_promotional_outros: bool = True) -> Path:
     """Full video generation pipeline: project setup + render.
 
     Returns:
@@ -1380,7 +1380,10 @@ def generate_video(script: dict, image_paths: list[Path], job_dir: Path, vtuber_
     print(f"  [video] HyperFrames project: {project_dir}", flush=True)
     render_video(project_dir, output_path)
     print(f"  [video] Rendered: {output_path} ({output_path.stat().st_size} bytes)", flush=True)
-    append_commercial_outro(output_path)
+    if include_promotional_outros:
+        append_commercial_outro(output_path)
+    else:
+        print("  [commercial] skipped for general-user video", flush=True)
     thumb_path = generate_thumbnail(output_path, job_dir / "thumbnail.jpg", title=script.get("title"))
     print(f"  [video] Thumbnail: {thumb_path} ({thumb_path.stat().st_size} bytes)", flush=True)
     return output_path

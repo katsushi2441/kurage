@@ -31,4 +31,6 @@ CHANNEL_OUTRO_FILE = Path(os.environ.get(
     str(ROOT / "assets" / "commercials" / "kurage_shorts_outro.mp4"),
 ))
 
+KURAGE_ADMIN_USER = os.environ.get("KURAGE_ADMIN_USER", "xb_bittensor").strip().lstrip("@").lower()
+
 PORT = int(os.environ.get("KURAGE_PORT", "18303"))

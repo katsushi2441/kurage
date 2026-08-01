@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from config import JOBS_DIR, PORT, ERNIE_URL, NVM_NODE, HYPERFRAMES_VERSION, OLLAMA_URL, OLLAMA_MODEL, WAN_API, WAN_TEST_MODE
 from tts_gen import TTS_BACKEND, TTS_VOICE, TTS_RATE, TTS_PITCH, VOICEBOX_ENGINE, VOICEBOX_PROFILE_ID, run_voicebox_tts
-from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, run_pipeline_from_entertainment_short, run_pipeline_from_script, run_render_existing_assets, load_job, update_job, replace_job, increment_job_views
+from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, run_pipeline_from_entertainment_short, run_pipeline_from_script, run_render_existing_assets, load_job, update_job, replace_job, increment_job_views, promotional_outros_enabled_for_owner
 from video_styles import STYLE_PRESETS, resolve_video_style, style_names
 from image_gen import IMAGE_PROVIDERS, normalize_image_provider
 from typing import Any
@@ -350,6 +350,7 @@ def generate_from_script(req: ScriptVideoRequest):
                image_provider=data["image_provider"],
                owner=req.owner,
                listing_public=bool(req.listing_public),
+               promotional_outros_enabled=promotional_outros_enabled_for_owner(req.owner),
                tweet_url=req.source_url,
                original_url=req.source_url,
                source_title=source_title,
@@ -588,6 +589,7 @@ def status(job_id: str):
         "thumbnail_spec": job.get("thumbnail_spec"),
         "owner": job.get("owner"),
         "listing_public": job.get("listing_public", True),
+        "promotional_outros_enabled": job.get("promotional_outros_enabled", True),
         "translated_text": job.get("translated_text"),
         "kuragevp_job_id": job.get("kuragevp_job_id"),
         "image_count": job.get("image_count"),
@@ -720,6 +722,7 @@ def list_jobs(limit: int = 20, source: str | None = None):
                 "image_provider_fallbacks": d.get("image_provider_fallbacks") or 0,
                 "owner": d.get("owner"),
                 "listing_public": d.get("listing_public", True),
+                "promotional_outros_enabled": d.get("promotional_outros_enabled", True),
                 "created_at": d.get("created_at"),
                 "updated_at": d.get("updated_at"),
                 "views": _job_views(d),

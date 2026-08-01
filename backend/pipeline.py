@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 import urllib.request
 
-from config import JOBS_DIR
+from config import JOBS_DIR, KURAGE_ADMIN_USER
 from tweet_fetch import fetch_tweet
 from script_gen import generate_script, generate_news_script, generate_blog_script, generate_entertainment_short_script
 from image_gen import (
@@ -28,6 +28,12 @@ import wan_gen
 WAN_OPENING_SCENES = int(os.environ.get("KURAGE_WAN_OPENING_SCENES", "2"))
 WAN_OPENING_ENABLED = os.environ.get("KURAGE_WAN_OPENING_ENABLED", "0").lower() not in {"0", "false", "no", "off"}
 JOB_FILE_LOCK = threading.RLock()
+
+
+def promotional_outros_enabled_for_owner(owner: object) -> bool:
+    """Keep promos for admin/legacy jobs, but never add them to general-user videos."""
+    normalized = str(owner or "").strip().lstrip("@").lower()
+    return not normalized or normalized == KURAGE_ADMIN_USER
 
 
 def job_path(job_id: str) -> Path:
@@ -216,6 +222,7 @@ def run_render_existing_assets(job_id: str) -> None:
         visual_preset = WHITE_STUDIO_CM_PRESET if str(job.get("source") or "").startswith("kmontage") else ""
         if visual_preset:
             edl["visual_preset"] = visual_preset
+        include_promotional_outros = promotional_outros_enabled_for_owner(job.get("owner"))
         update_job(
             job_id,
             status="rendering",
@@ -225,6 +232,7 @@ def run_render_existing_assets(job_id: str) -> None:
             image_count=len(image_paths),
             telop_editor=edl.get("editor"),
             telop_visual_preset=visual_preset or None,
+            promotional_outros_enabled=include_promotional_outros,
         )
         video_path = generate_video(
             script,
@@ -232,6 +240,7 @@ def run_render_existing_assets(job_id: str) -> None:
             job_dir,
             vtuber_mode=bool(job.get("vtuber_mode")),
             edl=edl,
+            include_promotional_outros=include_promotional_outros,
         )
         mark_job_done(job_id, video_path, job_dir / "thumbnail.jpg")
         print(f"[{job_id}] existing-assets rerender done: {video_path}", flush=True)
@@ -567,11 +576,20 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
         visual_preset = WHITE_STUDIO_CM_PRESET if _src.startswith("kmontage") else ""
         if visual_preset:
             edl["visual_preset"] = visual_preset
+        include_promotional_outros = promotional_outros_enabled_for_owner(request.get("owner"))
         update_job(job_id, editor_mode=editor_mode, telop_editor=edl.get("editor"),
-                   telop_visual_preset=visual_preset or None)
+                   telop_visual_preset=visual_preset or None,
+                   promotional_outros_enabled=include_promotional_outros)
 
         update_job(job_id, status="rendering", progress=75)
-        video_path = generate_video(script, image_paths, job_dir, vtuber_mode=vtuber_mode, edl=edl)
+        video_path = generate_video(
+            script,
+            image_paths,
+            job_dir,
+            vtuber_mode=vtuber_mode,
+            edl=edl,
+            include_promotional_outros=include_promotional_outros,
+        )
         thumb_path = job_dir / "thumbnail.jpg"
         mark_job_done(job_id, video_path, thumb_path)
         print(f"[{job_id}] script done: {video_path}", flush=True)

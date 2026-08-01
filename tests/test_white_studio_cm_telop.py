@@ -73,6 +73,7 @@ def test_kmontage_existing_assets_rerender_preserves_visual_preset(monkeypatch):
             status="error",
             source="kmontage_blog",
             editor_mode="normal",
+            owner="general_user",
             script=_script(),
         )
         assets = jobs_dir / "job" / "assets"
@@ -82,8 +83,10 @@ def test_kmontage_existing_assets_rerender_preserves_visual_preset(monkeypatch):
 
         monkeypatch.setattr("telop_gen.generate_edl", lambda *args: _edl())
 
-        def fake_generate_video(script, images, job_dir, vtuber_mode=False, edl=None):
+        def fake_generate_video(script, images, job_dir, vtuber_mode=False, edl=None,
+                                include_promotional_outros=True):
             captured["edl"] = edl
+            captured["include_promotional_outros"] = include_promotional_outros
             output = job_dir / "output.mp4"
             output.write_bytes(b"video")
             return output
@@ -94,8 +97,52 @@ def test_kmontage_existing_assets_rerender_preserves_visual_preset(monkeypatch):
         pipeline.run_render_existing_assets("job")
 
         assert captured["edl"]["visual_preset"] == "white_studio_cm"
+        assert captured["include_promotional_outros"] is False
         stored = pipeline.load_job("job") or {}
         assert stored["telop_visual_preset"] == "white_studio_cm"
+        assert stored["promotional_outros_enabled"] is False
+
+
+def test_promotional_outro_policy_uses_explicit_owner():
+    assert pipeline.promotional_outros_enabled_for_owner("xb_bittensor") is True
+    assert pipeline.promotional_outros_enabled_for_owner("@XB_BITTENSOR") is True
+    assert pipeline.promotional_outros_enabled_for_owner("") is True
+    assert pipeline.promotional_outros_enabled_for_owner(None) is True
+    assert pipeline.promotional_outros_enabled_for_owner("general_user") is False
+
+
+def test_video_generator_skips_both_outros_for_general_user(monkeypatch, tmp_path):
+    import video_gen
+
+    project = tmp_path / "project"
+    project.mkdir()
+    calls = {"outro": 0}
+
+    monkeypatch.setattr(video_gen, "create_hf_project", lambda *args, **kwargs: project)
+    monkeypatch.setattr(
+        video_gen,
+        "render_video",
+        lambda project_dir, output: output.write_bytes(b"rendered-video"),
+    )
+    monkeypatch.setattr(
+        video_gen,
+        "append_commercial_outro",
+        lambda output: calls.update(outro=calls["outro"] + 1),
+    )
+    monkeypatch.setattr(
+        video_gen,
+        "generate_thumbnail",
+        lambda video, output, title=None: (output.write_bytes(b"thumbnail"), output)[1],
+    )
+
+    video_gen.generate_video(
+        _script(),
+        [tmp_path / "scene.png"],
+        tmp_path,
+        include_promotional_outros=False,
+    )
+
+    assert calls["outro"] == 0
 
 
 def test_static_media_force_is_forwarded_to_sync_script(monkeypatch):
