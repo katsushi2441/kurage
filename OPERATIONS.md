@@ -44,6 +44,15 @@ kmontageは元資料の分析から見出し・トピック・専用画像プロ
 場合は動画ジョブを止めず、シーン0へフォールバックする。手動指定した旧ジョブでは
 `assets/thumbnail_base_codex.png`も引き続き再利用できる。
 
+### kmontage マルチユーザー運用
+
+- 公開画面`kmontage.php`はKurage共通のXログインを使い、管理者は`xb_bittensor`とする。
+- 一般ユーザーは自分のジョブだけを一覧・確認・削除・再試行できる。PHPゲートウェイからkmontage APIへ、保護した内部トークンとXユーザー名を送る。
+- 1件目は無料、2件目以降はPayPalの500円または50,000 URLAI。新規ジョブの作成成功時だけ利用権を消費し、同じジョブの再試行は別課金しない。
+- 一般ユーザーは`192.168.0.11`のERNIE画像生成と、`192.168.0.14`のGemma 4 12Bを使う。Gemma要求はホスト別のRQDB4AIキューで直列化する。
+- 一般ユーザーのVTuberモードは禁止する。管理者もERNIEを初期値とするが、管理者専用のプロバイダー・レンダラー選択は残す。
+- 一般ユーザーの動画は「Kurage動画一覧に掲載する」を選んだ場合だけ`kuragev.php`へ掲載する。kmontage上の所有権と公開掲載可否は別フィールドで管理する。
+
 新しいスタイルを追加するときは、`STYLE_PRESETS` に `label`、`best_for`、`system`、`image_suffixes` を追加し、必要なら `resolve_video_style()` の自動選択ルールも更新する。
 
 画面反映が必要な場合は、公開PHPを必ず公開サーバへFTPアップロードする。対象例は `kurage.php`、`horizon.php`、`kuragev.php`、`kmontage.php`、`entertainment.php`、`index.php`。ローカルGit更新だけでは完了ではない。

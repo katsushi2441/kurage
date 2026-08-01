@@ -1,11 +1,13 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (is_file(__DIR__ . '/kmontage_config.php')) { require_once __DIR__ . '/kmontage_config.php'; }
 require_once __DIR__ . '/auth_common.php';
 date_default_timezone_set('Asia/Tokyo');
 
 $THIS_FILE     = 'kmontagenews.php';
 $SITE_NAME     = 'Kurage Montage News — ニュース反応ショート生成';
 $KMONTAGE_API  = rtrim(getenv('KMONTAGE_API') ?: 'http://exbridge.ddns.net:18305', '/');
+$KMONTAGE_INTERNAL_TOKEN = defined('KMONTAGE_INTERNAL_TOKEN') ? KMONTAGE_INTERNAL_TOKEN : (getenv('KMONTAGE_INTERNAL_TOKEN') ?: '');
 
 if (isset($_GET['kmontage_logout'])) {
     header('Location: ' . url2ai_auth_logout_url('/' . $THIS_FILE));
@@ -24,13 +26,16 @@ $is_admin     = $auth['is_admin'];
 function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 function kmontage_api($method, $path, $payload = null, $timeout = 30) {
-    global $KMONTAGE_API;
+    global $KMONTAGE_API, $KMONTAGE_INTERNAL_TOKEN, $session_user;
     $url = $KMONTAGE_API . $path;
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json', 'Accept: application/json'));
+    $headers = array('Content-Type: application/json', 'Accept: application/json');
+    if ($KMONTAGE_INTERNAL_TOKEN !== '') { $headers[] = 'X-KMontage-Token: ' . $KMONTAGE_INTERNAL_TOKEN; }
+    if ($session_user !== '') { $headers[] = 'X-KMontage-User: ' . $session_user; }
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     if ($payload !== null) {
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
     }
@@ -51,6 +56,11 @@ if ($proxy_action !== '') {
     header('Content-Type: application/json; charset=utf-8');
     if (!$logged_in) {
         echo json_encode(array('ok' => false, 'error' => 'login required'), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    if (!$is_admin) {
+        http_response_code(403);
+        echo json_encode(array('ok' => false, 'error' => 'admin only'), JSON_UNESCAPED_UNICODE);
         exit;
     }
     if ($proxy_action === 'create' && $_SERVER['REQUEST_METHOD'] === 'POST') {

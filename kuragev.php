@@ -73,6 +73,14 @@ function is_lofi_job($job) {
     return (($job['source'] ?? '') === 'klofi') || (($job['content_type'] ?? '') === 'lofi_longform');
 }
 
+function is_public_listing_job($job) {
+    $source = strtolower(trim((string)($job['source'] ?? '')));
+    if (strpos($source, 'kmontage') !== 0) { return true; }
+    // Legacy administrator jobs did not have this field and remain visible.
+    if (!array_key_exists('listing_public', $job)) { return true; }
+    return !empty($job['listing_public']);
+}
+
 function job_tool_key($job) {
     $source = strtolower(trim((string)($job['source'] ?? '')));
     $content_type = strtolower(trim((string)($job['content_type'] ?? '')));
@@ -551,6 +559,7 @@ if (!$detail_id) {
     /* done の全動画を無限スクロール対象にする */
     foreach ($all_jobs as $j) {
         if (($j['status'] ?? '') !== 'done') continue;
+        if (!is_public_listing_job($j)) continue;
         $total_done_videos++;
         $tool_key = job_tool_key($j);
         $tool_options[$tool_key] = job_tool_label($tool_key);

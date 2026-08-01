@@ -4,6 +4,7 @@ __pycache__/
 *.pyc
 *.log
 .env
+kmontage_config.php
 
 # Runtime-generated content data
 data/*.json

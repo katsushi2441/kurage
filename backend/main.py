@@ -133,6 +133,8 @@ class ScriptVideoRequest(BaseModel):
     video_style: str = "auto"
     image_provider: str = "ernie"
     thumbnail: dict[str, Any] | None = None
+    owner: str = "xb_bittensor"
+    listing_public: bool = True
     # テロップ編集者: normal=決定的ヒューリスティック / llm=claude→gemma4 fail-open
     editor_mode: str = "normal"
 
@@ -346,6 +348,8 @@ def generate_from_script(req: ScriptVideoRequest):
                vtuber_mode=req.vtuber_mode,
                video_style=resolved_style,
                image_provider=data["image_provider"],
+               owner=req.owner,
+               listing_public=bool(req.listing_public),
                tweet_url=req.source_url,
                original_url=req.source_url,
                source_title=source_title,
@@ -582,6 +586,8 @@ def status(job_id: str):
         "image_provider_fallbacks": job.get("image_provider_fallbacks") or 0,
         "thumbnail_generation": job.get("thumbnail_generation"),
         "thumbnail_spec": job.get("thumbnail_spec"),
+        "owner": job.get("owner"),
+        "listing_public": job.get("listing_public", True),
         "translated_text": job.get("translated_text"),
         "kuragevp_job_id": job.get("kuragevp_job_id"),
         "image_count": job.get("image_count"),
@@ -712,6 +718,8 @@ def list_jobs(limit: int = 20, source: str | None = None):
                 "image_provider": d.get("image_provider") or "ernie",
                 "image_provider_actual": d.get("image_provider_actual"),
                 "image_provider_fallbacks": d.get("image_provider_fallbacks") or 0,
+                "owner": d.get("owner"),
+                "listing_public": d.get("listing_public", True),
                 "created_at": d.get("created_at"),
                 "updated_at": d.get("updated_at"),
                 "views": _job_views(d),

@@ -1,11 +1,14 @@
 <?php
 require_once __DIR__ . '/config.php';
+if (is_file(__DIR__ . '/kmontage_config.php')) { require_once __DIR__ . '/kmontage_config.php'; }
 require_once __DIR__ . '/auth_common.php';
+require_once __DIR__ . '/kmontage_billing.php';
 date_default_timezone_set('Asia/Tokyo');
 
 $THIS_FILE     = 'kmontage.php';
 $SITE_NAME     = 'Kurage Montage — URL要約ショート生成';
 $KMONTAGE_API  = rtrim(getenv('KMONTAGE_API') ?: 'http://exbridge.ddns.net:18305', '/');
+$KMONTAGE_INTERNAL_TOKEN = defined('KMONTAGE_INTERNAL_TOKEN') ? KMONTAGE_INTERNAL_TOKEN : (getenv('KMONTAGE_INTERNAL_TOKEN') ?: '');
 
 if (isset($_GET['kmontage_logout'])) {
     header('Location: ' . url2ai_auth_logout_url('/' . $THIS_FILE));
@@ -20,17 +23,25 @@ $auth         = url2ai_auth_bootstrap();
 $logged_in    = $auth['logged_in'];
 $session_user = $auth['session_user'];
 $is_admin     = $auth['is_admin'];
+$csrf         = isset($_SESSION['kmontage_csrf']) ? (string)$_SESSION['kmontage_csrf'] : '';
+if ($csrf === '') {
+    $csrf = bin2hex(random_bytes(24));
+    $_SESSION['kmontage_csrf'] = $csrf;
+}
 
 function h($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 function kmontage_api($method, $path, $payload = null, $timeout = 30) {
-    global $KMONTAGE_API;
+    global $KMONTAGE_API, $KMONTAGE_INTERNAL_TOKEN, $session_user;
     $url = $KMONTAGE_API . $path;
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json', 'Accept: application/json'));
+    $headers = array('Content-Type: application/json', 'Accept: application/json');
+    if ($KMONTAGE_INTERNAL_TOKEN !== '') { $headers[] = 'X-KMontage-Token: ' . $KMONTAGE_INTERNAL_TOKEN; }
+    if ($session_user !== '') { $headers[] = 'X-KMontage-User: ' . $session_user; }
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     if ($payload !== null) {
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
     }
@@ -46,34 +57,96 @@ function kmontage_api($method, $path, $payload = null, $timeout = 30) {
     return array('ok' => ($status >= 200 && $status < 300), 'status' => $status, 'data' => $json);
 }
 
+function kmontage_json_response($data, $status = 200) {
+    http_response_code((int)$status);
+    header('Cache-Control: no-store, max-age=0');
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+function kmontage_require_csrf($expected) {
+    $sent = isset($_SERVER['HTTP_X_CSRF_TOKEN']) ? (string)$_SERVER['HTTP_X_CSRF_TOKEN'] : '';
+    if ($sent === '' || !hash_equals((string)$expected, $sent)) {
+        kmontage_json_response(array('ok' => false, 'error' => 'CSRF検証に失敗しました'), 403);
+    }
+}
+
 $proxy_action = isset($_GET['proxy']) ? $_GET['proxy'] : '';
 if ($proxy_action !== '') {
     header('Content-Type: application/json; charset=utf-8');
     if (!$logged_in) {
-        echo json_encode(array('ok' => false, 'error' => 'login required'), JSON_UNESCAPED_UNICODE);
-        exit;
+        kmontage_json_response(array('ok' => false, 'error' => 'login required'), 401);
+    }
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') { kmontage_require_csrf($csrf); }
+    if ($proxy_action === 'billing_status') {
+        $billing = kmo_bill_state($session_user);
+        kmontage_json_response(array(
+            'ok' => true,
+            'first_free' => !$billing['free_used'],
+            'free_used' => $billing['free_used'],
+            'credits' => $billing['credits'],
+            'generation_count' => $billing['generation_count'],
+            'price_jpy' => KMO_PRICE_JPY,
+            'price_urlai' => KMO_PRICE_URLAI,
+            'urlai_receiver' => KMO_URLAI_RECEIVER,
+            'paypal_client_id' => KMO_PAYPAL_CLIENT_ID,
+            'admin_bypass' => $is_admin,
+        ));
+    }
+    if (($proxy_action === 'billing_paypal' || $proxy_action === 'billing_urlai') && $_SERVER['REQUEST_METHOD'] === 'POST') {
+        $input = json_decode((string)file_get_contents('php://input'), true);
+        if (!is_array($input)) { $input = array(); }
+        if ($proxy_action === 'billing_paypal') {
+            list($ok, $msg) = kmo_bill_grant_paypal($session_user, $input['order_id'] ?? '');
+        } else {
+            list($ok, $msg) = kmo_bill_grant_urlai($session_user, $input['wallet'] ?? '');
+        }
+        $billing = kmo_bill_state($session_user);
+        kmontage_json_response(array('ok' => $ok, 'message' => $msg, 'credits' => $billing['credits']), $ok ? 200 : 400);
     }
     if ($proxy_action === 'create' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $body = file_get_contents('php://input');
         $payload = json_decode($body, true);
         if (!is_array($payload)) { $payload = array(); }
-        $payload['vtuber_mode'] = true;
-        if (empty($payload['video_style'])) { $payload['video_style'] = 'ai_avatar_explainer'; }
-        $payload['image_provider'] = (isset($payload['image_provider']) && $payload['image_provider'] === 'ernie') ? 'ernie' : 'codex_subscription';
-        $payload['editor_mode'] = (isset($payload['editor_mode']) && $payload['editor_mode'] === 'llm') ? 'llm' : 'normal';
+        $billing_reservation = $is_admin ? array('ok' => true, 'mode' => 'admin', 'reservation' => '') : kmo_bill_reserve_generation($session_user);
+        if (empty($billing_reservation['ok'])) {
+            kmontage_json_response(array('ok' => false, 'error' => 'PAYMENT_REQUIRED'), 402);
+        }
+        $payload['publish_to_kuragev'] = !empty($payload['publish_to_kuragev']);
+        if ($is_admin) {
+            $payload['vtuber_mode'] = !empty($payload['vtuber_mode']);
+            $payload['video_style'] = $payload['vtuber_mode'] ? 'ai_avatar_explainer' : 'faceless_documentary';
+            $payload['image_provider'] = (isset($payload['image_provider']) && $payload['image_provider'] === 'codex_subscription') ? 'codex_subscription' : 'ernie';
+            $payload['editor_mode'] = (isset($payload['editor_mode']) && $payload['editor_mode'] === 'llm') ? 'llm' : 'normal';
+        } else {
+            $payload['vtuber_mode'] = false;
+            $payload['video_style'] = 'faceless_documentary';
+            $payload['image_provider'] = 'ernie';
+            $payload['editor_mode'] = 'normal';
+        }
         $res = kmontage_api('POST', '/api/jobs', $payload, 60);
-        echo json_encode(isset($res['data']) ? $res['data'] : array('ok'=>false,'error'=>isset($res['error'])?$res['error']:'API unreachable'), JSON_UNESCAPED_UNICODE);
+        $data = isset($res['data']) ? $res['data'] : array('ok'=>false,'error'=>isset($res['error'])?$res['error']:'API unreachable');
+        if (!$is_admin) {
+            $reservation_id = (string)($billing_reservation['reservation'] ?? '');
+            if (!$res['ok'] || empty($data['ok']) || !empty($data['duplicate'])) {
+                kmo_bill_cancel_reservation($session_user, $reservation_id);
+            } elseif (!kmo_bill_finish_reservation($session_user, $reservation_id, $data['job_id'] ?? '')) {
+                kmontage_json_response(array('ok' => false, 'error' => '課金台帳の更新に失敗しました'), 500);
+            }
+        }
+        kmontage_json_response($data, $res['status'] ?: 502);
     } elseif ($proxy_action === 'regenerate' && isset($_GET['job_id']) && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $jid = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['job_id']);
         $body = file_get_contents('php://input');
         $payload = json_decode($body, true);
         if (!is_array($payload)) { $payload = array(); }
-        $payload['vtuber_mode'] = true;
-        if (empty($payload['video_style'])) { $payload['video_style'] = 'ai_avatar_explainer'; }
-        $payload['image_provider'] = (isset($payload['image_provider']) && $payload['image_provider'] === 'ernie') ? 'ernie' : 'codex_subscription';
-        $payload['editor_mode'] = (isset($payload['editor_mode']) && $payload['editor_mode'] === 'llm') ? 'llm' : 'normal';
+        $payload['publish_to_kuragev'] = !empty($payload['publish_to_kuragev']);
+        $payload['vtuber_mode'] = $is_admin ? !empty($payload['vtuber_mode']) : false;
+        $payload['video_style'] = $payload['vtuber_mode'] ? 'ai_avatar_explainer' : 'faceless_documentary';
+        $payload['image_provider'] = ($is_admin && isset($payload['image_provider']) && $payload['image_provider'] === 'codex_subscription') ? 'codex_subscription' : 'ernie';
+        $payload['editor_mode'] = ($is_admin && isset($payload['editor_mode']) && $payload['editor_mode'] === 'llm') ? 'llm' : 'normal';
         $res = kmontage_api('POST', '/api/jobs/' . $jid . '/regenerate', $payload, 60);
-        echo json_encode(isset($res['data']) ? $res['data'] : array('ok'=>false,'error'=>isset($res['error'])?$res['error']:'API unreachable'), JSON_UNESCAPED_UNICODE);
+        kmontage_json_response(isset($res['data']) ? $res['data'] : array('ok'=>false,'error'=>isset($res['error'])?$res['error']:'API unreachable'), $res['status'] ?: 502);
     } elseif ($proxy_action === 'status' && isset($_GET['job_id'])) {
         $jid = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['job_id']);
         $res = kmontage_api('GET', '/api/jobs/' . $jid, null, 30);
@@ -118,6 +191,9 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
 .mode-pill input:checked+span{border-color:var(--accent);color:var(--accent);background:var(--soft);box-shadow:0 0 0 3px rgba(7,138,166,.08)}
 .mode-hint{color:var(--muted);font-size:.74rem}
 .provider-note{width:100%;padding:.5rem .7rem;border:1px solid #c7e9ef;border-radius:12px;background:#f3fbfd;color:#3c626c;font-size:.74rem;line-height:1.6}
+.option-row{display:flex;gap:1rem;flex-wrap:wrap;margin-top:.8rem}.check-option{display:flex;align-items:center;gap:.5rem;font-weight:800;color:#31525c}.check-option input{width:18px;height:18px;accent-color:var(--accent)}
+.billing-bar{display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap;margin-top:.8rem;padding:.7rem .8rem;border:1px solid #c7e9ef;border-radius:14px;background:#fff}.billing-bar strong{color:var(--accent)}
+dialog{width:min(620px,calc(100% - 2rem));border:0;border-radius:22px;padding:0;box-shadow:0 28px 80px rgba(19,35,41,.28)}dialog::backdrop{background:rgba(16,43,52,.35);backdrop-filter:blur(3px)}.billing-dialog{padding:1.25rem}.billing-dialog h2{margin-bottom:.55rem}.billing-grid{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-top:1rem}.billing-card{border:1px solid var(--line);border-radius:16px;padding:1rem;background:#f9fdfe}.billing-card h3{margin-bottom:.5rem}.billing-card input{width:100%;border:1px solid #bdd4da;border-radius:12px;padding:.7rem;margin:.6rem 0}.billing-address{font-size:.68rem;word-break:break-all;color:var(--muted);margin:.45rem 0}.billing-msg{min-height:1.4rem;margin-top:.8rem;color:var(--muted)}@media(max-width:680px){.billing-grid{grid-template-columns:1fr}}
 </style>
 <link rel="stylesheet" href="assets/kurage-avatar.css?v=20260704a">
 </head>
@@ -161,17 +237,26 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
         <input id="source-url" type="url" placeholder="https://x.com/... または https://example.com/article.pdf">
         <button id="generate" class="btn-primary">生成する</button>
       </div>
+      <div class="option-row">
+        <label class="check-option"><input id="publish-kuragev" type="checkbox" <?php echo $is_admin ? 'checked' : ''; ?>>Kurage動画一覧に掲載する</label>
+        <?php if ($is_admin): ?><label class="check-option"><input id="vtuber-mode" type="checkbox" checked>VTuberモード</label><?php endif; ?>
+      </div>
+      <?php if ($is_admin): ?>
       <div class="editor-mode" role="radiogroup" aria-label="テロップ編集モード">
         <label class="mode-pill"><input type="radio" name="editor-mode" value="normal" checked><span>通常モード</span></label>
         <label class="mode-pill"><input type="radio" name="editor-mode" value="llm"><span>LLM編集者モード <em>β</em></span></label>
         <span class="mode-hint" id="mode-hint">テロップの文節割り・強調は自動ルールで決めます。</span>
       </div>
       <div class="editor-mode" role="radiogroup" aria-label="画像生成プロバイダー">
-        <label class="mode-pill"><input type="radio" name="image-provider" value="codex_subscription" checked><span>ChatGPT画像生成 <em>推奨</em></span></label>
-        <label class="mode-pill"><input type="radio" name="image-provider" value="ernie"><span>ERNIEローカル</span></label>
-        <div class="provider-note" id="provider-hint">ChatGPT/Codexサブスクの組み込みImageGenを1枚ずつ利用します。認証・制限・タイムアウト時はERNIEへ自動フォールバックします。</div>
+        <label class="mode-pill"><input type="radio" name="image-provider" value="ernie" checked><span>ERNIEローカル <em>既定</em></span></label>
+        <label class="mode-pill"><input type="radio" name="image-provider" value="codex_subscription"><span>ChatGPT画像生成</span></label>
+        <div class="provider-note" id="provider-hint">192.168.0.11のERNIEで画像を生成します。</div>
       </div>
-      <div class="hint">長い動画や資料は、取得・文字起こし・本文解析に数分かかることがあります。生成完了後、Kurageの動画として表示されます。</div>
+      <?php else: ?>
+      <div class="provider-note">台本は192.168.0.14のGemma 4 12BをRQDB4AIキュー経由で実行し、画像は192.168.0.11のERNIEで生成します。VTuberモードは使用しません。</div>
+      <?php endif; ?>
+      <div class="billing-bar"><span id="billing-summary">料金情報を確認中…</span><?php if (!$is_admin): ?><button id="buy-credit" class="btn-muted" type="button">生成クレジットを購入</button><?php endif; ?></div>
+      <div class="hint">1回目は無料。2回目以降は1回500円または50,000 URLAIです。長い動画や資料は生成に時間がかかります。一覧掲載を選ばない動画は自分の履歴だけに表示されます。</div>
       <div id="message" class="toast"></div>
     </div>
   </section>
@@ -201,8 +286,23 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
   <?php endif; ?>
 </div>
 
+<?php if ($logged_in && !$is_admin): ?>
+<dialog id="billing-dialog"><div class="billing-dialog">
+  <h2>動画生成クレジット</h2>
+  <p>2回目以降は1回 <strong>500円</strong> または <strong>50,000 URLAI</strong>です。購入したクレジットに有効期限はありません。</p>
+  <div class="billing-grid">
+    <div class="billing-card"><h3>PayPal</h3><p>500円の決済完了後、自動で1回分を追加します。</p><div id="paypal-buttons"></div></div>
+    <div class="billing-card"><h3>URLAI（Base）</h3><p>次の受取先へ50,000 URLAIを送金してください。</p><div id="billing-receiver" class="billing-address">-</div><input id="billing-wallet" placeholder="送金元ウォレット 0x…"><button id="verify-urlai" class="btn-primary" type="button">支払い確認</button></div>
+  </div>
+  <div id="billing-message" class="billing-msg"></div>
+  <div class="actions"><button id="billing-close" class="btn-muted" type="button">閉じる</button></div>
+</div></dialog>
+<?php endif; ?>
+
 <?php if ($logged_in): ?>
 <script>
+const KMONTAGE_CSRF = <?php echo json_encode($csrf, JSON_UNESCAPED_SLASHES); ?>;
+const KMONTAGE_IS_ADMIN = <?php echo $is_admin ? 'true' : 'false'; ?>;
 let currentJobId = null;
 let currentJobUrl = '';
 let pollTimer = null;
@@ -210,7 +310,9 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function message(text){ $('message').textContent = text || ''; }
 function editorMode(){ const el = document.querySelector('input[name="editor-mode"]:checked'); return el && el.value === 'llm' ? 'llm' : 'normal'; }
-function imageProvider(){ const el = document.querySelector('input[name="image-provider"]:checked'); return el && el.value === 'ernie' ? 'ernie' : 'codex_subscription'; }
+function imageProvider(){ const el = document.querySelector('input[name="image-provider"]:checked'); return el && el.value === 'codex_subscription' ? 'codex_subscription' : 'ernie'; }
+function vtuberMode(){ const el = $('vtuber-mode'); return KMONTAGE_IS_ADMIN && !!el && el.checked; }
+function publishToKuragev(){ const el = $('publish-kuragev'); return !!el && el.checked; }
 document.querySelectorAll('input[name="editor-mode"]').forEach(r => r.addEventListener('change', () => {
   $('mode-hint').textContent = editorMode() === 'llm'
     ? 'Claudeが編集者としてテロップの文節・強調・演出テンプレートを決めます（制限時はローカルgemma4に自動フォールバック）。'
@@ -259,13 +361,19 @@ function renderJob(job){
     $('player').style.display = 'block'; $('player').innerHTML = `<div style="padding:1rem;color:#bd4b4b;">エラー: ${esc(job.error || '')}</div>`; setActions(false);
   } else { $('player').style.display = 'none'; $('player').innerHTML = ''; setActions(false); }
 }
-async function fetchJson(url, options){ const res = await fetch(url, options || {}); const data = await res.json(); if (!res.ok || data.ok === false) throw new Error(data.detail || data.error || 'request failed'); return data; }
+async function fetchJson(url, options){
+  const opts = Object.assign({}, options || {}); opts.headers = Object.assign({}, opts.headers || {});
+  if (String(opts.method || 'GET').toUpperCase() !== 'GET') opts.headers['X-CSRF-Token'] = KMONTAGE_CSRF;
+  const res = await fetch(url, opts); const data = await res.json();
+  if (!res.ok || data.ok === false) { const error = new Error(data.detail || data.error || 'request failed'); error.status = res.status; throw error; }
+  return data;
+}
 async function poll(jobId){ const job = await fetchJson(`<?php echo h($THIS_FILE); ?>?proxy=status&job_id=${encodeURIComponent(jobId)}`); renderJob(job); history.replaceState(null, '', `?job=${encodeURIComponent(jobId)}`); if (job.status === 'done' || job.status === 'error') { clearInterval(pollTimer); pollTimer = null; await loadHistory(); } return job; }
 $('generate').addEventListener('click', async () => {
   const url = $('source-url').value.trim(); if (!url) return message('URLを入力してください');
   $('generate').disabled = true; message('生成ジョブを開始しています...');
-  try { const sameLoadedUrl = currentJobId && currentJobUrl && url === currentJobUrl; const endpoint = sameLoadedUrl ? `<?php echo h($THIS_FILE); ?>?proxy=regenerate&job_id=${encodeURIComponent(currentJobId)}` : '<?php echo h($THIS_FILE); ?>?proxy=create'; const data = await fetchJson(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url, vtuber_mode:true, video_style:'ai_avatar_explainer', image_provider:imageProvider(), editor_mode: editorMode()})}); currentJobId = data.job_id; currentJobUrl = url; message(`${sameLoadedUrl ? '上書き再生成' : 'ジョブ開始'}: ${currentJobId}`); clearInterval(pollTimer); const job = await poll(currentJobId); if (!['done','error'].includes(job.status)) pollTimer = setInterval(() => poll(currentJobId), 5000); }
-  catch(e){ message(e.message || String(e)); }
+  try { const sameLoadedUrl = currentJobId && currentJobUrl && url === currentJobUrl; const endpoint = sameLoadedUrl ? `<?php echo h($THIS_FILE); ?>?proxy=regenerate&job_id=${encodeURIComponent(currentJobId)}` : '<?php echo h($THIS_FILE); ?>?proxy=create'; const vtuber = vtuberMode(); const data = await fetchJson(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url, vtuber_mode:vtuber, video_style:vtuber?'ai_avatar_explainer':'faceless_documentary', image_provider:imageProvider(), editor_mode:editorMode(), publish_to_kuragev:publishToKuragev()})}); currentJobId = data.job_id; currentJobUrl = url; message(`${sameLoadedUrl ? '上書き再生成' : 'ジョブ開始'}: ${currentJobId}`); clearInterval(pollTimer); await loadBilling(); const job = await poll(currentJobId); if (!['done','error'].includes(job.status)) pollTimer = setInterval(() => poll(currentJobId), 5000); }
+  catch(e){ if (e.status === 402) { message('2回目以降は生成クレジットが必要です。'); openBilling(); } else { message(e.message || String(e)); } }
   finally { $('generate').disabled = false; }
 });
 function shareText(){ return `${$('title').textContent}\n${$('summary').textContent}\n${$('kurage-link').href}`; }
@@ -290,8 +398,43 @@ async function loadHistory(){
 }
 $('reload').addEventListener('click', loadHistory);
 
+let billingInfo = null;
+async function loadBilling(){
+  billingInfo = await fetchJson('<?php echo h($THIS_FILE); ?>?proxy=billing_status');
+  $('billing-summary').innerHTML = billingInfo.admin_bypass
+    ? '<strong>管理者</strong>：課金対象外'
+    : billingInfo.first_free
+      ? '<strong>初回無料</strong>：最初の1本を生成できます'
+      : `<strong>残り${Number(billingInfo.credits || 0)}回</strong>：1回500円 / 50,000 URLAI`;
+  return billingInfo;
+}
+async function openBilling(){
+  if (KMONTAGE_IS_ADMIN) return;
+  await loadBilling();
+  $('billing-receiver').textContent = billingInfo.urlai_receiver || '-';
+  $('billing-message').textContent = '';
+  $('billing-dialog').showModal();
+  mountPayPal();
+}
+function billingSay(text, ok){ const el=$('billing-message'); if(!el)return; el.textContent=text||''; el.style.color=ok?'#2f9d62':'#bd4b4b'; }
+function mountPayPal(){
+  if (!billingInfo || KMONTAGE_IS_ADMIN) return;
+  const box=$('paypal-buttons'); if(!box || box.dataset.mounted)return;
+  const boot=()=>{ if(!window.paypal||!window.paypal.Buttons)return; box.dataset.mounted='1'; window.paypal.Buttons({
+    createOrder:(data,actions)=>actions.order.create({purchase_units:[{amount:{currency_code:'JPY',value:String(billingInfo.price_jpy)}}]}),
+    onApprove:async(data,actions)=>{ const order=await actions.order.capture(); try{ const result=await fetchJson('<?php echo h($THIS_FILE); ?>?proxy=billing_paypal',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({order_id:order.id})}); billingSay(result.message,true); await loadBilling(); }catch(error){billingSay(error.message,false);} },
+    onError:()=>billingSay('PayPal決済でエラーが発生しました。',false)
+  }).render('#paypal-buttons'); };
+  if(window.paypal){boot();return;} const script=document.createElement('script'); script.src='https://www.paypal.com/sdk/js?client-id='+encodeURIComponent(billingInfo.paypal_client_id)+'&currency=JPY'; script.onload=boot; document.head.appendChild(script);
+}
+if (!KMONTAGE_IS_ADMIN) {
+  $('buy-credit').addEventListener('click',()=>openBilling().catch(e=>message(e.message)));
+  $('billing-close').addEventListener('click',()=>$('billing-dialog').close());
+  $('verify-urlai').addEventListener('click',async()=>{ const wallet=$('billing-wallet').value.trim(); if(!wallet)return billingSay('送金元ウォレットを入力してください。',false); billingSay('Baseチェーンで確認中…',true); try{ const result=await fetchJson('<?php echo h($THIS_FILE); ?>?proxy=billing_urlai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({wallet})}); billingSay(result.message,true); await loadBilling(); }catch(error){billingSay(error.message,false);} });
+}
+
 $('source-url').addEventListener('input', () => { if ($('source-url').value.trim() !== currentJobUrl) currentJobId = null; });
-async function openInitialJob(){ await loadHistory(); const jobId = new URLSearchParams(location.search).get('job'); if (jobId) { const job = await poll(jobId); clearInterval(pollTimer); if (!['done','error'].includes(job.status)) pollTimer = setInterval(() => poll(jobId), 5000); } }
+async function openInitialJob(){ await Promise.all([loadHistory(), loadBilling()]); const jobId = new URLSearchParams(location.search).get('job'); if (jobId) { const job = await poll(jobId); clearInterval(pollTimer); if (!['done','error'].includes(job.status)) pollTimer = setInterval(() => poll(jobId), 5000); } }
 openInitialJob().catch(e => message(e.message || String(e)));
 </script>
 <?php endif; ?>
