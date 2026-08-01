@@ -59,7 +59,7 @@ def test_generate_image_retries_timeout_and_writes_atomically(tmp_path, monkeypa
 def test_generate_or_reuse_image_requires_matching_prompt(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls = 0
 
-    def fake_generate(prompt, output_path, width=384, height=384):
+    def fake_generate(prompt, output_path, width=384, height=384, *, provider="ernie"):
         nonlocal calls
         calls += 1
         Image.effect_noise((128, 128), 100).convert("RGB").save(output_path, format="PNG")
@@ -73,3 +73,57 @@ def test_generate_or_reuse_image_requires_matching_prompt(tmp_path, monkeypatch:
     image_gen.generate_or_reuse_image("changed prompt", output)
 
     assert calls == 2
+
+
+def test_cache_is_scoped_to_image_provider(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    providers = []
+
+    def fake_generate(prompt, output_path, width=384, height=384, *, provider="ernie"):
+        providers.append(provider)
+        Image.effect_noise((128, 128), 100).convert("RGB").save(output_path, format="PNG")
+        return output_path
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate)
+    output = tmp_path / "scene.png"
+
+    image_gen.generate_or_reuse_image("same prompt", output, provider="ernie")
+    image_gen.generate_or_reuse_image("same prompt", output, provider="ernie")
+    image_gen.generate_or_reuse_image("same prompt", output, provider="codex_subscription")
+
+    assert providers == ["ernie", "codex_subscription"]
+
+
+def test_codex_failure_falls_back_to_ernie_and_records_provider(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_codex(*args, **kwargs):
+        raise RuntimeError("hosted image tool unavailable")
+
+    def fake_ernie(prompt, output_path, width, height, use_character):
+        Image.effect_noise((128, 128), 100).convert("RGB").save(output_path, format="PNG")
+        return output_path
+
+    monkeypatch.setattr(image_gen, "_generate_with_codex_subscription", fail_codex)
+    monkeypatch.setattr(image_gen, "_generate_with_ernie", fake_ernie)
+    monkeypatch.setattr(image_gen, "CODEX_IMAGE_FALLBACK", "ernie")
+    output = tmp_path / "scene.png"
+
+    image_gen.generate_image("clean city diagram", output, provider="codex_subscription")
+
+    metadata = image_gen.image_generation_metadata(output)
+    assert image_gen.is_valid_image(output)
+    assert metadata["requested_provider"] == "codex_subscription"
+    assert metadata["actual_provider"] == "ernie"
+    assert metadata["fallback"] is True
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("codex", "codex_subscription"),
+        ("chatgpt", "codex_subscription"),
+        ("codex-subscription", "codex_subscription"),
+        ("ernie", "ernie"),
+        ("unknown", "ernie"),
+    ],
+)
+def test_normalize_image_provider(value, expected) -> None:
+    assert image_gen.normalize_image_provider(value) == expected

@@ -13,7 +13,13 @@ import urllib.request
 from config import JOBS_DIR
 from tweet_fetch import fetch_tweet
 from script_gen import generate_script, generate_news_script, generate_blog_script, generate_entertainment_short_script
-from image_gen import generate_scene_images, generate_image, generate_or_reuse_image
+from image_gen import (
+    generate_scene_images,
+    generate_image,
+    generate_or_reuse_image,
+    image_generation_metadata,
+    normalize_image_provider,
+)
 from video_gen import generate_video, generate_thumbnail
 from video_styles import apply_video_style, resolve_video_style
 from static_media import publish_static_media
@@ -359,6 +365,7 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
         source_url = request.get("source_url") or request.get("url") or ""
         source_title = request.get("source_title") or request.get("title") or "参照動画"
         resolved_style = resolve_video_style(video_style, content_type="reference_script", vtuber_mode=vtuber_mode, title=source_title)
+        image_provider = normalize_image_provider(request.get("image_provider"))
         script = normalize_provided_script(request.get("script") or {}, resolved_style)
         if (request.get("source") or "") == "kmontage_news":
             script = apply_opening_overlays(script)
@@ -368,6 +375,9 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
                    content_type="reference_video_summary",
                    vtuber_mode=vtuber_mode,
                    video_style=resolved_style,
+                   image_provider=image_provider,
+                   image_provider_actual=None,
+                   image_provider_fallbacks=0,
                    tweet_url=source_url,
                    original_url=source_url,
                    source_title=source_title,
@@ -394,6 +404,8 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
         assets_dir.mkdir(parents=True, exist_ok=True)
 
         image_paths = []
+        actual_image_providers: set[str] = set()
+        image_provider_fallbacks = 0
         for scene in scenes:
             idx = scene.get("index", len(image_paths))
             out = assets_dir / f"scene_{idx:02d}.png"
@@ -403,14 +415,26 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
             print(f"  [script image] scene {idx}: {prompt[:60]}...", flush=True)
             if idx > 0:
                 time.sleep(3)
-            path = generate_or_reuse_image(prompt, out)
+            path = generate_or_reuse_image(prompt, out, provider=image_provider)
             image_paths.append(path)
+            provider_metadata = image_generation_metadata(path)
+            actual_provider = str(provider_metadata.get("actual_provider") or image_provider)
+            actual_image_providers.add(actual_provider)
+            if provider_metadata.get("fallback"):
+                image_provider_fallbacks += 1
+            provider_actual_label = (
+                next(iter(actual_image_providers))
+                if len(actual_image_providers) == 1
+                else "mixed"
+            )
             update_job(
                 job_id,
                 status="imaging",
                 progress=min(69, 35 + round(34 * len(image_paths) / max(1, len(scenes)))),
                 image_count=len(image_paths),
                 current_scene=idx,
+                image_provider_actual=provider_actual_label,
+                image_provider_fallbacks=image_provider_fallbacks,
             )
         update_job(job_id, image_count=len(image_paths))
 

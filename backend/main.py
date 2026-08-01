@@ -16,6 +16,7 @@ from config import JOBS_DIR, PORT, ERNIE_URL, NVM_NODE, HYPERFRAMES_VERSION, OLL
 from tts_gen import TTS_BACKEND, TTS_VOICE, TTS_RATE, TTS_PITCH, VOICEBOX_ENGINE, VOICEBOX_PROFILE_ID, run_voicebox_tts
 from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, run_pipeline_from_entertainment_short, run_pipeline_from_script, run_render_existing_assets, load_job, update_job, replace_job, increment_job_views
 from video_styles import STYLE_PRESETS, resolve_video_style, style_names
+from image_gen import IMAGE_PROVIDERS, normalize_image_provider
 from typing import Any
 from lofi_gen import create_lofi_job, run_lofi_job, load_lofi_job, list_lofi_jobs, delete_lofi_job, lofi_public_file
 
@@ -130,6 +131,7 @@ class ScriptVideoRequest(BaseModel):
     source: str = "kmontage"
     vtuber_mode: bool = False
     video_style: str = "auto"
+    image_provider: str = "ernie"
     # テロップ編集者: normal=決定的ヒューリスティック / llm=claude→gemma4 fail-open
     editor_mode: str = "normal"
 
@@ -192,8 +194,11 @@ def config():
             "api": _mask_url(f"{OLLAMA_URL}/api/generate"),
         },
         "image": {
-            "label": "ERNIE-Image-Turbo",
+            "label": "ERNIE-Image-Turbo / Codex subscription ImageGen",
             "api": _mask_url(ERNIE_URL),
+            "providers": list(IMAGE_PROVIDERS),
+            "default": "ernie",
+            "codex_fallback": "ernie",
         },
         "tts": {
             "label": (
@@ -332,12 +337,14 @@ def generate_from_script(req: ScriptVideoRequest):
     resolved_style = resolve_video_style(req.video_style, content_type="reference_script", vtuber_mode=req.vtuber_mode, title=source_title)
     data = _request_data(req)
     data["video_style"] = resolved_style
+    data["image_provider"] = normalize_image_provider(req.image_provider)
     update_job(job_id, status="queued", progress=0, error=None, traceback=None,
                interrupted_status=None, interrupted_at=None, failed_at_progress=None,
                source=req.source or "kmontage",
                content_type="reference_video_summary",
                vtuber_mode=req.vtuber_mode,
                video_style=resolved_style,
+               image_provider=data["image_provider"],
                tweet_url=req.source_url,
                original_url=req.source_url,
                source_title=source_title,
@@ -569,6 +576,9 @@ def status(job_id: str):
         "source": job.get("source"),
         "vtuber_mode": bool(job.get("vtuber_mode")),
         "video_style": job.get("video_style"),
+        "image_provider": job.get("image_provider") or "ernie",
+        "image_provider_actual": job.get("image_provider_actual"),
+        "image_provider_fallbacks": job.get("image_provider_fallbacks") or 0,
         "translated_text": job.get("translated_text"),
         "kuragevp_job_id": job.get("kuragevp_job_id"),
         "image_count": job.get("image_count"),
@@ -696,6 +706,9 @@ def list_jobs(limit: int = 20, source: str | None = None):
                 "source": job_source,
                 "vtuber_mode": bool(d.get("vtuber_mode")),
                 "video_style": d.get("video_style"),
+                "image_provider": d.get("image_provider") or "ernie",
+                "image_provider_actual": d.get("image_provider_actual"),
+                "image_provider_fallbacks": d.get("image_provider_fallbacks") or 0,
                 "created_at": d.get("created_at"),
                 "updated_at": d.get("updated_at"),
                 "views": _job_views(d),

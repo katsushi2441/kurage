@@ -84,6 +84,16 @@ python3 tools/youtube/youtube_auth_paste.py
 - 標準方式: `ERNIE静止画 + HyperFrames`
 - 実験方式: `Wan2.1 AI動画生成`
 
+### Kurage Montage の画像生成選択
+
+`kmontage.php` から `/generate_from_script` を使う場合は、`image_provider` で
+`codex_subscription` または `ernie` を選択できる。kmontage画面の推奨値は
+`codex_subscription`。Codex CLI組み込みImageGenを直列で実行し、600秒の
+タイムアウト、認証・利用制限・生成失敗時はERNIEへフォールバックする。
+Kurageジョブには `image_provider`、`image_provider_actual`、
+`image_provider_fallbacks` を記録する。その他のKurage生成ルートは互換性の
+ためERNIEを既定値とする。
+
 `generate_from_url` は Kurage 通常生成ではなく、記事URLから動画を作る Horizon 系のルートとして扱う。
 
 - API: `POST /generate_from_url`

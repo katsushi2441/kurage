@@ -59,6 +59,7 @@ if ($proxy_action !== '') {
         if (!is_array($payload)) { $payload = array(); }
         $payload['vtuber_mode'] = true;
         if (empty($payload['video_style'])) { $payload['video_style'] = 'ai_avatar_explainer'; }
+        $payload['image_provider'] = (isset($payload['image_provider']) && $payload['image_provider'] === 'ernie') ? 'ernie' : 'codex_subscription';
         $payload['editor_mode'] = (isset($payload['editor_mode']) && $payload['editor_mode'] === 'llm') ? 'llm' : 'normal';
         $res = kmontage_api('POST', '/api/jobs', $payload, 60);
         echo json_encode(isset($res['data']) ? $res['data'] : array('ok'=>false,'error'=>isset($res['error'])?$res['error']:'API unreachable'), JSON_UNESCAPED_UNICODE);
@@ -69,6 +70,7 @@ if ($proxy_action !== '') {
         if (!is_array($payload)) { $payload = array(); }
         $payload['vtuber_mode'] = true;
         if (empty($payload['video_style'])) { $payload['video_style'] = 'ai_avatar_explainer'; }
+        $payload['image_provider'] = (isset($payload['image_provider']) && $payload['image_provider'] === 'ernie') ? 'ernie' : 'codex_subscription';
         $payload['editor_mode'] = (isset($payload['editor_mode']) && $payload['editor_mode'] === 'llm') ? 'llm' : 'normal';
         $res = kmontage_api('POST', '/api/jobs/' . $jid . '/regenerate', $payload, 60);
         echo json_encode(isset($res['data']) ? $res['data'] : array('ok'=>false,'error'=>isset($res['error'])?$res['error']:'API unreachable'), JSON_UNESCAPED_UNICODE);
@@ -115,6 +117,7 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
 .mode-pill em{font-style:normal;font-size:.62rem;font-weight:900;color:#fff;background:var(--accent2);border-radius:6px;padding:.06rem .32rem}
 .mode-pill input:checked+span{border-color:var(--accent);color:var(--accent);background:var(--soft);box-shadow:0 0 0 3px rgba(7,138,166,.08)}
 .mode-hint{color:var(--muted);font-size:.74rem}
+.provider-note{width:100%;padding:.5rem .7rem;border:1px solid #c7e9ef;border-radius:12px;background:#f3fbfd;color:#3c626c;font-size:.74rem;line-height:1.6}
 </style>
 <link rel="stylesheet" href="assets/kurage-avatar.css?v=20260704a">
 </head>
@@ -163,6 +166,11 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
         <label class="mode-pill"><input type="radio" name="editor-mode" value="llm"><span>LLM編集者モード <em>β</em></span></label>
         <span class="mode-hint" id="mode-hint">テロップの文節割り・強調は自動ルールで決めます。</span>
       </div>
+      <div class="editor-mode" role="radiogroup" aria-label="画像生成プロバイダー">
+        <label class="mode-pill"><input type="radio" name="image-provider" value="codex_subscription" checked><span>ChatGPT画像生成 <em>推奨</em></span></label>
+        <label class="mode-pill"><input type="radio" name="image-provider" value="ernie"><span>ERNIEローカル</span></label>
+        <div class="provider-note" id="provider-hint">ChatGPT/Codexサブスクの組み込みImageGenを1枚ずつ利用します。認証・制限・タイムアウト時はERNIEへ自動フォールバックします。</div>
+      </div>
       <div class="hint">長い動画や資料は、取得・文字起こし・本文解析に数分かかることがあります。生成完了後、Kurageの動画として表示されます。</div>
       <div id="message" class="toast"></div>
     </div>
@@ -171,7 +179,7 @@ if ($health['ok'] && isset($health['data']['ok'])) { $api_ok = true; }
   <section class="panel">
     <div class="panel-head"><span>生成状況</span><small id="job-id">未開始</small></div>
     <div class="panel-body">
-      <div class="status-line"><span id="status" class="badge status-pill">idle</span><strong id="title">タイトルはここに表示されます</strong></div>
+      <div class="status-line"><span id="status" class="badge status-pill">idle</span><span id="image-provider-status" class="badge status-pill">画像: 未選択</span><strong id="title">タイトルはここに表示されます</strong></div>
       <div class="progress"><div id="progress" class="bar"></div></div>
       <div id="summary" class="summary">動画の要点と生成された台本がここに表示されます。</div>
       <ol id="script" class="script"></ol>
@@ -202,10 +210,16 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function message(text){ $('message').textContent = text || ''; }
 function editorMode(){ const el = document.querySelector('input[name="editor-mode"]:checked'); return el && el.value === 'llm' ? 'llm' : 'normal'; }
+function imageProvider(){ const el = document.querySelector('input[name="image-provider"]:checked'); return el && el.value === 'ernie' ? 'ernie' : 'codex_subscription'; }
 document.querySelectorAll('input[name="editor-mode"]').forEach(r => r.addEventListener('change', () => {
   $('mode-hint').textContent = editorMode() === 'llm'
     ? 'Claudeが編集者としてテロップの文節・強調・演出テンプレートを決めます（制限時はローカルgemma4に自動フォールバック）。'
     : 'テロップの文節割り・強調は自動ルールで決めます。';
+}));
+document.querySelectorAll('input[name="image-provider"]').forEach(r => r.addEventListener('change', () => {
+  $('provider-hint').textContent = imageProvider() === 'ernie'
+    ? 'RTX 3080上のERNIE-Image-Turboで生成します。ローカル処理のためChatGPTサブスク枠は使いません。'
+    : 'ChatGPT/Codexサブスクの組み込みImageGenを1枚ずつ利用します。認証・制限・タイムアウト時はERNIEへ自動フォールバックします。';
 }));
 function setActions(enabled){ $('copy').disabled = !enabled; $('post-x').disabled = !enabled; $('delete').disabled = !currentJobId; }
 function scriptLines(job){ const script = job.kurage_script || job.script || {}; const scenes = Array.isArray(script.scenes) ? script.scenes : []; if (scenes.length) return scenes.map(s => s.narration || '').filter(Boolean); return Array.isArray(job.script_outline) ? job.script_outline : []; }
@@ -217,10 +231,19 @@ function renderJob(job){
   currentJobId = job.id || currentJobId;
   currentJobUrl = job.url || '';
   if (job.url) $('source-url').value = job.url;
+  if (job.image_provider) {
+    const selectedProvider = job.image_provider === 'ernie' ? 'ernie' : 'codex_subscription';
+    const radio = document.querySelector(`input[name="image-provider"][value="${selectedProvider}"]`);
+    if (radio) radio.checked = true;
+  }
   $('job-id').textContent = currentJobId || '未開始';
   const st = job.status || 'unknown';
   $('status').textContent = progressText(job);
   $('status').className = 'badge ' + (st === 'done' ? 'done' : st === 'error' ? 'error' : 'status-pill');
+  const requestedProvider = job.image_provider === 'ernie' ? 'ERNIE' : 'ChatGPT/Codex';
+  const actualProvider = job.image_provider_actual === 'ernie' ? 'ERNIE' : job.image_provider_actual === 'codex_subscription' ? 'ChatGPT/Codex' : job.image_provider_actual === 'mixed' ? '混在' : '';
+  const fallbackCount = Number(job.image_provider_fallbacks || 0);
+  $('image-provider-status').textContent = `画像: ${requestedProvider}${actualProvider ? ` → ${actualProvider}` : ''}${fallbackCount ? `（代替${fallbackCount}枚）` : ''}`;
   $('progress').style.width = `${displayProgress(job)}%`;
   $('title').textContent = jobTitle(job);
   $('summary').textContent = job.summary || job.reference_analysis?.core_claim || job.analysis?.reference_analysis?.core_claim || job.transcript_preview || '解析中です。';
@@ -241,7 +264,7 @@ async function poll(jobId){ const job = await fetchJson(`<?php echo h($THIS_FILE
 $('generate').addEventListener('click', async () => {
   const url = $('source-url').value.trim(); if (!url) return message('URLを入力してください');
   $('generate').disabled = true; message('生成ジョブを開始しています...');
-  try { const sameLoadedUrl = currentJobId && currentJobUrl && url === currentJobUrl; const endpoint = sameLoadedUrl ? `<?php echo h($THIS_FILE); ?>?proxy=regenerate&job_id=${encodeURIComponent(currentJobId)}` : '<?php echo h($THIS_FILE); ?>?proxy=create'; const data = await fetchJson(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url, vtuber_mode:true, video_style:'ai_avatar_explainer', editor_mode: editorMode()})}); currentJobId = data.job_id; currentJobUrl = url; message(`${sameLoadedUrl ? '上書き再生成' : 'ジョブ開始'}: ${currentJobId}`); clearInterval(pollTimer); const job = await poll(currentJobId); if (!['done','error'].includes(job.status)) pollTimer = setInterval(() => poll(currentJobId), 5000); }
+  try { const sameLoadedUrl = currentJobId && currentJobUrl && url === currentJobUrl; const endpoint = sameLoadedUrl ? `<?php echo h($THIS_FILE); ?>?proxy=regenerate&job_id=${encodeURIComponent(currentJobId)}` : '<?php echo h($THIS_FILE); ?>?proxy=create'; const data = await fetchJson(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url, vtuber_mode:true, video_style:'ai_avatar_explainer', image_provider:imageProvider(), editor_mode: editorMode()})}); currentJobId = data.job_id; currentJobUrl = url; message(`${sameLoadedUrl ? '上書き再生成' : 'ジョブ開始'}: ${currentJobId}`); clearInterval(pollTimer); const job = await poll(currentJobId); if (!['done','error'].includes(job.status)) pollTimer = setInterval(() => poll(currentJobId), 5000); }
   catch(e){ message(e.message || String(e)); }
   finally { $('generate').disabled = false; }
 });
@@ -258,7 +281,8 @@ async function loadHistory(){
     const div = document.createElement('div');
     div.className = 'job';
     const kurage = job.kurage_job_id ? `<small>Kurage: ${esc(job.kurage_status || '-')} / ${esc(job.kurage_progress ?? '-')}%</small>` : '';
-    div.innerHTML = `<button class="job-main" data-id="${esc(job.id)}" type="button"><strong>${esc(jobTitle(job))}</strong><small>${esc(progressText(job))} / ${esc(job.url || '')}</small>${kurage}</button>`;
+    const provider = job.image_provider === 'ernie' ? 'ERNIE' : 'ChatGPT/Codex';
+    div.innerHTML = `<button class="job-main" data-id="${esc(job.id)}" type="button"><strong>${esc(jobTitle(job))}</strong><small>${esc(progressText(job))} / 画像: ${esc(provider)} / ${esc(job.url || '')}</small>${kurage}</button>`;
     div.querySelector('button').addEventListener('click', async () => openJob(job));
     box.appendChild(div);
   }
