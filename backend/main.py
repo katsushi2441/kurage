@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from config import JOBS_DIR, PORT, ERNIE_URL, NVM_NODE, HYPERFRAMES_VERSION, OLLAMA_URL, OLLAMA_MODEL, WAN_API, WAN_TEST_MODE
 from tts_gen import TTS_BACKEND, TTS_VOICE, TTS_RATE, TTS_PITCH, VOICEBOX_ENGINE, VOICEBOX_PROFILE_ID, run_voicebox_tts
-from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, run_pipeline_from_entertainment_short, run_pipeline_from_script, load_job, update_job
+from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, run_pipeline_from_entertainment_short, run_pipeline_from_script, load_job, update_job, replace_job, increment_job_views
 from video_styles import STYLE_PRESETS, resolve_video_style, style_names
 from typing import Any
 from lofi_gen import create_lofi_job, run_lofi_job, load_lofi_job, list_lofi_jobs, delete_lofi_job, lofi_public_file
@@ -63,7 +63,7 @@ def mark_interrupted_jobs_on_startup() -> None:
             "interrupted_at": restarted_at,
             "updated_at": restarted_at,
         })
-        path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        replace_job(job_id, data)
         print(f"[{job_id}] marked interrupted job as error: {reason}", flush=True)
         marked += 1
     if marked:
@@ -546,15 +546,9 @@ def status(job_id: str):
 @app.post("/view/{job_id}")
 def record_view(job_id: str):
     """Increment a public detail-page view count."""
-    path = JOBS_DIR / f"{job_id}.json"
-    job = load_job(job_id)
+    job = increment_job_views(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
-    job["views"] = _job_views(job) + 1
-    job["viewed_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
-    tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(path)
     return {"ok": True, "job_id": job_id, "views": job["views"]}
 
 

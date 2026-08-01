@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
 import traceback
+import uuid
 from pathlib import Path
 import urllib.request
 
@@ -19,28 +21,66 @@ import wan_gen
 
 WAN_OPENING_SCENES = int(os.environ.get("KURAGE_WAN_OPENING_SCENES", "2"))
 WAN_OPENING_ENABLED = os.environ.get("KURAGE_WAN_OPENING_ENABLED", "0").lower() not in {"0", "false", "no", "off"}
+JOB_FILE_LOCK = threading.RLock()
 
 
 def job_path(job_id: str) -> Path:
     return JOBS_DIR / f"{job_id}.json"
 
 
+def atomic_write_job_file(path: Path, data: dict) -> None:
+    """Atomically replace job JSON with a per-write temporary file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def load_job(job_id: str) -> dict | None:
     p = job_path(job_id)
-    if not p.exists():
-        return None
-    return json.loads(p.read_text(encoding="utf-8"))
+    with JOB_FILE_LOCK:
+        if not p.exists():
+            return None
+        return json.loads(p.read_text(encoding="utf-8"))
 
 
 def update_job(job_id: str, **kwargs):
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     p = job_path(job_id)
-    data = {}
-    if p.exists():
-        data = json.loads(p.read_text(encoding="utf-8"))
-    data.update(kwargs)
-    data["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
-    p.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    with JOB_FILE_LOCK:
+        data = {}
+        if p.exists():
+            data = json.loads(p.read_text(encoding="utf-8"))
+        data.update(kwargs)
+        data["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        atomic_write_job_file(p, data)
+        return data
+
+
+def replace_job(job_id: str, data: dict) -> dict:
+    with JOB_FILE_LOCK:
+        atomic_write_job_file(job_path(job_id), data)
+        return data
+
+
+def increment_job_views(job_id: str) -> dict | None:
+    """Increment view metadata under the same lock as all pipeline writes."""
+    p = job_path(job_id)
+    with JOB_FILE_LOCK:
+        if not p.exists():
+            return None
+        job = json.loads(p.read_text(encoding="utf-8"))
+        try:
+            views = max(0, int(job.get("views") or 0))
+        except (TypeError, ValueError):
+            views = 0
+        job["views"] = views + 1
+        job["viewed_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        atomic_write_job_file(p, job)
+        return job
 
 
 def sanitize_image_prompt(prompt: str) -> str:
