@@ -29,6 +29,15 @@ app.add_middleware(
 )
 
 ACTIVE_THREAD_STATUSES = {"queued", "fetching", "scripting", "imaging", "wan_opening", "rendering"}
+VIDEO_GENERATION_LOCK = threading.Lock()
+
+
+def run_serialized_video_pipeline(target, *args) -> None:
+    """Run GPU-heavy video pipelines one at a time inside this API process."""
+    job_id = str(args[0]) if args else "unknown"
+    with VIDEO_GENERATION_LOCK:
+        print(f"[{job_id}] acquired serialized video generation slot", flush=True)
+        target(*args)
 
 
 def mark_interrupted_jobs_on_startup() -> None:
@@ -270,7 +279,7 @@ def generate(req: GenerateRequest):
     # Run pipeline in background thread
     mode = req.mode if req.mode in ("hyperframes", "wan") else "hyperframes"
     update_job(job_id, mode=mode, vtuber_mode=req.vtuber_mode, video_style=resolved_style)
-    t = threading.Thread(target=run_pipeline, args=(job_id, tweet_url, mode, req.vtuber_mode, resolved_style), daemon=True)
+    t = threading.Thread(target=run_serialized_video_pipeline, args=(run_pipeline, job_id, tweet_url, mode, req.vtuber_mode, resolved_style), daemon=True)
     t.start()
 
     return {"ok": True, "job_id": job_id}
@@ -294,7 +303,7 @@ def generate_from_news(req: NewsRequest):
                tweet_author="Horizon",
                tweet_author_name=req.title or tweet_text[:50],
                created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
-    t = threading.Thread(target=run_pipeline_from_news, args=(job_id, _request_data(req), req.vtuber_mode, resolved_style), daemon=True)
+    t = threading.Thread(target=run_serialized_video_pipeline, args=(run_pipeline_from_news, job_id, _request_data(req), req.vtuber_mode, resolved_style), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
 
@@ -339,7 +348,7 @@ def generate_from_script(req: ScriptVideoRequest):
                title=script.get("title") or source_title,
                script=script,
                created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
-    t = threading.Thread(target=run_pipeline_from_script, args=(job_id, data, req.vtuber_mode, resolved_style), daemon=True)
+    t = threading.Thread(target=run_serialized_video_pipeline, args=(run_pipeline_from_script, job_id, data, req.vtuber_mode, resolved_style), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
 
@@ -367,7 +376,7 @@ def generate_from_url(req: UrlRequest):
                tweet_author_name=article["title"],
                created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
     news = {"news_items": [article], "title": article["title"]}
-    t = threading.Thread(target=run_pipeline_from_news, args=(job_id, news, req.vtuber_mode, resolved_style), daemon=True)
+    t = threading.Thread(target=run_serialized_video_pipeline, args=(run_pipeline_from_news, job_id, news, req.vtuber_mode, resolved_style), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
 
@@ -395,7 +404,7 @@ def generate_from_blog_url(req: UrlRequest):
                tweet_author_name=article["title"],
                title=article["title"],
                created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
-    t = threading.Thread(target=run_pipeline_from_blog, args=(job_id, article, req.vtuber_mode, resolved_style), daemon=True)
+    t = threading.Thread(target=run_serialized_video_pipeline, args=(run_pipeline_from_blog, job_id, article, req.vtuber_mode, resolved_style), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
 
@@ -422,7 +431,7 @@ def generate_entertainment_short(req: EntertainmentShortRequest):
                tweet_author_name=title,
                title=title,
                created_at=time.strftime("%Y-%m-%d %H:%M:%S"))
-    t = threading.Thread(target=run_pipeline_from_entertainment_short, args=(job_id, article, req.vtuber_mode, resolved_style), daemon=True)
+    t = threading.Thread(target=run_serialized_video_pipeline, args=(run_pipeline_from_entertainment_short, job_id, article, req.vtuber_mode, resolved_style), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
 
