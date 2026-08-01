@@ -259,6 +259,91 @@ def script_summary_text(script: dict, limit: int = 220) -> str:
     return text[:limit].rstrip() + "…"
 
 
+def _default_kmontage_thumbnail_spec(script: dict) -> dict:
+    """Provide a safe content-derived brief for older kmontage clients."""
+    title = str(script.get("title") or "Kurage Montage").strip()[:34]
+    scenes = script.get("scenes") if isinstance(script.get("scenes"), list) else []
+    first = scenes[0] if scenes and isinstance(scenes[0], dict) else {}
+    first_prompt = str(first.get("image_prompt") or "")
+    return {
+        "enabled": True,
+        "headline": title,
+        "topic_label": "KURAGE  ×  INSIGHT",
+        "image_prompt": (
+            "Premium vertical 9:16 editorial video poster art for Kurage Montage. "
+            f"Topic: {title}. Visual basis: {first_prompt[:220]}. "
+            "Show the canonical Kurage AI character as a confident technology navigator, "
+            "waist-up in the lower-right, with large uncluttered headline space in the upper-left. "
+            "Bright White Studio, off-white and pale aqua, subtle cyan technical details, one coral "
+            "accent, commercial Japanese technology magazine quality. No readable text, letters, "
+            "numbers, logos, watermark, black background, or extra people."
+        ),
+    }
+
+
+def generate_kmontage_thumbnail_assets(
+    job_id: str,
+    request: dict,
+    script: dict,
+    assets_dir: Path,
+    image_provider: str,
+) -> dict:
+    """Generate one dedicated poster art layer; fail open to scene 0."""
+    source = str(request.get("source") or "")
+    if not source.startswith("kmontage"):
+        return {"status": "skipped"}
+    spec = request.get("thumbnail") if isinstance(request.get("thumbnail"), dict) else {}
+    if not spec:
+        spec = _default_kmontage_thumbnail_spec(script)
+    if spec.get("enabled") is False:
+        return {"status": "disabled", "spec": spec}
+
+    headline = str(spec.get("headline") or script.get("title") or "Kurage Montage").strip()[:40]
+    topic = str(spec.get("topic_label") or "KURAGE  ×  INSIGHT").strip()[:42]
+    prompt = sanitize_image_prompt(str(spec.get("image_prompt") or ""))
+    if not prompt:
+        prompt = _default_kmontage_thumbnail_spec(script)["image_prompt"]
+    output = assets_dir / "thumbnail_base_generated.png"
+    try:
+        print(f"  [thumbnail] generating dedicated poster: {prompt[:80]}...", flush=True)
+        path = generate_or_reuse_image(
+            prompt,
+            output,
+            width=1080,
+            height=1920,
+            provider=image_provider,
+        )
+        (assets_dir / "thumbnail_title.txt").write_text(headline + "\n", encoding="utf-8")
+        (assets_dir / "thumbnail_topic.txt").write_text(topic + "\n", encoding="utf-8")
+        (assets_dir / "thumbnail_spec.json").write_text(
+            json.dumps({**spec, "headline": headline, "topic_label": topic, "image_prompt": prompt},
+                       ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        metadata = image_generation_metadata(path)
+        result = {
+            "status": "generated",
+            "file": str(path),
+            "requested_provider": image_provider,
+            "actual_provider": str(metadata.get("actual_provider") or image_provider),
+            "fallback": bool(metadata.get("fallback")),
+            "headline": headline,
+            "topic_label": topic,
+        }
+        update_job(job_id, thumbnail_generation=result, thumbnail_spec=spec)
+        return result
+    except Exception as exc:
+        result = {
+            "status": "fallback_scene_0",
+            "error": str(exc),
+            "headline": headline,
+            "topic_label": topic,
+        }
+        update_job(job_id, thumbnail_generation=result, thumbnail_spec=spec)
+        print(f"  [thumbnail] dedicated poster failed; using scene 0: {exc}", flush=True)
+        return result
+
+
 def normalize_provided_script(script: dict, video_style: str = "auto", scene_duration: int = 10) -> dict:
     """Validate a caller-provided script without asking the LLM to rewrite it.
 
@@ -443,6 +528,28 @@ def run_pipeline_from_script(job_id: str, request: dict, vtuber_mode: bool = Fal
                 image_provider_fallbacks=image_provider_fallbacks,
             )
         update_job(job_id, image_count=len(image_paths))
+
+        # kmontage creates one content-specific 9:16 poster art layer in
+        # addition to the scene images. Text remains deterministic in Pillow.
+        thumbnail_result = generate_kmontage_thumbnail_assets(
+            job_id,
+            request,
+            script,
+            assets_dir,
+            image_provider,
+        )
+        if thumbnail_result.get("status") == "generated":
+            actual = str(thumbnail_result.get("actual_provider") or image_provider)
+            actual_image_providers.add(actual)
+            if thumbnail_result.get("fallback"):
+                image_provider_fallbacks += 1
+            provider_actual_label = next(iter(actual_image_providers)) if len(actual_image_providers) == 1 else "mixed"
+            update_job(
+                job_id,
+                progress=70,
+                image_provider_actual=provider_actual_label,
+                image_provider_fallbacks=image_provider_fallbacks,
+            )
 
         # WAN opening generation is disabled by default. Use only when explicitly
         # enabled for an isolated experiment; production news videos must stay on

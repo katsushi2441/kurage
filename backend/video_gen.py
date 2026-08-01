@@ -1282,8 +1282,13 @@ def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0, t
     従来どおり動画からフレームを抜く。
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    generated_base = output_path.parent / "assets" / "thumbnail_base_generated.png"
     custom_base = output_path.parent / "assets" / "thumbnail_base_codex.png"
-    base_image = custom_base if custom_base.is_file() else output_path.parent / "assets" / "scene_00.png"
+    base_image = (
+        generated_base if generated_base.is_file()
+        else custom_base if custom_base.is_file()
+        else output_path.parent / "assets" / "scene_00.png"
+    )
     if base_image.exists() and base_image.stat().st_size > 0:
         from PIL import Image
         Image.open(base_image).convert("RGB").save(output_path, "JPEG", quality=92)
@@ -1308,6 +1313,9 @@ def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0, t
                 f"stdout: {result.stdout[-1000:]}\n"
                 f"stderr: {result.stderr[-1000:]}"
             )
+    title_file = output_path.parent / "assets" / "thumbnail_title.txt"
+    if title_file.is_file():
+        title = title_file.read_text(encoding="utf-8").strip() or title
     topic_file = output_path.parent / "assets" / "thumbnail_topic.txt"
     topic_label = topic_file.read_text(encoding="utf-8").strip() if topic_file.is_file() else None
     _overlay_thumbnail_title(output_path, title, topic_label=topic_label)

@@ -132,6 +132,7 @@ class ScriptVideoRequest(BaseModel):
     vtuber_mode: bool = False
     video_style: str = "auto"
     image_provider: str = "ernie"
+    thumbnail: dict[str, Any] | None = None
     # テロップ編集者: normal=決定的ヒューリスティック / llm=claude→gemma4 fail-open
     editor_mode: str = "normal"
 
@@ -579,6 +580,8 @@ def status(job_id: str):
         "image_provider": job.get("image_provider") or "ernie",
         "image_provider_actual": job.get("image_provider_actual"),
         "image_provider_fallbacks": job.get("image_provider_fallbacks") or 0,
+        "thumbnail_generation": job.get("thumbnail_generation"),
+        "thumbnail_spec": job.get("thumbnail_spec"),
         "translated_text": job.get("translated_text"),
         "kuragevp_job_id": job.get("kuragevp_job_id"),
         "image_count": job.get("image_count"),

@@ -38,8 +38,11 @@ kfreqai CMと同じデザイン言語で構成する。既存画像からの再�
 `telop_visual_preset=white_studio_cm` で適用を確認できる。
 
 サムネイルは9:16の1080×1920へ正規化し、画像生成は文字のないアート層だけに使う。
-日本語タイトル、ブランド、トピック表示はPillowで正確に合成する。ジョブ固有のCodex画像は
-`assets/thumbnail_base_codex.png`、トピックは`assets/thumbnail_topic.txt`として再利用できる。
+kmontageは元資料の分析から見出し・トピック・専用画像プロンプトを渡し、Kurageは選択中の
+画像プロバイダーで`assets/thumbnail_base_generated.png`を本編とは別に1枚生成する。
+日本語タイトル、ブランド、トピック表示はPillowで正確に合成する。専用画像生成に失敗した
+場合は動画ジョブを止めず、シーン0へフォールバックする。手動指定した旧ジョブでは
+`assets/thumbnail_base_codex.png`も引き続き再利用できる。
 
 新しいスタイルを追加するときは、`STYLE_PRESETS` に `label`、`best_for`、`system`、`image_suffixes` を追加し、必要なら `resolve_video_style()` の自動選択ルールも更新する。
 

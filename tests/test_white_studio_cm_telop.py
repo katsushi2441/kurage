@@ -128,3 +128,61 @@ def test_white_studio_thumbnail_normalizes_legacy_square_art(tmp_path):
     result = Image.open(thumbnail)
     assert result.size == (1080, 1920)
     assert result.getpixel((10, 10)) != (0, 0, 0)
+
+
+def test_kmontage_generates_dedicated_thumbnail_assets(monkeypatch, tmp_path):
+    calls = {}
+
+    def fake_generate(prompt, output, width=384, height=384, provider="ernie"):
+        calls.update(prompt=prompt, width=width, height=height, provider=provider)
+        output.write_bytes(b"generated-thumbnail")
+        return output
+
+    monkeypatch.setattr(pipeline, "generate_or_reuse_image", fake_generate)
+    monkeypatch.setattr(
+        pipeline,
+        "image_generation_metadata",
+        lambda path: {"actual_provider": "codex_subscription", "fallback": False},
+    )
+    monkeypatch.setattr(pipeline, "update_job", lambda *args, **kwargs: calls.update(job=kwargs))
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    request = {
+        "source": "kmontage",
+        "thumbnail": {
+            "enabled": True,
+            "headline": "OSSで食べる：30年越しの答え",
+            "topic_label": "OPEN SOURCE  ×  x402",
+            "image_prompt": "Kurage AI, white studio, no readable text",
+        },
+    }
+
+    result = pipeline.generate_kmontage_thumbnail_assets(
+        "job", request, _script(), assets, "codex_subscription"
+    )
+
+    assert result["status"] == "generated"
+    assert calls["width"] == 1080
+    assert calls["height"] == 1920
+    assert calls["provider"] == "codex_subscription"
+    assert (assets / "thumbnail_base_generated.png").is_file()
+    assert (assets / "thumbnail_title.txt").read_text().strip() == "OSSで食べる：30年越しの答え"
+    assert (assets / "thumbnail_topic.txt").read_text().strip() == "OPEN SOURCE  ×  x402"
+
+
+def test_kmontage_thumbnail_failure_falls_back_without_raising(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        pipeline,
+        "generate_or_reuse_image",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("provider unavailable")),
+    )
+    monkeypatch.setattr(pipeline, "update_job", lambda *args, **kwargs: None)
+    assets = tmp_path / "assets"
+    assets.mkdir()
+
+    result = pipeline.generate_kmontage_thumbnail_assets(
+        "job", {"source": "kmontage"}, _script(), assets, "ernie"
+    )
+
+    assert result["status"] == "fallback_scene_0"
+    assert "provider unavailable" in result["error"]
