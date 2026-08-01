@@ -37,6 +37,10 @@ kfreqai CMと同じデザイン言語で構成する。既存画像からの再�
 `source` を見て同じプリセットを維持する。ジョブJSONの
 `telop_visual_preset=white_studio_cm` で適用を確認できる。
 
+サムネイルは9:16の1080×1920へ正規化し、画像生成は文字のないアート層だけに使う。
+日本語タイトル、ブランド、トピック表示はPillowで正確に合成する。ジョブ固有のCodex画像は
+`assets/thumbnail_base_codex.png`、トピックは`assets/thumbnail_topic.txt`として再利用できる。
+
 新しいスタイルを追加するときは、`STYLE_PRESETS` に `label`、`best_for`、`system`、`image_suffixes` を追加し、必要なら `resolve_video_style()` の自動選択ルールも更新する。
 
 画面反映が必要な場合は、公開PHPを必ず公開サーバへFTPアップロードする。対象例は `kurage.php`、`horizon.php`、`kuragev.php`、`kmontage.php`、`entertainment.php`、`index.php`。ローカルGit更新だけでは完了ではない。

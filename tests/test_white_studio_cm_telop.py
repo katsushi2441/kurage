@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 import pipeline
 import static_media
-from video_gen import build_html_v2
+from video_gen import _overlay_thumbnail_title, build_html_v2
 
 
 def _script():
@@ -115,3 +115,16 @@ def test_static_media_force_is_forwarded_to_sync_script(monkeypatch):
 
     assert result["ok"] is True
     assert "--force" in captured["command"]
+
+
+def test_white_studio_thumbnail_normalizes_legacy_square_art(tmp_path):
+    from PIL import Image
+
+    thumbnail = tmp_path / "thumbnail.jpg"
+    Image.new("RGB", (384, 384), (225, 248, 250)).save(thumbnail)
+
+    _overlay_thumbnail_title(thumbnail, "OSSで食べていく方法：30年越しの正解")
+
+    result = Image.open(thumbnail)
+    assert result.size == (1080, 1920)
+    assert result.getpixel((10, 10)) != (0, 0, 0)

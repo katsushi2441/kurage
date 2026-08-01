@@ -1168,74 +1168,110 @@ def _wrap_text(draw, text: str, font, max_width: int) -> list[str]:
     return lines[:3]
 
 
-def _overlay_thumbnail_title(image_path: Path, title: str | None) -> None:
-    """サムネにタイトルを載せる(テロップv2と同じデザイン言語)。
+def _overlay_thumbnail_title(image_path: Path, title: str | None,
+                             topic_label: str | None = None) -> None:
+    """Apply the vertical White Studio poster system used by Kurage Montage.
 
-    旧実装(上下ベタ黒帯+中央寄せ黄色文字+白ピル)は情報過多で古い見た目
-    だったため、下部グラデーションスクリム+左寄せ白文字+teal背表紙+
-    ダークガラスのバッジに置き換えた。絵は上半分をそのまま見せる。
+    Text stays code-rendered for exact Japanese. The generated illustration is
+    only the art layer, so image-model spelling errors never reach production.
     """
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
-    img = Image.open(image_path).convert("RGBA")
-    w, h = img.size
+    source = Image.open(image_path).convert("RGB")
+    target_size = (1080, 1920)
+    resampling = getattr(Image, "Resampling", Image)
+    lanczos = resampling.LANCZOS
+    source_ratio = source.width / max(1, source.height)
+    target_ratio = target_size[0] / target_size[1]
 
-    # 下部スクリム: 透明→濃紺黒のグラデーション(帯ではなく緩やかに)
-    scrim = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    sd = ImageDraw.Draw(scrim)
-    scrim_top = int(h * 0.46)
-    for y in range(scrim_top, h):
-        t = (y - scrim_top) / max(1, h - scrim_top)
-        alpha = int(215 * (t * t * (3 - 2 * t)))  # smoothstep
-        sd.line([(0, y), (w, y)], fill=(4, 11, 15, alpha))
-    img = Image.alpha_composite(img, scrim)
+    if abs(source_ratio - target_ratio) < 0.04:
+        canvas = ImageOps.fit(source, target_size, method=lanczos)
+    else:
+        # Square legacy scene art remains usable without black bars: a soft,
+        # bright cover layer fills 9:16 and the intact art sits above it.
+        backdrop = ImageOps.fit(source, target_size, method=lanczos)
+        backdrop = backdrop.filter(ImageFilter.GaussianBlur(34)).convert("RGBA")
+        white_veil = Image.new("RGBA", target_size, (247, 251, 248, 92))
+        canvas = Image.alpha_composite(backdrop, white_veil)
+        foreground = ImageOps.contain(source, (1000, 1180), method=lanczos)
+        fx = (target_size[0] - foreground.width) // 2
+        fy = target_size[1] - foreground.height - 80
+        canvas.alpha_composite(foreground.convert("RGBA"), (fx, fy))
+
+    img = canvas.convert("RGBA")
+    wash = Image.new("RGBA", target_size, (0, 0, 0, 0))
+    wd = ImageDraw.Draw(wash)
+    # Bright reading field: no black scrim or heavy outline.
+    for y in range(0, 1080):
+        t = y / 1080
+        alpha = int(245 * (1 - t) + 28 * t)
+        wd.line([(0, y), (1080, y)], fill=(247, 251, 248, alpha))
+    wd.rounded_rectangle((38, 38, 1042, 1882), radius=30,
+                         outline=(22, 175, 196, 72), width=2)
+    wd.rectangle((38, 38, 150, 47), fill=(246, 183, 60, 255))
+    wd.rectangle((930, 1873, 1042, 1882), fill=(246, 183, 60, 255))
+    img = Image.alpha_composite(img, wash)
     draw = ImageDraw.Draw(img)
 
     font_path = _find_japanese_font()
-    main_font = ImageFont.truetype(font_path, max(40, int(w * 0.1)))
-    badge_font = ImageFont.truetype(font_path, max(16, int(w * 0.038)))
+    eyebrow_font = ImageFont.truetype(font_path, 30)
+    micro_font = ImageFont.truetype(font_path, 27)
+    body_font = ImageFont.truetype(font_path, 43)
+    main_font = ImageFont.truetype(font_path, 100)
+    accent_font = ImageFont.truetype(font_path, 112)
+    ink = (20, 56, 68, 255)
+    aqua = (22, 175, 196, 255)
+    coral = (255, 114, 94, 255)
 
-    teal = (28, 184, 216, 255)
+    # Brand rail and editorial eyebrow.
+    draw.rounded_rectangle((64, 76, 560, 146), radius=8,
+                           fill=(255, 255, 255, 238), outline=(22, 175, 196, 76), width=2)
+    draw.rectangle((64, 76, 76, 146), fill=aqua)
+    draw.ellipse((98, 100, 116, 118), fill=coral)
+    draw.text((134, 92), "KURAGE MONTAGE", font=eyebrow_font, fill=ink)
+    draw.text((68, 184), "AI / TECHNOLOGY INSIGHT", font=micro_font, fill=aqua)
 
-    # バッジ(左上): ダークガラス+tealドット
-    badge = "KURAGE AI"
-    bx, by = int(w * 0.055), int(h * 0.045)
-    bb = draw.textbbox((0, 0), badge, font=badge_font)
-    bw, bh = bb[2] - bb[0], bb[3] - bb[1]
-    dot_r = max(4, int(w * 0.008))
-    pad_x, pad_y = 14, 9
-    pill_h = bh + pad_y * 2 + 4
-    draw.rounded_rectangle(
-        (bx, by, bx + bw + pad_x * 2 + dot_r * 2 + 8, by + pill_h),
-        radius=999, fill=(9, 20, 26, 205), outline=(255, 255, 255, 45), width=1,
-    )
-    cy = by + pill_h // 2
-    draw.ellipse((bx + pad_x, cy - dot_r, bx + pad_x + dot_r * 2, cy + dot_r), fill=teal)
-    draw.text((bx + pad_x + dot_r * 2 + 8, by + (pill_h - bh) // 2 - bb[1]), badge,
-              font=badge_font, fill=(255, 255, 255, 240))
-
-    # タイトル(左下寄せ・最大3行・白+細めの縁取り)
     text = (title or "Kurage Video").replace(" | ", " ").replace("｜", " ")
-    text = text.split("\n", 1)[0]
-    margin_x = int(w * 0.075)
-    lines = _wrap_text(draw, text, main_font, int(w * 0.85) - margin_x)
-    if len(lines) == 3 and sum(len(x) for x in lines) < len(text):
-        lines[2] = lines[2][:-1] + "…"
-    line_h = int(main_font.size * 1.24)
-    total_h = line_h * len(lines)
-    y0 = h - int(h * 0.065) - total_h
+    text = text.split("\n", 1)[0].strip()
+    primary, separator, accent = text.partition("：")
+    if not separator:
+        primary, separator, accent = text.partition(":")
+    if not accent:
+        split_at = max(1, min(len(text), 12))
+        primary, accent = text[:split_at], text[split_at:]
 
-    # teal背表紙(タイトルブロックの左)
-    spine_w = max(6, int(w * 0.012))
-    draw.rounded_rectangle(
-        (margin_x - spine_w - 16, y0 + 6, margin_x - 16, y0 + total_h - int(line_h * 0.18)),
-        radius=spine_w // 2, fill=teal,
-    )
-    for i, line in enumerate(lines):
-        draw.text((margin_x, y0 + i * line_h), line, font=main_font,
-                  fill=(255, 255, 255, 255), stroke_width=3, stroke_fill=(5, 12, 16, 210))
+    max_width = 920
+    primary_lines = _wrap_text(draw, primary, main_font, max_width)
+    if len(primary_lines) > 2:
+        main_font = ImageFont.truetype(font_path, 82)
+        primary_lines = _wrap_text(draw, primary, main_font, max_width)[:2]
+    if len(primary_lines) >= 2 and len(primary_lines[-1]) == 1 and len(primary_lines[-2]) >= 3:
+        primary_lines[-1] = primary_lines[-2][-1] + primary_lines[-1]
+        primary_lines[-2] = primary_lines[-2][:-1]
+    y = 270
+    line_h = int(main_font.size * 1.18)
+    for line in primary_lines:
+        draw.text((70, y), line, font=main_font, fill=ink)
+        y += line_h
 
-    img.convert("RGB").save(image_path, "JPEG", quality=92, optimize=True)
+    if accent:
+        accent_lines = _wrap_text(draw, accent, accent_font, max_width)[:2]
+        for line in accent_lines:
+            draw.text((70, y + 12), line, font=accent_font, fill=coral)
+            y += int(accent_font.size * 1.16)
+
+    # Cyan rule, compact topic card, and small lower signature.
+    rule_y = min(910, y + 42)
+    draw.rectangle((70, rule_y, 340, rule_y + 12), fill=aqua)
+    card_y = rule_y + 42
+    draw.rounded_rectangle((70, card_y, 610, card_y + 94), radius=16,
+                           fill=(255, 255, 255, 226), outline=(22, 175, 196, 82), width=2)
+    topic = str(topic_label or "AI TECHNOLOGY / EXPLAINER").strip()[:42]
+    draw.text((102, card_y + 20), topic, font=body_font, fill=ink)
+    draw.text((72, 1790), "WHITE STUDIO EDITION", font=micro_font, fill=(20, 56, 68, 155))
+    draw.rectangle((72, 1838, 340, 1845), fill=aqua)
+
+    img.convert("RGB").save(image_path, "JPEG", quality=94, optimize=True, progressive=True)
 
 
 def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0, title: str | None = None) -> Path:
@@ -1246,7 +1282,8 @@ def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0, t
     従来どおり動画からフレームを抜く。
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    base_image = output_path.parent / "assets" / "scene_00.png"
+    custom_base = output_path.parent / "assets" / "thumbnail_base_codex.png"
+    base_image = custom_base if custom_base.is_file() else output_path.parent / "assets" / "scene_00.png"
     if base_image.exists() and base_image.stat().st_size > 0:
         from PIL import Image
         Image.open(base_image).convert("RGB").save(output_path, "JPEG", quality=92)
@@ -1271,7 +1308,9 @@ def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0, t
                 f"stdout: {result.stdout[-1000:]}\n"
                 f"stderr: {result.stderr[-1000:]}"
             )
-    _overlay_thumbnail_title(output_path, title)
+    topic_file = output_path.parent / "assets" / "thumbnail_topic.txt"
+    topic_label = topic_file.read_text(encoding="utf-8").strip() if topic_file.is_file() else None
+    _overlay_thumbnail_title(output_path, title, topic_label=topic_label)
     return output_path
 
 
