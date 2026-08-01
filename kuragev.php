@@ -600,6 +600,19 @@ if ($detail_job) {
     $page_image = $BASE_URL . '/images/kurage_avatar_face.webp';
     $page_video = '';
 }
+$page_image_width = 1200;
+$page_image_height = 630;
+if ($detail_job) {
+    $thumb_id = preg_replace('/[^a-zA-Z0-9]/', '', (string)$detail_id);
+    $thumb_path = __DIR__ . '/thumbs/' . $thumb_id . '.jpg';
+    if ($thumb_id !== '' && is_file($thumb_path)) {
+        $thumb_size = @getimagesize($thumb_path);
+        if (is_array($thumb_size) && !empty($thumb_size[0]) && !empty($thumb_size[1])) {
+            $page_image_width = (int)$thumb_size[0];
+            $page_image_height = (int)$thumb_size[1];
+        }
+    }
+}
 // kurl2earn 告知カード(2026-07-27)。この動画ページ自体がkurage.exbridge.jpの
 // URLなので「このページを紹介すれば対象」という文脈で載せる。詳細/一覧の2箇所共通。
 function kurl2earn_card_html($detail = false) {
@@ -637,8 +650,8 @@ $header_amazon_url = '/go.php?' . http_build_query(array(
 <meta property="og:site_name" content="<?php echo h($SITE_NAME); ?>">
 <meta property="og:locale" content="ja_JP">
 <meta property="og:image" content="<?php echo h($page_image); ?>">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+<meta property="og:image:width" content="<?php echo h((string)$page_image_width); ?>">
+<meta property="og:image:height" content="<?php echo h((string)$page_image_height); ?>">
 <meta property="og:image:alt" content="Kurage — AIショート動画">
 <?php if ($detail_job && $page_video !== ''): ?>
 <meta property="og:video" content="<?php echo h($page_video); ?>">
