@@ -20,3 +20,15 @@ def test_numbers_and_common_phrase_are_normalized():
     assert "にせんにじゅうろく年" in out
     assert "ご本" in out
     assert "詳しい考察" in out
+
+
+def test_x402_article_terms_are_normalized_before_generic_numbers():
+    out = normalize_tts_text(
+        "Kurage FX BrainをPayAPI Marketへ公開し、url2aiとHTTP 402でx402決済するSaaS"
+    )
+    assert "クラゲ エフエックス ブレイン" in out
+    assert "ペイ エーピーアイ マーケット" in out
+    assert "ユーアールエル トゥー エーアイ" in out
+    assert "エイチティーティーピー よんひゃくに" in out
+    assert "エックス フォー オー ツー" in out
+    assert "サース" in out

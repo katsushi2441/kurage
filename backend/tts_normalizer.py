@@ -25,6 +25,7 @@ DEFAULT_REPLACEMENTS: dict[str, str] = {
 }
 
 DEFAULT_PRONUNCIATIONS: dict[str, str] = {
+    "Kurage FX Brain": "クラゲ エフエックス ブレイン",
     "Kurage AI VTuber": "クラゲ エーアイ ブイチューバー",
     "Kurage Voice Pro": "クラゲ ボイス プロ",
     "Kurage Work Protocol": "クラゲ ワーク プロトコル",
@@ -70,6 +71,11 @@ DEFAULT_PRONUNCIATIONS: dict[str, str] = {
     "Superpowers": "スーパーパワーズ",
     "GitHub": "ギットハブ",
     "Git": "ギット",
+    "PayAPI Market": "ペイ エーピーアイ マーケット",
+    "url2ai": "ユーアールエル トゥー エーアイ",
+    "x402": "エックス フォー オー ツー",
+    "HTTP": "エイチティーティーピー",
+    "SaaS": "サース",
     "OSS": "オープンソース",
     "LLM": "エルエルエム",
     "TTS": "ティーティーエス",
