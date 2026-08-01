@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from config import JOBS_DIR, PORT, ERNIE_URL, NVM_NODE, HYPERFRAMES_VERSION, OLLAMA_URL, OLLAMA_MODEL, WAN_API, WAN_TEST_MODE
 from tts_gen import TTS_BACKEND, TTS_VOICE, TTS_RATE, TTS_PITCH, VOICEBOX_ENGINE, VOICEBOX_PROFILE_ID, run_voicebox_tts
-from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, run_pipeline_from_entertainment_short, run_pipeline_from_script, load_job, update_job, replace_job, increment_job_views
+from pipeline import run_pipeline, run_pipeline_from_news, run_pipeline_from_blog, run_pipeline_from_entertainment_short, run_pipeline_from_script, run_render_existing_assets, load_job, update_job, replace_job, increment_job_views
 from video_styles import STYLE_PRESETS, resolve_video_style, style_names
 from typing import Any
 from lofi_gen import create_lofi_job, run_lofi_job, load_lofi_job, list_lofi_jobs, delete_lofi_job, lofi_public_file
@@ -351,6 +351,44 @@ def generate_from_script(req: ScriptVideoRequest):
     t = threading.Thread(target=run_serialized_video_pipeline, args=(run_pipeline_from_script, job_id, data, req.vtuber_mode, resolved_style), daemon=True)
     t.start()
     return {"ok": True, "job_id": job_id}
+
+
+@app.post("/rerender/{job_id}")
+def rerender_existing_job(job_id: str):
+    """Retry audio/video composition without regenerating completed images."""
+    job = load_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    script = job.get("script") or {}
+    scenes = script.get("scenes") if isinstance(script, dict) else None
+    if not isinstance(scenes, list) or not scenes:
+        raise HTTPException(status_code=409, detail="stored script.scenes is unavailable")
+    assets_dir = JOBS_DIR / job_id / "assets"
+    missing = []
+    for position, scene in enumerate(scenes):
+        index = int(scene.get("index", position))
+        path = assets_dir / f"scene_{index:02d}.png"
+        if not path.is_file() or path.stat().st_size < 1024:
+            missing.append(path.name)
+    if missing:
+        raise HTTPException(status_code=409, detail={"message": "stored images are incomplete", "missing": missing})
+    update_job(
+        job_id,
+        status="queued",
+        progress=70,
+        error=None,
+        traceback=None,
+        interrupted_status=None,
+        interrupted_at=None,
+        failed_at_progress=None,
+    )
+    thread = threading.Thread(
+        target=run_serialized_video_pipeline,
+        args=(run_render_existing_assets, job_id),
+        daemon=True,
+    )
+    thread.start()
+    return {"ok": True, "job_id": job_id, "rerender": True, "image_count": len(scenes)}
 
 
 @app.post("/generate_from_url")

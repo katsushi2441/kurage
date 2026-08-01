@@ -182,6 +182,53 @@ def mark_job_done(job_id: str, video_path: Path, thumb_path: Path):
         print(f"[{job_id}] static media sync failed: {exc}", flush=True)
 
 
+def run_render_existing_assets(job_id: str) -> None:
+    """Rebuild narration/video from the stored script and complete image set."""
+    job_dir = JOBS_DIR / job_id
+    try:
+        job = load_job(job_id)
+        if not job:
+            raise RuntimeError("job metadata is unavailable")
+        script = job.get("script") or {}
+        scenes = script.get("scenes") if isinstance(script, dict) else None
+        if not isinstance(scenes, list) or not scenes:
+            raise RuntimeError("stored script.scenes is unavailable")
+        assets_dir = job_dir / "assets"
+        image_paths: list[Path] = []
+        for position, scene in enumerate(scenes):
+            index = int(scene.get("index", position))
+            path = assets_dir / f"scene_{index:02d}.png"
+            if not path.is_file() or path.stat().st_size < 1024:
+                raise RuntimeError(f"stored image is unavailable: {path.name}")
+            image_paths.append(path)
+        from telop_gen import generate_edl
+
+        editor_mode = str(job.get("editor_mode") or "normal").strip().lower()
+        edl = generate_edl(script, editor_mode, job_dir)
+        update_job(
+            job_id,
+            status="rendering",
+            progress=75,
+            error=None,
+            traceback=None,
+            image_count=len(image_paths),
+            telop_editor=edl.get("editor"),
+        )
+        video_path = generate_video(
+            script,
+            image_paths,
+            job_dir,
+            vtuber_mode=bool(job.get("vtuber_mode")),
+            edl=edl,
+        )
+        mark_job_done(job_id, video_path, job_dir / "thumbnail.jpg")
+        print(f"[{job_id}] existing-assets rerender done: {video_path}", flush=True)
+    except Exception as exc:
+        tb = traceback.format_exc()
+        print(f"[{job_id}] existing-assets rerender ERROR: {exc}\n{tb}", flush=True)
+        update_job(job_id, status="error", error=str(exc), traceback=tb)
+
+
 def script_summary_text(script: dict, limit: int = 220) -> str:
     """Build a Japanese description from generated narration scenes."""
     scenes = script.get("scenes") if isinstance(script, dict) else []
