@@ -10,7 +10,7 @@ VIDEOS_DIR = STORAGE_DIR / "videos"
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://192.168.0.14:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:12b-it-qat")
 
-ERNIE_URL = os.environ.get("ERNIE_URL", "http://192.168.0.3:8010/image/generate")
+ERNIE_URL = os.environ.get("ERNIE_URL", "http://192.168.0.11:8010/image/generate")
 WAN_API = os.environ.get("WAN_API", "http://192.168.0.14:8091")
 WAN_TEST_MODE = os.environ.get("WAN_TEST_MODE", "1")
 
