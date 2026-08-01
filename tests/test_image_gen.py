@@ -93,6 +93,30 @@ def test_cache_is_scoped_to_image_provider(tmp_path, monkeypatch: pytest.MonkeyP
     assert providers == ["ernie", "codex_subscription"]
 
 
+def test_codex_retry_does_not_reuse_ernie_fallback_cache(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = 0
+
+    def fake_generate(prompt, output_path, width=384, height=384, *, provider="ernie"):
+        nonlocal calls
+        calls += 1
+        Image.effect_noise((128, 128), 100).convert("RGB").save(output_path, format="PNG")
+        image_gen._write_provider_metadata(
+            output_path,
+            requested=provider,
+            actual="ernie",
+            fallback_reason="temporary failure",
+        )
+        return output_path
+
+    monkeypatch.setattr(image_gen, "generate_image", fake_generate)
+    output = tmp_path / "scene.png"
+
+    image_gen.generate_or_reuse_image("same prompt", output, provider="codex_subscription")
+    image_gen.generate_or_reuse_image("same prompt", output, provider="codex_subscription")
+
+    assert calls == 2
+
+
 def test_codex_failure_falls_back_to_ernie_and_records_provider(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     def fail_codex(*args, **kwargs):
         raise RuntimeError("hosted image tool unavailable")
@@ -113,6 +137,38 @@ def test_codex_failure_falls_back_to_ernie_and_records_provider(tmp_path, monkey
     assert metadata["requested_provider"] == "codex_subscription"
     assert metadata["actual_provider"] == "ernie"
     assert metadata["fallback"] is True
+
+
+def test_codex_prompt_precedes_variadic_image_argument(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    reference = tmp_path / "kurage.png"
+    Image.effect_noise((128, 128), 100).convert("RGB").save(reference, format="PNG")
+    captured: list[str] = []
+
+    class FailedRun:
+        returncode = 1
+        stdout = ""
+        stderr = "intentional test failure"
+
+    def fake_run(command, **kwargs):
+        captured.extend(command)
+        return FailedRun()
+
+    monkeypatch.setattr(image_gen.shutil, "which", lambda value: value)
+    monkeypatch.setattr(image_gen.subprocess, "run", fake_run)
+    monkeypatch.setattr(image_gen, "CODEX_IMAGE_REFERENCE", reference)
+    monkeypatch.setattr(image_gen, "_CODEX_UNAVAILABLE_UNTIL", 0)
+
+    with pytest.raises(RuntimeError, match="intentional test failure"):
+        image_gen._generate_with_codex_subscription(
+            "Kurage VTuber explaining open source",
+            tmp_path / "scene.png",
+            384,
+            384,
+            True,
+        )
+
+    prompt_index = next(index for index, value in enumerate(captured) if value.startswith("Use the installed imagegen skill"))
+    assert prompt_index < captured.index("--image")
 
 
 @pytest.mark.parametrize(

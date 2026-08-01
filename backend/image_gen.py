@@ -131,7 +131,15 @@ def generate_or_reuse_image(
     provider = normalize_image_provider(provider)
     cache_path = output_path.with_suffix(output_path.suffix + ".sha256")
     expected_key = _cache_key(prompt, width, height, provider)
-    if is_valid_image(output_path) and cache_path.exists() and cache_path.read_text(encoding="ascii").strip() == expected_key:
+    metadata = image_generation_metadata(output_path)
+    actual_provider = str(metadata.get("actual_provider") or "").strip()
+    provider_matches = not actual_provider or actual_provider == provider
+    if (
+        provider_matches
+        and is_valid_image(output_path)
+        and cache_path.exists()
+        and cache_path.read_text(encoding="ascii").strip() == expected_key
+    ):
         print(f"  [image] reusing verified cache: {output_path.name}", flush=True)
         return output_path
     output_path.unlink(missing_ok=True)
@@ -264,9 +272,12 @@ def _generate_with_codex_subscription(
     ]
     if CODEX_IMAGE_MODEL:
         command.extend(["--model", CODEX_IMAGE_MODEL])
+    # --image accepts one or more values, so the prompt must precede it.
+    # Otherwise clap consumes the prompt as another image path and Codex waits
+    # for an empty stdin prompt in systemd services.
+    command.append(instructions)
     if use_character and CODEX_IMAGE_REFERENCE.is_file():
         command.extend(["--image", str(CODEX_IMAGE_REFERENCE)])
-    command.append(instructions)
 
     try:
         with _CODEX_IMAGE_LOCK:

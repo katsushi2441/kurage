@@ -9,6 +9,7 @@ Environment=KURAGE_PORT=18303
 Environment=OLLAMA_URL=http://192.168.0.14:11434
 Environment=OLLAMA_MODEL=gemma4:12b-it-qat
 Environment=ERNIE_URL=http://192.168.0.11:8010/image/generate
+Environment=PATH=/home/kojima/.nvm/versions/node/v20.20.2/bin:/home/kojima/.cargo/bin:/home/kojima/.local/bin:/home/kojima/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 Environment=CODEX_IMAGE_BIN=/home/kojima/.nvm/versions/node/v20.20.2/bin/codex
 Environment=CODEX_IMAGE_TIMEOUT=600
 Environment=CODEX_IMAGE_FALLBACK=ernie
