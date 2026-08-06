@@ -281,7 +281,7 @@ footer{border-top:1px solid var(--line);background:rgba(255,255,255,.72);padding
 </head>
 <body>
 <header>
-  <a class="hbrand" href="https://kurage.exbridge.jp/">
+  <a class="hbrand" href="kurage_knowledge.php">
     <span class="orb"></span>
     <span>Kurage<sub>Knowledge Library</sub></span>
   </a>
