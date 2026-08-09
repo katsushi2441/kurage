@@ -416,6 +416,44 @@ function client_video_for_list($job) {
     return $out;
 }
 
+/* ── 新着JSONフィード（他サイト埋め込み用・CORS許可） ──────
+ * exbridge.jp トップの「新着動画」ウィジェット等が客側JSで叩く。
+ * 例: kuragev.php?feed=json&limit=3 */
+if (isset($_GET['feed']) && $_GET['feed'] === 'json') {
+    $limit = isset($_GET['limit']) ? max(1, min(12, (int)$_GET['limit'])) : 3;
+    $jobs_res = kurage_get('/jobs?limit=0');
+    $all = (!empty($jobs_res['jobs'])) ? $jobs_res['jobs'] : [];
+    $done = [];
+    foreach ($all as $j) {
+        if (($j['status'] ?? '') !== 'done') continue;
+        if (!is_public_listing_job($j)) continue;
+        $done[] = $j;
+    }
+    usort($done, function ($a, $b) {
+        $x = strtotime((string)($a['updated_at'] ?? $a['created_at'] ?? '')) ?: 0;
+        $y = strtotime((string)($b['updated_at'] ?? $b['created_at'] ?? '')) ?: 0;
+        return $y - $x;
+    });
+    $base = 'https://kurage.exbridge.jp/kuragev.php';
+    $items = [];
+    foreach (array_slice($done, 0, $limit) as $j) {
+        $jid = (string)($j['job_id'] ?? '');
+        if ($jid === '') continue;
+        $items[] = [
+            'id'    => $jid,
+            'title' => (string)($j['title'] ?? ''),
+            'page'  => $base . '?id=' . rawurlencode($jid),
+            'video' => $base . '?proxy=video&job_id=' . rawurlencode($jid),
+            'thumbnail' => $base . '?proxy=thumbnail&job_id=' . rawurlencode($jid),
+        ];
+    }
+    header('Content-Type: application/json; charset=utf-8');
+    header('Access-Control-Allow-Origin: *');
+    header('Cache-Control: public, max-age=300');
+    echo json_encode(['items' => $items], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 /* ── 動画プロキシ（Range リクエスト対応） ────────────── */
 if (isset($_GET['proxy']) && $_GET['proxy'] === 'thumbnail' && !empty($_GET['job_id'])) {
     $jid = preg_replace('/[^a-zA-Z0-9]/', '', $_GET['job_id']);
