@@ -118,12 +118,6 @@ main{max-width:820px;margin:0 auto;padding:16px 18px}
       <p>業務システム・料金・デモ・代理店制度・AI技術記事まで。困りごとを書けば、最適な商品とデモ・価格をご案内します。</p>
     </div>
   </div>
-  <div class="chips">
-    <span class="chip" onclick="ex('サロンの予約管理に困っています。何が使えますか？')">サロンの予約管理</span>
-    <span class="chip" onclick="ex('請求書の発行と集金を自動化したい')">請求書を自動化</span>
-    <span class="chip" onclick="ex('AIで何ができる業務システムがありますか？')">AIで何ができる？</span>
-    <span class="chip" onclick="ex('ローカルLLMの技術記事はありますか？')">技術記事を探す</span>
-  </div>
   <div id="log"></div>
   <p class="foot">回答はKurageのナレッジベースに基づきます（AI生成のため、最終確認は公式サイトをご覧ください）。</p>
 </main>
