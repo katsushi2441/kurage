@@ -60,7 +60,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <meta property="og:description" content="Kurageのことを何でも聞けるAIチャット。商品・料金・デモ・技術記事を案内します。">
 <meta property="og:url" content="https://kurage.exbridge.jp/chat.php">
 <meta property="og:type" content="website">
-<meta property="og:image" content="https://kurage.exbridge.jp/kurage-ecosystem-avatar-600.webp">
+<meta property="og:image" content="https://kurage.exbridge.jp/chat-ogp.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Kurage.AI システム開発相談">
+<meta name="twitter:description" content="Kurageのことを何でも聞けるAIチャット。商品・料金・デモ・技術記事を案内します。">
+<meta name="twitter:image" content="https://kurage.exbridge.jp/chat-ogp.png">
 <link rel="icon" href="kurage-face-384.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
@@ -119,7 +124,7 @@ main{max-width:820px;margin:0 auto;padding:16px 18px}
     </div>
   </div>
   <div id="log"></div>
-  <p class="foot">回答はKurageのナレッジベースに基づきます（AI生成のため、最終確認は公式サイトをご覧ください）。</p>
+  <p class="foot">回答は <a href="/wiki/" style="color:var(--teal-deep);font-weight:700">Kurage Wiki</a> のナレッジベースに基づきます（AI生成のため、最終確認は公式サイトをご覧ください）。</p>
 </main>
 <div class="bar"><div class="wrap">
   <textarea id="q" placeholder="質問を入力（例: サロンの予約管理を探しています）" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
