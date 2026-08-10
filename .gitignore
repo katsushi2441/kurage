@@ -13,3 +13,4 @@ data/*.json
 vendor/voicebox/
 vendor/ComfyUI/
 voicebox-output/
+chat_secret.php
