@@ -91,6 +91,111 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $H = function ($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); };
+
+// ===== 管理者専用: 一般ユーザーの利用状況ダッシュボード =====
+if ($is_admin && isset($_GET['admin'])) {
+    $detailUser = isset($_GET['user']) ? trim((string)$_GET['user']) : '';
+    $qs = ($detailUser !== '') ? '?user=' . rawurlencode($detailUser) . '&limit=500' : '';
+    $ch = curl_init(KOPENKB_BACKEND . '/usage' . $qs);
+    curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 30,
+        CURLOPT_HTTPHEADER => ['X-KOPENKB-TOKEN: ' . KOPENKB_TOKEN]]);
+    $res = curl_exec($ch); curl_close($ch);
+    $data = json_decode($res ?: 'null', true);
+    $fmt  = function ($ts) { return $ts ? substr(str_replace('T', ' ', (string)$ts), 0, 16) : '—'; };
+    $xurl = function ($u) { return 'https://x.com/' . rawurlencode((string)$u); };
+    header('Content-Type: text/html; charset=utf-8');
+    ?><!doctype html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title>利用状況 — Kurage.AI 管理</title>
+<style>
+:root{--ink:#12202f;--mut:#55697a;--bg:#f5fbfb;--panel:#fff;--line:#cde5e2;--teal:#0a726b;--teal2:#12a99f;--me:#dff1ef}
+@media(prefers-color-scheme:dark){:root{--ink:#eaf3f3;--mut:#9fb3ba;--bg:#0c1720;--panel:#12242a;--line:#1f3a3f;--teal:#2bd4c6;--teal2:#2bd4c6;--me:#12343a}}
+*{box-sizing:border-box}body{margin:0;font-family:"Hiragino Sans","Yu Gothic",Meiryo,sans-serif;background:var(--bg);color:var(--ink);line-height:1.7}
+header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);padding:11px 18px;display:flex;align-items:center;gap:11px}
+header .t{font-weight:900;font-size:15px}header .t small{color:var(--mut);font-weight:700;font-size:11px;display:block}
+header .sp{margin-left:auto}header a.nav{color:var(--teal);font-weight:800;text-decoration:none;font-size:13px}
+.wrap{max-width:1000px;margin:0 auto;padding:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:14px}
+.stat{display:flex;gap:22px;flex-wrap:wrap}.stat b{font-size:22px;color:var(--teal)}.stat span{color:var(--mut);font-size:12px;display:block}
+.overflow{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
+th,td{text-align:left;padding:10px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mut);font-size:11.5px;font-weight:800;white-space:nowrap}
+.x{display:inline-flex;align-items:center;gap:5px;background:#111;color:#fff;border-radius:999px;padding:5px 11px;font-weight:800;font-size:12px;text-decoration:none;white-space:nowrap}
+.pill{display:inline-block;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:1px 9px;font-size:11px;font-weight:800;color:var(--teal);margin-right:4px}
+.n{font-weight:900;color:var(--teal)}.mut{color:var(--mut)}.q{color:var(--ink)}
+a.detail{color:var(--teal);font-weight:800;text-decoration:none;white-space:nowrap}
+.uhead{display:flex;align-items:center;gap:14px}
+.uhead img{width:64px;height:64px;border-radius:50%;border:2px solid var(--teal);object-fit:cover;flex:none;background:var(--bg)}
+.uhead h2{margin:0;font-size:20px}.uhead .h{color:var(--mut);font-size:13px}
+.btnrow{display:flex;gap:9px;flex-wrap:wrap;margin-top:8px}
+.back{display:inline-block;margin-bottom:12px;color:var(--teal);font-weight:800;text-decoration:none;font-size:13px}
+.empty{color:var(--mut);text-align:center;padding:30px}
+</style></head><body>
+<header>
+  <span class="t">📊 利用状況<small>Kurage.AI 管理 / @<?php echo $H($user); ?></small></span>
+  <span class="sp"></span>
+  <a class="nav" href="chat.php">← チャットに戻る</a>
+</header>
+<div class="wrap">
+<?php if (!is_array($data)) { echo '<div class="card empty">利用データを取得できませんでした。</div></div></body></html>'; exit; } ?>
+<?php if ($detailUser !== ''):
+    $events = is_array($data['events'] ?? null) ? $data['events'] : [];
+    $avatar = 'https://unavatar.io/x/' . rawurlencode($detailUser); ?>
+  <a class="back" href="?admin=1">← ユーザー一覧へ</a>
+  <div class="card">
+    <div class="uhead">
+      <img src="<?php echo $H($avatar); ?>" alt="" onerror="this.style.visibility='hidden'">
+      <div>
+        <h2>@<?php echo $H($detailUser); ?></h2>
+        <div class="h"><?php echo (int)($data['count'] ?? 0); ?> 件の問い合わせ</div>
+        <div class="btnrow">
+          <a class="x" href="<?php echo $H($xurl($detailUser)); ?>" target="_blank" rel="noopener">𝕏 プロフィール / DM</a>
+          <a class="x" style="background:var(--teal2)" href="https://x.com/intent/user?screen_name=<?php echo rawurlencode($detailUser); ?>" target="_blank" rel="noopener">フォローする</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card overflow">
+    <table><thead><tr><th>日時</th><th>種別</th><th>問い合わせ内容</th></tr></thead><tbody>
+    <?php if (!$events): ?><tr><td colspan="3" class="empty">履歴なし</td></tr><?php endif; ?>
+    <?php foreach ($events as $e): ?>
+      <tr><td class="mut" style="white-space:nowrap"><?php echo $H($fmt($e['ts'] ?? '')); ?></td>
+      <td><span class="pill"><?php echo $H($e['tier'] ?? 'user'); ?></span></td>
+      <td class="q"><?php echo $H($e['q'] ?? ''); ?></td></tr>
+    <?php endforeach; ?>
+    </tbody></table>
+  </div>
+<?php else:
+    $users = is_array($data['users'] ?? null) ? $data['users'] : [];
+    $list = array_values(array_filter($users, function ($a) use ($user) {
+        $u = $a['user'] ?? ''; return $u !== '' && $u !== '?' && $u !== $user;   // 管理者自身と不明は除外
+    })); ?>
+  <div class="card"><div class="stat">
+    <div><b><?php echo count($list); ?></b><span>一般ユーザー</span></div>
+    <div><b><?php echo (int)($data['event_count'] ?? 0); ?></b><span>総イベント</span></div>
+  </div></div>
+  <div class="card overflow">
+    <table><thead><tr><th>ユーザー（X）</th><th>問い合わせ</th><th>種別</th><th>最終利用</th><th>最新の質問</th><th></th></tr></thead><tbody>
+    <?php if (!$list): ?><tr><td colspan="6" class="empty">まだ一般ユーザーの利用がありません。</td></tr><?php endif; ?>
+    <?php foreach ($list as $a): $uu = $a['user']; ?>
+      <tr>
+        <td><a class="x" href="<?php echo $H($xurl($uu)); ?>" target="_blank" rel="noopener">𝕏 @<?php echo $H($uu); ?></a></td>
+        <td><span class="n"><?php echo (int)$a['questions']; ?></span><?php if (!empty($a['tts'])): ?> <span class="mut">/🔊<?php echo (int)$a['tts']; ?></span><?php endif; ?></td>
+        <td><?php foreach (($a['tiers'] ?? []) as $t): ?><span class="pill"><?php echo $H($t); ?></span><?php endforeach; ?></td>
+        <td class="mut" style="white-space:nowrap"><?php echo $H($fmt($a['last_ts'] ?? '')); ?></td>
+        <td class="q"><?php echo $H(mb_substr((string)($a['last_q'] ?? ''), 0, 48, 'UTF-8')); ?></td>
+        <td><a class="detail" href="?admin=1&user=<?php echo rawurlencode($uu); ?>">照会 →</a></td>
+      </tr>
+    <?php endforeach; ?>
+    </tbody></table>
+  </div>
+  <p class="mut" style="font-size:12px">💡 @ユーザー名をクリックするとXプロフィールが開き、フォロー・DMで直接ご提案できます。</p>
+<?php endif; ?>
+</div></body></html>
+<?php
+    exit;
+}
 ?><!doctype html><html lang="ja"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Kurage.AI システム開発相談 — バイブコーディング相談＆代理店収益化のAI窓口</title>
@@ -198,6 +303,9 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
   <div class="right">
 <?php if ($logged_in): ?>
     <span class="uinfo">@<?php echo $H($user); ?></span>
+<?php if ($is_admin): ?>
+    <a class="xbtn teal" href="?admin=1" title="一般ユーザーの利用状況">📊 利用状況</a>
+<?php endif; ?>
     <a class="xbtn" style="background:transparent;color:var(--abyss-soft);border:1.5px solid var(--panel-line)" href="?logout">ログアウト</a>
 <?php else: ?>
     <a class="xbtn" href="?login">𝕏 でログイン</a>
@@ -269,6 +377,21 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
       <li>ローカルLLM（gemma / DeepSeek）の技術記事はある？</li>
     </ul></div>
     <div class="center" style="margin-top:22px"><a class="cta-lg" href="?login">𝕏 でログインして無料で使う</a></div>
+  </section>
+
+  <section class="blk wrap">
+    <div style="background:var(--panel);border:1.5px solid var(--panel-line);border-radius:24px;padding:24px;box-shadow:var(--shadow);display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+      <img src="xb_bittensor-icon.jpg" alt="@xb_bittensor" style="width:96px;height:96px;border-radius:50%;border:3px solid var(--teal);object-fit:cover;flex:none">
+      <div style="flex:1;min-width:260px">
+        <span class="eyebrow"><span class="dot"></span>開発・運営 ／ 𝕏 @xb_bittensor</span>
+        <h3 style="font-size:clamp(18px,3.4vw,22px);font-weight:900;margin:8px 0 6px">𝕏 <em style="font-style:normal;color:var(--teal-deep)">@xb_bittensor</em> をフォローしてください</h3>
+        <p style="font-size:13.5px;color:var(--abyss-soft);margin-bottom:14px">
+          Kurageの開発・運営者です。フォローいただくと、新サービスや活用のヒントをお届けします。
+          また、いただいたご相談の内容を拝見し、<b style="color:var(--abyss)">@xb_bittensor からフォロー・DMで、あなたに合ったシステムのご提案をさせていただく場合があります</b>。お気軽にご相談ください。
+        </p>
+        <a class="cta-lg" style="background:#111" href="https://x.com/intent/follow?screen_name=xb_bittensor" target="_blank" rel="noopener">𝕏 @xb_bittensor をフォロー</a>
+      </div>
+    </div>
   </section>
 </main>
 <footer class="site"><div class="wrap">
