@@ -18,6 +18,35 @@ $logged_in = !empty($auth['logged_in']);
 $user = $logged_in ? trim((string)$auth['session_user']) : '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // ---- 音声読み上げ(Audio8/kurage話者クローン)プロキシ: chat.php?tts=1 → audio/wav ----
+    if (isset($_GET['tts'])) {
+        if (!$logged_in) { http_response_code(401); exit; }
+        // TTS用レート制限（ユーザーごと 80回/時・GPU保護）
+        $tkey = preg_replace('/[^0-9A-Za-z_.:-]/', '', $user) ?: 'x';
+        $trl = sys_get_temp_dir() . '/kopenkb_tts_' . md5($tkey);
+        $tn = time(); $tfp = fopen($trl, 'c+');
+        if ($tfp) {
+            flock($tfp, LOCK_EX);
+            $th = array_filter(array_map('intval', explode(',', stream_get_contents($tfp))), function ($t) use ($tn) { return $t > $tn - 3600; });
+            if (count($th) >= 80) { flock($tfp, LOCK_UN); fclose($tfp); http_response_code(429); exit; }
+            $th[] = $tn; ftruncate($tfp, 0); rewind($tfp); fwrite($tfp, implode(',', $th));
+            flock($tfp, LOCK_UN); fclose($tfp);
+        }
+        $in = json_decode(file_get_contents('php://input'), true);
+        $text = mb_substr(trim((string)($in['text'] ?? '')), 0, 1200, 'UTF-8');
+        if ($text === '') { http_response_code(400); exit; }
+        $ch = curl_init(KOPENKB_BACKEND . '/tts');
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 155,
+            CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'X-KOPENKB-TOKEN: ' . KOPENKB_TOKEN, 'X-KOPENKB-USER: ' . $user],
+            CURLOPT_POSTFIELDS => json_encode(['text' => $text], JSON_UNESCAPED_UNICODE),
+        ]);
+        $res = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+        if ($res === false || $code !== 200) { http_response_code(502); exit; }
+        header('Content-Type: audio/wav');
+        header('Content-Length: ' . strlen($res));
+        echo $res; exit;
+    }
     header('Content-Type: application/json; charset=utf-8');
     if (!$logged_in) {
         http_response_code(401);
@@ -153,6 +182,14 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
 .bar textarea:focus{outline:none;border-color:var(--teal)}
 .bar button{border:0;border-radius:14px;background:linear-gradient(135deg,var(--teal),var(--teal-deep));color:#fff;font-weight:900;font-size:14px;padding:0 22px;cursor:pointer}
 .bar button:disabled{opacity:.5}
+.bar .iconbtn{border:1.5px solid var(--panel-line);background:var(--foam);color:var(--abyss);border-radius:14px;font-size:19px;width:48px;height:48px;flex:none;cursor:pointer;display:grid;place-items:center;padding:0}
+.bar .iconbtn.on{background:linear-gradient(135deg,var(--teal),var(--teal-deep));color:#fff;border-color:transparent}
+.bar .iconbtn.rec{background:#e5484d;color:#fff;border-color:transparent;animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.5}}
+.spk{margin-top:9px}
+.spkbtn{border:1.5px solid var(--panel-line);background:var(--foam);color:var(--teal-deep);border-radius:999px;font-size:12px;font-weight:800;padding:5px 13px;cursor:pointer}
+.spkbtn:disabled{opacity:.55}
+@media(max-width:520px){.bar .iconbtn{width:44px;height:44px;font-size:17px}.bar button{padding:0 16px}}
 </style></head><body>
 <header class="site"><div class="wrap">
   <span class="ico"><img src="kurage-face-384.webp" alt="Kurage"></span>
@@ -251,7 +288,9 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
   <p class="foot">回答は <a href="/wiki/">Kurage Wiki</a> のナレッジベースに基づきます（AI生成のため、最終確認は公式サイトをご覧ください）。</p>
 </main>
 <div class="bar"><div class="wrap">
-  <textarea id="q" placeholder="質問を入力（例: サロンの予約管理を探しています）" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
+  <button id="micBtn" class="iconbtn" type="button" title="音声で質問する" onclick="toggleMic()">🎤</button>
+  <button id="autoBtn" class="iconbtn" type="button" title="回答を自動で読み上げ" onclick="toggleAuto()">🔈</button>
+  <textarea id="q" placeholder="質問を入力（🎤で音声入力も可）" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
   <button id="sendBtn" onclick="send()">送信</button>
 </div></div>
 <script>
@@ -269,10 +308,51 @@ async function send(){
   add('me',esc(q));const wait=add('ai','考え中…🪼');busy=true;btn.disabled=true;
   try{const r=await fetch('chat.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});
     if(r.status===401){wait.innerHTML='セッションが切れました。<a href="?login">再ログイン</a>してください。';busy=false;btn.disabled=false;return;}
-    const j=await r.json();wait.innerHTML=md(j.answer||'（空）');}
+    const j=await r.json();const ans=j.answer||'（空）';wait.innerHTML=md(ans);addSpeaker(wait,ans);
+    if(autoRead())speak(ans,null);}
   catch(e){wait.innerHTML='通信エラー: '+esc(String(e));}
   busy=false;btn.disabled=false;wait.scrollIntoView({block:'end'});
 }
+
+/* ===== 音声読み上げ（Audio8 / kurage話者クローン） ===== */
+let curAudio=null;
+function stripTts(t){return t.replace(/https?:\/\/[^\s<)]+/g,'').replace(/\[\[[^\]]*\]\]/g,'').replace(/\*\*(.+?)\*\*/g,'$1').replace(/[#*`>|_~]/g,'').replace(/^[-•]\s*/gm,'').replace(/\n{2,}/g,'\n').trim();}
+async function speak(text,b){
+  const clean=stripTts(text);if(!clean)return;
+  if(curAudio){try{curAudio.pause()}catch(e){}curAudio=null;}
+  if(b){b.disabled=true;b.textContent='🔊 読み込み中…';}
+  try{
+    const r=await fetch('chat.php?tts=1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:clean})});
+    if(!r.ok)throw new Error('tts '+r.status);
+    const url=URL.createObjectURL(await r.blob());
+    curAudio=new Audio(url);
+    curAudio.onended=curAudio.onerror=()=>{URL.revokeObjectURL(url);if(b){b.disabled=false;b.textContent='🔊 読み上げ';}};
+    await curAudio.play();if(b)b.textContent='⏸ 再生中';
+  }catch(e){if(b){b.disabled=false;b.textContent='🔊 読み上げ';}}
+}
+function addSpeaker(bubble,text){
+  const bar=document.createElement('div');bar.className='spk';
+  const b=document.createElement('button');b.type='button';b.className='spkbtn';b.textContent='🔊 読み上げ';
+  b.onclick=()=>speak(text,b);bar.appendChild(b);bubble.appendChild(bar);
+}
+function autoRead(){return localStorage.getItem('kchat_auto')==='1';}
+function toggleAuto(){localStorage.setItem('kchat_auto',autoRead()?'0':'1');updateAuto();}
+function updateAuto(){const b=document.getElementById('autoBtn');if(!b)return;const on=autoRead();b.classList.toggle('on',on);b.textContent=on?'🔊':'🔈';b.title='回答を自動で読み上げ: '+(on?'ON':'OFF');}
+
+/* ===== 音声入力（ブラウザ音声認識・端末側で無料） ===== */
+let rec=null,recOn=false;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function toggleMic(){
+  if(!SR){alert('この端末・ブラウザは音声入力に未対応です（Google Chrome推奨）。');return;}
+  if(recOn){try{rec.stop()}catch(e){}return;}
+  rec=new SR();rec.lang='ja-JP';rec.interimResults=true;rec.continuous=false;rec.maxAlternatives=1;
+  const el=document.getElementById('q'),mic=document.getElementById('micBtn'),base=el.value;
+  rec.onstart=()=>{recOn=true;mic.classList.add('rec');mic.textContent='⏺';};
+  rec.onresult=(e)=>{let t='';for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;el.value=(base?base+' ':'')+t;};
+  rec.onend=()=>{recOn=false;mic.classList.remove('rec');mic.textContent='🎤';if(el.value.trim())send();};
+  rec.onerror=()=>{recOn=false;mic.classList.remove('rec');mic.textContent='🎤';};
+  rec.start();
+}
+(function(){updateAuto();if(!SR){const m=document.getElementById('micBtn');if(m)m.style.display='none';}})();
 </script>
 <?php endif; ?>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-BP0650KDFR"></script>
