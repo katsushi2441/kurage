@@ -16,11 +16,12 @@ if (isset($_GET['logout'])) { header('Location: ' . url2ai_auth_logout_url('/cha
 $auth = url2ai_auth_bootstrap();
 $logged_in = !empty($auth['logged_in']);
 $user = $logged_in ? trim((string)$auth['session_user']) : '';
+$is_admin = $logged_in && !empty($auth['is_admin']);  // 管理者(xb_bittensor)。音声＝管理者限定・回答はClaude
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // ---- 音声読み上げ(Audio8/kurage話者クローン)プロキシ: chat.php?tts=1 → audio/wav ----
     if (isset($_GET['tts'])) {
-        if (!$logged_in) { http_response_code(401); exit; }
+        if (!$is_admin) { http_response_code(403); exit; }   // 音声読み上げは管理者のみ
         // TTS用レート制限（ユーザーごと 80回/時・GPU保護）
         $tkey = preg_replace('/[^0-9A-Za-z_.:-]/', '', $user) ?: 'x';
         $trl = sys_get_temp_dir() . '/kopenkb_tts_' . md5($tkey);
@@ -78,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ch = curl_init(KOPENKB_BACKEND . '/ask');
     curl_setopt_array($ch, [
         CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 180,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'X-KOPENKB-TOKEN: ' . KOPENKB_TOKEN, 'X-KOPENKB-USER: ' . $user],
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json', 'X-KOPENKB-TOKEN: ' . KOPENKB_TOKEN, 'X-KOPENKB-USER: ' . $user, 'X-KOPENKB-TIER: ' . ($is_admin ? 'admin' : 'user')],
         CURLOPT_POSTFIELDS => json_encode(['question' => $q], JSON_UNESCAPED_UNICODE),
     ]);
     $res = curl_exec($ch); $code = curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
@@ -288,12 +289,15 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
   <p class="foot">回答は <a href="/wiki/">Kurage Wiki</a> のナレッジベースに基づきます（AI生成のため、最終確認は公式サイトをご覧ください）。</p>
 </main>
 <div class="bar"><div class="wrap">
+<?php if ($is_admin): ?>
   <button id="micBtn" class="iconbtn" type="button" title="音声で質問する" onclick="toggleMic()">🎤</button>
   <button id="autoBtn" class="iconbtn" type="button" title="回答を自動で読み上げ" onclick="toggleAuto()">🔈</button>
-  <textarea id="q" placeholder="質問を入力（🎤で音声入力も可）" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
+<?php endif; ?>
+  <textarea id="q" placeholder="<?php echo $is_admin ? '質問を入力（🎤で音声入力も可）' : '質問を入力'; ?>" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send()}"></textarea>
   <button id="sendBtn" onclick="send()">送信</button>
 </div></div>
 <script>
+const IS_ADMIN=<?php echo $is_admin ? 'true' : 'false'; ?>;   /* 音声機能は管理者のみ */
 function esc(s){return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
 function md(t){return esc(t)
   .replace(/^###?\s*(.+)$/gm,'<h3>$1</h3>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
@@ -308,8 +312,8 @@ async function send(){
   add('me',esc(q));const wait=add('ai','考え中…🪼');busy=true;btn.disabled=true;
   try{const r=await fetch('chat.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});
     if(r.status===401){wait.innerHTML='セッションが切れました。<a href="?login">再ログイン</a>してください。';busy=false;btn.disabled=false;return;}
-    const j=await r.json();const ans=j.answer||'（空）';wait.innerHTML=md(ans);addSpeaker(wait,ans);
-    if(autoRead())speak(ans,null);}
+    const j=await r.json();const ans=j.answer||'（空）';wait.innerHTML=md(ans);
+    if(IS_ADMIN){addSpeaker(wait,ans);if(autoRead())speak(ans,null);}}
   catch(e){wait.innerHTML='通信エラー: '+esc(String(e));}
   busy=false;btn.disabled=false;wait.scrollIntoView({block:'end'});
 }
@@ -352,7 +356,7 @@ function toggleMic(){
   rec.onerror=()=>{recOn=false;mic.classList.remove('rec');mic.textContent='🎤';};
   rec.start();
 }
-(function(){updateAuto();if(!SR){const m=document.getElementById('micBtn');if(m)m.style.display='none';}})();
+(function(){if(!IS_ADMIN)return;updateAuto();if(!SR){const m=document.getElementById('micBtn');if(m)m.style.display='none';}})();
 </script>
 <?php endif; ?>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-BP0650KDFR"></script>
