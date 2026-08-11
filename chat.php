@@ -310,10 +310,11 @@ let busy=false;
 async function send(){
   if(busy)return;const el=document.getElementById('q'),q=el.value.trim();if(!q)return;el.value='';
   add('me',esc(q));const wait=add('ai','考え中…🪼');busy=true;btn.disabled=true;
+  if(IS_ADMIN&&autoRead())playAck();  // 会話モード: まず相槌を即再生「お調べしますね」
   try{const r=await fetch('chat.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});
     if(r.status===401){wait.innerHTML='セッションが切れました。<a href="?login">再ログイン</a>してください。';busy=false;btn.disabled=false;return;}
-    const j=await r.json();const ans=j.answer||'（空）';wait.innerHTML=md(ans);
-    if(IS_ADMIN){addSpeaker(wait,ans);if(autoRead())speak(ans,null);}}
+    const j=await r.json();const ans=j.answer||'（空）',speech=j.speech||'';wait.innerHTML=md(ans);
+    if(IS_ADMIN){addSpeaker(wait,ans,speech);if(autoRead())speak(speech||ans,null);}}  // 音声は要約のみ
   catch(e){wait.innerHTML='通信エラー: '+esc(String(e));}
   busy=false;btn.disabled=false;wait.scrollIntoView({block:'end'});
 }
@@ -330,18 +331,18 @@ async function speak(text,b){
     if(!r.ok)throw new Error('tts '+r.status);
     const url=URL.createObjectURL(await r.blob());
     curAudio=new Audio(url);
-    curAudio.onended=curAudio.onerror=()=>{URL.revokeObjectURL(url);if(b){b.disabled=false;b.textContent='🔊 読み上げ';}};
+    curAudio.onended=curAudio.onerror=()=>{URL.revokeObjectURL(url);if(b){b.disabled=false;b.textContent='🔊 要点を読み上げ';}};
     await curAudio.play();if(b)b.textContent='⏸ 再生中';
-  }catch(e){if(b){b.disabled=false;b.textContent='🔊 読み上げ';}}
+  }catch(e){if(b){b.disabled=false;b.textContent='🔊 要点を読み上げ';}}
 }
-function addSpeaker(bubble,text){
+function addSpeaker(bubble,full,speech){
   const bar=document.createElement('div');bar.className='spk';
-  const b=document.createElement('button');b.type='button';b.className='spkbtn';b.textContent='🔊 読み上げ';
-  b.onclick=()=>speak(text,b);bar.appendChild(b);bubble.appendChild(bar);
+  const b=document.createElement('button');b.type='button';b.className='spkbtn';b.textContent='🔊 要点を読み上げ';
+  b.onclick=()=>speak(speech||full,b);bar.appendChild(b);bubble.appendChild(bar);
 }
 function autoRead(){return localStorage.getItem('kchat_auto')==='1';}
 function toggleAuto(){localStorage.setItem('kchat_auto',autoRead()?'0':'1');updateAuto();}
-function updateAuto(){const b=document.getElementById('autoBtn');if(!b)return;const on=autoRead();b.classList.toggle('on',on);b.textContent=on?'🔊':'🔈';b.title='回答を自動で読み上げ: '+(on?'ON':'OFF');}
+function updateAuto(){const b=document.getElementById('autoBtn');if(!b)return;const on=autoRead();b.classList.toggle('on',on);b.textContent=on?'🗣️':'🔈';b.title='音声で会話（相槌＋要点を読み上げ）: '+(on?'ON':'OFF');}
 
 /* ===== 音声入力（ブラウザ音声認識・端末側で無料） ===== */
 let rec=null,recOn=false;const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -356,7 +357,12 @@ function toggleMic(){
   rec.onerror=()=>{recOn=false;mic.classList.remove('rec');mic.textContent='🎤';};
   rec.start();
 }
-(function(){if(!IS_ADMIN)return;updateAuto();if(!SR){const m=document.getElementById('micBtn');if(m)m.style.display='none';}})();
+/* 相槌クリップ（kurage声・事前生成）を先読みし、質問直後に即再生 */
+let ACKS=[];
+function playAck(){if(!ACKS.length)return;try{const a=ACKS[Math.floor(Math.random()*ACKS.length)];a.currentTime=0;a.play().catch(()=>{});}catch(e){}}
+(function(){if(!IS_ADMIN)return;
+  ACKS=['chat-ack-1.wav','chat-ack-2.wav','chat-ack-3.wav'].map(u=>{const a=new Audio(u);a.preload='auto';return a;});
+  updateAuto();if(!SR){const m=document.getElementById('micBtn');if(m)m.style.display='none';}})();
 </script>
 <?php endif; ?>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-BP0650KDFR"></script>
