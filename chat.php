@@ -406,7 +406,7 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
     <img src="kurage-ecosystem-avatar-600.webp" alt="Kurage">
     <div>
       <h2>こんにちは、@<?php echo $H($user); ?> さん🪼</h2>
-      <p>システム開発、バイブコーディングに関する質問にお答えします。Kurageプロジェクトのご説明、ご提案もします。</p>
+      <p>システム開発、バイブコーディングに関する質問にお答えします。Kurageプロジェクトのご説明、ご提案もします。<br><span style="color:var(--abyss-soft);font-size:12.5px">⏳ AIの応答に少し時間がかかります。</span></p>
     </div>
   </div>
   <div id="log"></div>
