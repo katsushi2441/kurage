@@ -213,15 +213,16 @@ a.detail{color:var(--teal);font-weight:800;text-decoration:none;white-space:nowr
 <meta name="twitter:image" content="https://kurage.exbridge.jp/chat-ogp.png">
 <link rel="icon" href="kurage-face-384.webp">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
+<!-- モバイル軽量化: 本文は端末標準の日本語フォント。見出しだけZen Maru(2ウェイト)を読み込む -->
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@700;900&display=swap" rel="stylesheet">
 <style>
 :root{--abyss:#12202f;--abyss-soft:#55697a;--foam:#f5fbfb;--panel:#e7f3f2;--panel-line:#cde5e2;
   --teal:#12a99f;--teal-deep:#0a726b;--gold:#c98a1e;--me:#dff1ef;--shadow:0 14px 40px rgba(10,40,45,.10)}
 @media (prefers-color-scheme:dark){:root{--abyss:#eaf3f3;--abyss-soft:#9fb3ba;--foam:#0c1720;--panel:#12242a;
   --panel-line:#1f3a3f;--teal:#2bd4c6;--teal-deep:#1c9e93;--me:#12343a}}
 *{box-sizing:border-box;margin:0;padding:0}
-body{color:var(--abyss);background:var(--foam);font-family:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",Meiryo,sans-serif;line-height:1.85;overflow-x:hidden}
-h1,h2,h3{font-family:"Zen Maru Gothic","Zen Kaku Gothic New",sans-serif;text-wrap:balance}
+body{color:var(--abyss);background:var(--foam);font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",Meiryo,sans-serif;line-height:1.85;overflow-x:hidden}
+h1,h2,h3{font-family:"Zen Maru Gothic","Hiragino Sans",sans-serif;text-wrap:balance}
 a{color:var(--teal-deep)}
 header.site{position:sticky;top:0;z-index:40;background:color-mix(in srgb,var(--foam) 88%,transparent);backdrop-filter:blur(16px);border-bottom:1px solid var(--panel-line)}
 header.site .wrap{max-width:960px;margin:0 auto;display:flex;align-items:center;gap:11px;padding:11px 20px}
@@ -381,7 +382,7 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
 
   <section class="blk wrap">
     <div style="background:var(--panel);border:1.5px solid var(--panel-line);border-radius:24px;padding:24px;box-shadow:var(--shadow);display:flex;gap:20px;align-items:center;flex-wrap:wrap">
-      <img src="xb_bittensor-icon.jpg" alt="@xb_bittensor" style="width:96px;height:96px;border-radius:50%;border:3px solid var(--teal);object-fit:cover;flex:none">
+      <img src="xb_bittensor-icon.jpg" alt="@xb_bittensor" loading="lazy" decoding="async" width="96" height="96" style="width:96px;height:96px;border-radius:50%;border:3px solid var(--teal);object-fit:cover;flex:none">
       <div style="flex:1;min-width:260px">
         <span class="eyebrow"><span class="dot"></span>開発・運営 ／ 𝕏 @xb_bittensor</span>
         <h3 style="font-size:clamp(18px,3.4vw,22px);font-weight:900;margin:8px 0 6px">𝕏 <em style="font-style:normal;color:var(--teal-deep)">@xb_bittensor</em> をフォローしてください</h3>
@@ -484,7 +485,7 @@ function toggleMic(){
 let ACKS=[];
 function playAck(){if(!ACKS.length)return;try{const a=ACKS[Math.floor(Math.random()*ACKS.length)];a.currentTime=0;a.play().catch(()=>{});}catch(e){}}
 (function(){if(!IS_ADMIN)return;
-  ACKS=['chat-ack-1.wav','chat-ack-2.wav','chat-ack-3.wav'].map(u=>{const a=new Audio(u);a.preload='auto';return a;});
+  ACKS=['chat-ack-1.mp3','chat-ack-2.mp3','chat-ack-3.mp3'].map(u=>{const a=new Audio(u);a.preload='auto';return a;});
   updateAuto();if(!SR){const m=document.getElementById('micBtn');if(m)m.style.display='none';}})();
 </script>
 <?php endif; ?>
