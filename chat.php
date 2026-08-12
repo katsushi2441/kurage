@@ -437,7 +437,7 @@ async function send(){
   if(IS_ADMIN&&autoRead())playAck();  // 会話モード: まず相槌を即再生「お調べしますね」
   try{const r=await fetch('chat.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});
     if(r.status===401){wait.innerHTML='セッションが切れました。<a href="?login">再ログイン</a>してください。';busy=false;btn.disabled=false;return;}
-    const j=await r.json();const ans=j.answer||'（空）',speech=j.speech||'';wait.innerHTML=md(ans);
+    const j=await r.json();const ans=j.answer||'（空）',speech=j.speech||'';wait.innerHTML=md(ans);if(window.gtag)gtag('event','chat_ask');
     if(IS_ADMIN){addSpeaker(wait,ans,speech);if(autoRead())speak(speech||ans,null);}}  // 音声は要約のみ
   catch(e){wait.innerHTML='通信エラー: '+esc(String(e));}
   busy=false;btn.disabled=false;wait.scrollIntoView({block:'end'});
@@ -490,6 +490,6 @@ function playAck(){if(!ACKS.length)return;try{const a=ACKS[Math.floor(Math.rando
 </script>
 <?php endif; ?>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-BP0650KDFR"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-BP0650KDFR');</script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-BP0650KDFR');<?php if ($logged_in && !$is_admin): ?>gtag('event','chat_login');<?php endif; ?></script>
 <script>(function(){var s=document.createElement('script');s.src='https://kurage.exbridge.jp/simpletrack.php?url='+encodeURIComponent(location.href)+'&ref='+encodeURIComponent(document.referrer);document.head.appendChild(s)})();</script>
 </body></html>

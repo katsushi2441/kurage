@@ -1593,6 +1593,7 @@ $amazon_cta_url = '/go.php?' . http_build_query(array(
     </div>
   </div>
 </section>
+<script>(function(){try{var s=document.querySelector('section[aria-label="Kurageのサービス"]');if(s)s.addEventListener('click',function(e){var a=e.target.closest('a');if(a&&window.gtag)gtag('event','product_click',{link_url:a.href,source:location.pathname});});}catch(e){}})();</script>
 <footer class="affiliate-disclosure" style="max-width:1120px;margin:28px auto 18px;padding:16px;color:#647884;font-size:12px;line-height:1.7;text-align:center;">
   <div style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;border:1px solid #f2d39a;background:linear-gradient(135deg,#fffaf0,#fff);border-radius:999px;padding:9px 12px;box-shadow:0 10px 24px rgba(146,95,0,.08);">
     <span style="font-weight:900;color:#9a5b00;">Amazon Associate Partner</span>
