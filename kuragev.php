@@ -961,7 +961,7 @@ $detail_body_text = job_body_text($detail_job);
     <div class="svc-cta-mini">
       🪼 <b>Kurageは、AIで“業務システム”も作ります。</b>
       <a href="https://kurage.exbridge.jp/chat.php" onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'video-top'})">無料でAI相談</a>
-      <a class="ghost" href="https://kurage.exbridge.jp/vibe-prototype.php" onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'video-top'})">制作を依頼</a>
+      <a class="ghost" href="https://kurage.exbridge.jp/vibe-prototype.html" onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'video-top'})">制作を依頼</a>
     </div>
 
     <details class="sec-collapse">
@@ -976,7 +976,7 @@ $detail_body_text = job_body_text($detail_job);
       <?php endif; ?>
     </details>
 
-    <a class="svc-inline" href="https://kurage.exbridge.jp/vibe-prototype.php" onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'mid'})">
+    <a class="svc-inline" href="https://kurage.exbridge.jp/vibe-prototype.html" onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'mid'})">
       🪼 この動画もAIで生成しています。<b>あなたの業務システムも最短1営業日で ― 制作を依頼する ›</b>
     </a>
 
@@ -1594,37 +1594,41 @@ $amazon_cta_url = '/go.php?' . http_build_query(array(
     'from' => $amazon_from,
 ));
 ?>
-<!-- Kurageサービス導線: 動画閲覧者→プロダクトLP -->
-<section aria-label="Kurageのサービス" style="max-width:1120px;margin:30px auto 8px;padding:0 16px;">
-  <div style="background:linear-gradient(135deg,#ffffff,#f4fbfd);border:1px solid #d8e7eb;border-radius:18px;padding:20px 20px 22px;box-shadow:0 14px 34px rgba(30,84,96,.08);">
-    <div style="display:inline-flex;align-items:center;gap:8px;border:1px solid #bfe0e6;background:#eaf7f9;color:#0a726b;border-radius:999px;padding:5px 12px;font-weight:900;font-size:12px;">🪼 Kurageのサービス</div>
-    <h2 style="font-size:20px;line-height:1.4;margin:12px 0 4px;color:#18262e;font-weight:900;">Kurageは、AIで“業務システム”も作っています</h2>
-    <p style="margin:0 0 16px;color:#526b76;font-size:14px;max-width:760px;">動画だけでなく、AIであなたの業務システムを安く作る・売る・相談できます。まずは無料でどうぞ。</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;">
-      <a href="https://kurage.exbridge.jp/chat.php" style="text-decoration:none;border:1px solid #bfe0e6;background:#fff;border-radius:14px;padding:14px;display:block;box-shadow:0 8px 20px rgba(30,84,96,.06);">
-        <div style="font-size:22px;line-height:1;">🤖</div>
-        <div style="font-weight:900;color:#007f96;margin:7px 0 3px;font-size:15px;">AIに無料相談</div>
-        <div style="color:#526b76;font-size:12.5px;line-height:1.55;">システム開発・代理店収益化の相談窓口。Xログインで無料。</div>
-      </a>
-      <a href="https://kurage.exbridge.jp/vibe-prototype.php" style="text-decoration:none;border:1px solid #bfe0e6;background:#fff;border-radius:14px;padding:14px;display:block;box-shadow:0 8px 20px rgba(30,84,96,.06);">
-        <div style="font-size:22px;line-height:1;">⚡</div>
-        <div style="font-weight:900;color:#007f96;margin:7px 0 3px;font-size:15px;">バイブプロトタイプ制作</div>
-        <div style="color:#526b76;font-size:12.5px;line-height:1.55;">動くシステムを、安く・速く。最短1営業日で納品。</div>
-      </a>
-      <a href="https://kappstore.exbridge.jp/" style="text-decoration:none;border:1px solid #bfe0e6;background:#fff;border-radius:14px;padding:14px;display:block;box-shadow:0 8px 20px rgba(30,84,96,.06);">
-        <div style="font-size:22px;line-height:1;">🛍️</div>
-        <div style="font-weight:900;color:#007f96;margin:7px 0 3px;font-size:15px;">Kurage App Store</div>
-        <div style="color:#526b76;font-size:12.5px;line-height:1.55;">できあがった業務システムを購入。ソースはMITで改変自由。</div>
-      </a>
-      <a href="https://kurage.exbridge.jp/auto-monetization.html" style="text-decoration:none;border:1px solid #bfe0e6;background:#fff;border-radius:14px;padding:14px;display:block;box-shadow:0 8px 20px rgba(30,84,96,.06);">
-        <div style="font-size:22px;line-height:1;">💰</div>
-        <div style="font-weight:900;color:#007f96;margin:7px 0 3px;font-size:15px;">AIで不労所得</div>
-        <div style="color:#526b76;font-size:12.5px;line-height:1.55;">紹介するだけ。継続保守で30%の手数料が積み上がる代理店制度。</div>
-      </a>
+<!-- Kurageサービス導線: 4ページ2レーン+相談 -->
+<section aria-label="Kurageのサービス" class="kvsvc">
+  <style>
+  .kvsvc{max-width:1120px;margin:30px auto 8px;padding:0 16px}
+  .kvsvc .box{background:linear-gradient(135deg,#fff,#f4fbfd);border:1px solid #d8e7eb;border-radius:18px;padding:20px 20px 22px;box-shadow:0 14px 34px rgba(30,84,96,.08)}
+  .kvsvc .ey{display:inline-flex;align-items:center;gap:8px;border:1px solid #bfe0e6;background:#eaf7f9;color:#0a726b;border-radius:999px;padding:5px 12px;font-weight:900;font-size:12px}
+  .kvsvc h2{font-size:20px;line-height:1.4;margin:12px 0 4px;color:#18262e;font-weight:900}
+  .kvsvc .lead{margin:0 0 16px;color:#526b76;font-size:14px}
+  .kvsvc .lanes{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:14px}
+  .kvsvc .lane{border:1px solid #d8e7eb;border-radius:14px;padding:14px;background:#fff}
+  .kvsvc .lane>b{display:block;font-size:13px;font-weight:900;color:#0a726b;margin-bottom:6px}
+  .kvsvc a.item{display:block;text-decoration:none;border:1px solid #e3eef0;border-radius:11px;padding:10px 12px;margin:8px 0 0;background:#fbfefe}
+  .kvsvc a.item b{display:block;color:#007f96;font-size:14px;font-weight:900}
+  .kvsvc a.item span{display:block;color:#526b76;font-size:12px;margin-top:2px;line-height:1.5}
+  .kvsvc a.item:hover{border-color:#bfe0e6;box-shadow:0 6px 16px rgba(30,84,96,.08)}
+  .kvsvc a.chat{display:block;text-align:center;margin-top:14px;padding:11px;border-radius:12px;background:#0a726b;color:#fff;text-decoration:none;font-weight:900;font-size:14px}
+  </style>
+  <div class="box">
+    <div class="ey">🪼 Kurageのサービス</div>
+    <h2>Kurageは、AIで“業務システム”も作っています</h2>
+    <p class="lead">目的に合わせてどうぞ。迷ったら、まずAIに無料で相談もできます。</p>
+    <div class="lanes">
+      <div class="lane"><b>🛠️ 自分の業務に使う</b>
+        <a class="item" href="https://kurage.exbridge.jp/vibe-prototype.html" data-cv="vibe-prototype"><b>⚡ バイブプロトタイプ制作</b><span>AIで“動くシステム”を最短1営業日で制作。ソースはMITで納品。</span></a>
+        <a class="item" href="https://kappstore.exbridge.jp/" data-cv="kappstore"><b>🛍️ Kurage App Store</b><span>できあがった業務システムを購入。ソース同梱・MITで改変自由。</span></a>
+      </div>
+      <div class="lane"><b>🤝 紹介して稼ぐ</b>
+        <a class="item" href="https://kurage.exbridge.jp/reseller.html" data-cv="reseller"><b>🤝 販売代理店になる</b><span>登録無料・在庫なし。紹介した案件の成果報酬が受け取れます。</span></a>
+        <a class="item" href="https://kurage.exbridge.jp/auto-monetization.html" data-cv="auto-monetization"><b>💰 AIで不労所得のしくみ</b><span>紹介先が保守を使い続ける限り、継続30%の手数料が積み上がる。</span></a>
+      </div>
     </div>
+    <a class="chat" href="https://kurage.exbridge.jp/chat.php" data-cv="chat">🤖 迷ったら、AIに無料相談 — 何が合うか一緒に考えます ›</a>
   </div>
 </section>
-<script>(function(){try{var s=document.querySelector('section[aria-label="Kurageのサービス"]');if(s)s.addEventListener('click',function(e){var a=e.target.closest('a');if(a&&window.gtag)gtag('event','product_click',{link_url:a.href,source:location.pathname});});}catch(e){}})();</script>
+<script>(function(){try{var s=document.querySelector('section.kvsvc');if(s)s.addEventListener('click',function(e){var a=e.target.closest('a');if(a&&window.gtag)gtag('event','product_click',{link_url:a.href,item:a.getAttribute('data-cv'),source:location.pathname});});}catch(e){}})();</script>
 <footer class="affiliate-disclosure" style="max-width:1120px;margin:28px auto 18px;padding:16px;color:#647884;font-size:12px;line-height:1.7;text-align:center;">
   <div style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;border:1px solid #f2d39a;background:linear-gradient(135deg,#fffaf0,#fff);border-radius:999px;padding:9px 12px;box-shadow:0 10px 24px rgba(146,95,0,.08);">
     <span style="font-weight:900;color:#9a5b00;">Amazon Associate Partner</span>
