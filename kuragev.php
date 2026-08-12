@@ -943,35 +943,66 @@ $detail_body_text = job_body_text($detail_job);
              controls playsinline preload="metadata"></video>
     </div>
 
-    <div class="section-title">📝 この動画でわかること</div>
-    <div class="seo-body-text"><?php echo nl2br(h(job_seo_body($detail_job))); ?></div>
-    <?php $seo_keywords = job_seo_keywords($detail_job); if (!empty($seo_keywords)): ?>
-    <div class="keyword-chips" aria-label="関連テーマ">
-      <?php foreach ($seo_keywords as $kw): ?>
-      <a class="keyword-chip" href="<?php echo h($THIS_FILE . '?q=' . rawurlencode($kw)); ?>"><?php echo h($kw); ?></a>
-      <?php endforeach; ?>
+    <style>
+    .sec-collapse{border:1px solid #d8e7eb;border-radius:12px;margin:12px 0;background:#fff}
+    .sec-collapse>summary{list-style:none;cursor:pointer;user-select:none;padding:12px 14px}
+    .sec-collapse>summary::-webkit-details-marker{display:none}
+    .sec-collapse>summary::after{content:"▼ 表示";float:right;font-size:12px;color:#007f96;font-weight:800}
+    .sec-collapse[open]>summary::after{content:"▲ 閉じる"}
+    .sec-collapse .seo-body-text,.sec-collapse .tweet-body,.sec-collapse .scene-list,.sec-collapse .keyword-chips{padding:0 14px 14px}
+    .svc-cta-mini{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:linear-gradient(135deg,#eaf7f9,#f4fbfd);border:1px solid #bfe0e6;border-radius:14px;padding:12px 16px;margin:14px 0}
+    .svc-cta-mini b{font-size:14px;color:#12313a}
+    .svc-cta-mini a{background:#007f96;color:#fff;border-radius:999px;padding:7px 14px;text-decoration:none;font-weight:800;font-size:13px;white-space:nowrap}
+    .svc-cta-mini a.ghost{background:#fff;color:#007f96;border:1px solid #bfe0e6}
+    .svc-inline{display:block;margin:12px 0;padding:11px 14px;background:#f4fbfd;border:1px dashed #bfe0e6;border-radius:12px;text-decoration:none;color:#12313a;font-weight:700;font-size:13.5px;line-height:1.6}
+    .svc-inline b{color:#007f96}
+    </style>
+
+    <div class="svc-cta-mini">
+      🪼 <b>Kurageは、AIで“業務システム”も作ります。</b>
+      <a href="https://kurage.exbridge.jp/chat.php" onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'video-top'})">無料でAI相談</a>
+      <a class="ghost" href="https://kurage.exbridge.jp/vibe-prototype.php" onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'video-top'})">制作を依頼</a>
     </div>
-    <?php endif; ?>
+
+    <details class="sec-collapse">
+      <summary class="section-title">📝 この動画でわかること</summary>
+      <div class="seo-body-text"><?php echo nl2br(h(job_seo_body($detail_job))); ?></div>
+      <?php $seo_keywords = job_seo_keywords($detail_job); if (!empty($seo_keywords)): ?>
+      <div class="keyword-chips" aria-label="関連テーマ">
+        <?php foreach ($seo_keywords as $kw): ?>
+        <a class="keyword-chip" href="<?php echo h($THIS_FILE . '?q=' . rawurlencode($kw)); ?>"><?php echo h($kw); ?></a>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
+    </details>
+
+    <a class="svc-inline" href="https://kurage.exbridge.jp/vibe-prototype.php" onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'mid'})">
+      🪼 この動画もAIで生成しています。<b>あなたの業務システムも最短1営業日で ― 制作を依頼する ›</b>
+    </a>
 
     <?php if ($detail_body_text !== ''): ?>
-    <div class="section-title">📣 <?php echo h(job_body_label($detail_job)); ?></div>
-    <div class="tweet-body"><?php echo h($detail_body_text); ?></div>
+    <details class="sec-collapse">
+      <summary class="section-title">📣 <?php echo h(job_body_label($detail_job)); ?></summary>
+      <div class="tweet-body"><?php echo h($detail_body_text); ?></div>
+    </details>
     <?php endif; ?>
 
     <?php
     $scenes = (!empty($detail_job['script']['scenes'])) ? $detail_job['script']['scenes'] : [];
     if ($scenes):
     ?>
-    <div class="section-title">🎬 脚本</div>
-    <div class="scene-list">
-      <?php foreach ($scenes as $si => $sc): ?>
-      <div class="scene-row">
-        <div class="scene-idx">シーン <?php echo $si + 1; ?></div>
-        <div class="narration"><?php echo h($sc['narration'] ?? ''); ?></div>
-        <div class="image-prompt"><?php echo h($sc['image_prompt'] ?? ''); ?></div>
+    <details class="sec-collapse">
+      <summary class="section-title">🎬 脚本</summary>
+      <div class="scene-list">
+        <?php foreach ($scenes as $si => $sc): ?>
+        <div class="scene-row">
+          <div class="scene-idx">シーン <?php echo $si + 1; ?></div>
+          <div class="narration"><?php echo h($sc['narration'] ?? ''); ?></div>
+          <div class="image-prompt"><?php echo h($sc['image_prompt'] ?? ''); ?></div>
+        </div>
+        <?php endforeach; ?>
       </div>
-      <?php endforeach; ?>
-    </div>
+    </details>
     <?php endif; ?>
 
     <?php $article_url = related_article_url($detail_job); ?>
