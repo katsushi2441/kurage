@@ -1610,11 +1610,17 @@ $amazon_cta_url = '/go.php?' . http_build_query(array(
   .kvsvc a.item span{display:block;color:#526b76;font-size:12px;margin-top:2px;line-height:1.5}
   .kvsvc a.item:hover{border-color:#bfe0e6;box-shadow:0 6px 16px rgba(30,84,96,.08)}
   .kvsvc a.chat{display:block;text-align:center;margin-top:14px;padding:11px;border-radius:12px;background:#0a726b;color:#fff;text-decoration:none;font-weight:900;font-size:14px}
+  .kvsvc a.community{display:block;text-align:center;margin:0 0 14px;padding:15px;border-radius:14px;background:linear-gradient(135deg,#06C755,#05a648);color:#fff;text-decoration:none;font-weight:900;font-size:16px;box-shadow:0 10px 26px rgba(6,199,85,.32)}
+  .kvsvc a.community:hover{transform:translateY(-2px)}
+  .kvsvc a.community span{display:block;font-size:12px;font-weight:700;opacity:.95;margin-top:3px}
+  .kvsvc .more{margin:4px 0 10px;color:#647884;font-size:13px;font-weight:800;border-top:1px dashed #d8e7eb;padding-top:14px}
   </style>
   <div class="box">
-    <div class="ey">🪼 Kurageのサービス</div>
-    <h2>Kurageは、AIで“業務システム”も作っています</h2>
-    <p class="lead">目的に合わせてどうぞ。迷ったら、まずAIに無料で相談もできます。</p>
+    <div class="ey">🪼 Kurage</div>
+    <h2>AIをゆるく学べる、無料コミュニティやっています</h2>
+    <p class="lead">Kurageは、AIで業務システムを作る会社です。AI経営・バイブコーディング・AIエージェント（Codex・Claude Code）の話を、経営者・個人事業主・副業の方とゆるくしています。オンライン参加・匿名OK・見るだけOK。まずは無料で覗いてみてください。</p>
+    <a class="community" href="https://kurage.exbridge.jp/nagoya-ai-study.php?ref=kuragev" data-cv="community">📣 無料コミュニティ「名古屋AI経営勉強会」に入る<span>LINEオープンチャット・参加無料・匿名OK</span></a>
+    <p class="more">もっと知りたい方へ — AIで業務システムを「作る・買う・紹介する」</p>
     <div class="lanes">
       <div class="lane"><b>🛠️ 自分の業務に使う</b>
         <a class="item" href="https://kurage.exbridge.jp/vibe-prototype.html" data-cv="vibe-prototype"><b>⚡ バイブプロトタイプ制作</b><span>AIで“動くシステム”を最短1営業日で制作。ソースはMITで納品。</span></a>
