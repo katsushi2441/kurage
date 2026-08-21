@@ -759,6 +759,14 @@ echo json_encode($jsonld, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNES
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-serif;font-size:14px;}
+body.list-page{height:100vh;height:100dvh;overflow:hidden;display:grid;grid-template-rows:auto minmax(0,3fr) minmax(150px,1fr);}
+body.list-page .header{position:relative;top:auto;}
+.list-scroll-pane,.promo-scroll-pane{min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+.list-scroll-pane{scrollbar-gutter:stable;background:#fff;}
+.promo-scroll-pane{border-top:1px solid #cfe3e7;background:linear-gradient(180deg,#f5fbfc,#fff);box-shadow:0 -12px 28px rgba(30,84,96,.12);scrollbar-gutter:stable;}
+body.list-page .promo-scroll-pane .kvsvc{margin:0 auto;padding-top:12px;}
+body.list-page .promo-scroll-pane .affiliate-disclosure{margin-top:10px!important;}
+@media (max-height:700px){body.list-page{grid-template-rows:auto minmax(0,3fr) minmax(140px,1fr);}}
 
 /* ── ヘッダー ── */
 .header{background:rgba(255,255,255,.96);border-bottom:1px solid #e5e7eb;padding:.85rem 1.4rem;position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 4px rgba(19,35,41,.06);}
@@ -885,7 +893,7 @@ body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-
 </style>
 <link rel="stylesheet" href="assets/kurage-avatar.css?v=20260704a">
 </head>
-<body>
+<body class="<?php echo $detail_job ? 'detail-page' : 'list-page'; ?>">
 
 <!-- ── ヘッダー ── -->
 <header class="header">
@@ -1047,6 +1055,7 @@ $detail_body_text = job_body_text($detail_job);
 
 <?php else: ?>
 <!-- ============ 一覧ページ ============ -->
+<main class="list-scroll-pane" id="list-scroll-pane" tabindex="0" aria-label="動画一覧">
 <div class="container">
   <div class="count-bar">
     <span>
@@ -1096,6 +1105,7 @@ $detail_body_text = job_body_text($detail_job);
   </details>
   <?php endif; ?>
 </div>
+</main>
 
 <?php if (!empty($videos)): ?>
 <!-- ============ リールオーバーレイ ============ -->
@@ -1391,6 +1401,7 @@ document.addEventListener('click', function(e) {
 /* 無限スクロール */
 var sentinel = document.getElementById('load-sentinel');
 if (sentinel) {
+    var listScrollPane = document.getElementById('list-scroll-pane');
     var obs = new IntersectionObserver(function(entries) {
         if (entries[0].isIntersecting) {
             var from = curPage * PAGE_SIZE;
@@ -1398,7 +1409,7 @@ if (sentinel) {
                 renderCards(from, from + PAGE_SIZE);
             }
         }
-    }, { rootMargin: '200px' });
+    }, { root: listScrollPane || null, rootMargin: '200px 0px' });
     obs.observe(sentinel);
 }
 
@@ -1595,6 +1606,7 @@ $amazon_cta_url = '/go.php?' . http_build_query(array(
     'from' => $amazon_from,
 ));
 ?>
+<aside class="<?php echo $detail_job ? 'promo-flow' : 'promo-scroll-pane'; ?>" id="promo-scroll-pane" aria-label="Kurageからのお知らせ">
 <!-- Kurageサービス導線: 4ページ2レーン+相談 -->
 <section aria-label="Kurageのサービス" class="kvsvc">
   <style>
@@ -1645,6 +1657,7 @@ $amazon_cta_url = '/go.php?' . http_build_query(array(
   </div>
   <div style="margin-top:8px;">Amazonアソシエイトとして適格販売により収入を得ています。</div>
 </footer>
+</aside>
 
 </body>
 </html>
