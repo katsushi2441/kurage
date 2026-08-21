@@ -961,6 +961,7 @@ $detail_body_text = job_body_text($detail_job);
     <div class="svc-cta-mini">
       🪼 <b>Kurageは、AIで“業務システム”も作ります。</b>
       <a href="https://kurage.exbridge.jp/chat.php" onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'video-top'})">無料でAI相談</a>
+      <a class="ghost" href="https://kurage.exbridge.jp/vibe-oss.html?ref=kuragev" onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'video-top'})">OSSを自社仕様に</a>
       <a class="ghost" href="https://kurage.exbridge.jp/vibe-prototype.html" onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'video-top'})">制作を依頼</a>
     </div>
 
@@ -1623,6 +1624,7 @@ $amazon_cta_url = '/go.php?' . http_build_query(array(
     <p class="more">もっと知りたい方へ — AIで業務システムを「作る・買う・紹介する」</p>
     <div class="lanes">
       <div class="lane"><b>🛠️ 自分の業務に使う</b>
+        <a class="item" href="https://kurage.exbridge.jp/vibe-oss.html?ref=kuragev" data-cv="vibe-oss"><b>🧩 Vibe OSSカスタマイズ</b><span>完成済みOSSを、バイブコーディングで日本語化・自社仕様へ変更して導入。</span></a>
         <a class="item" href="https://kurage.exbridge.jp/vibe-prototype.html" data-cv="vibe-prototype"><b>⚡ バイブプロトタイプ制作</b><span>AIで“動くシステム”を最短1営業日で制作。ソースはMITで納品。</span></a>
         <a class="item" href="https://kappstore.exbridge.jp/" data-cv="kappstore"><b>🛍️ Kurage App Store</b><span>できあがった業務システムを購入。ソース同梱・MITで改変自由。</span></a>
       </div>
