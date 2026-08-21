@@ -759,14 +759,24 @@ echo json_encode($jsonld, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNES
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-serif;font-size:14px;}
-body.list-page{height:100vh;height:100dvh;overflow:hidden;display:grid;grid-template-rows:auto minmax(0,3fr) minmax(150px,1fr);}
+body.list-page{height:100vh;height:100dvh;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,3fr) minmax(150px,1fr);}
 body.list-page .header{position:relative;top:auto;}
-.list-scroll-pane,.promo-scroll-pane{min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+.list-scroll-pane,.promo-scroll-pane{min-width:0;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
 .list-scroll-pane{scrollbar-gutter:stable;background:#fff;}
 .promo-scroll-pane{border-top:1px solid #cfe3e7;background:linear-gradient(180deg,#f5fbfc,#fff);box-shadow:0 -12px 28px rgba(30,84,96,.12);scrollbar-gutter:stable;}
 body.list-page .promo-scroll-pane .kvsvc{margin:0 auto;padding-top:12px;}
 body.list-page .promo-scroll-pane .affiliate-disclosure{margin-top:10px!important;}
 @media (max-height:700px){body.list-page{grid-template-rows:auto minmax(0,3fr) minmax(140px,1fr);}}
+@media (max-width:640px){
+  body.list-page .header{min-width:0;padding:.65rem .7rem;gap:6px;}
+  body.list-page .brand{min-width:0;gap:.45rem;}
+  body.list-page .brand-icon{width:36px;height:36px;}
+  body.list-page .brand-logo{font-size:.94rem;white-space:nowrap;}
+  body.list-page .brand-sub{display:none;}
+  body.list-page .header-right{min-width:0;gap:4px;}
+  body.list-page .amazon-mini{width:28px;height:28px;font-size:16px;}
+  body.list-page .gen-link,body.list-page .reel-btn{padding:4px 8px;font-size:11px;}
+}
 
 /* ── ヘッダー ── */
 .header{background:rgba(255,255,255,.96);border-bottom:1px solid #e5e7eb;padding:.85rem 1.4rem;position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 4px rgba(19,35,41,.06);}
