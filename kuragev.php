@@ -775,7 +775,7 @@ body.list-page .promo-scroll-pane .affiliate-disclosure{margin-top:10px!importan
   body.list-page .brand-sub{display:none;}
   body.list-page .header-right{min-width:0;gap:4px;}
   body.list-page .amazon-mini{width:28px;height:28px;font-size:16px;}
-  body.list-page .gen-link,body.list-page .reel-btn{padding:4px 8px;font-size:11px;}
+  body.list-page .gen-link,body.list-page .reel-btn{padding:4px 6px;font-size:11px;}
 }
 
 /* ── ヘッダー ── */
