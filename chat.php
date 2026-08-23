@@ -18,6 +18,70 @@ $logged_in = !empty($auth['logged_in']);
 $user = $logged_in ? trim((string)$auth['session_user']) : '';
 $is_admin = $logged_in && !empty($auth['is_admin']);  // 管理者(xb_bittensor)。音声＝管理者限定・回答はClaude
 
+/* ---- 到達とログインの記録 ------------------------------------------------
+ * なぜ必要か（2026-08-23 実測）:
+ *   利用記録はバックエンドの usage.jsonl だけで、そこには「質問したとき」しか
+ *   書かれない。ログインしただけで帰った人も、どのページから来たかも、
+ *   1件も残っていなかった。全ページに相談ボタンを付けた効果も測れない。
+ *
+ * 方針:
+ *   - 到達は「セッション×流入元」で1回だけ記録する（再読み込みで増やさない）
+ *   - ログインは「セッションで1回だけ」Xユーザー名とともに記録する
+ *   - IPやUAの本文は残さない。判断に要らないうえ、消す手間が増えるだけ
+ *   - .log.php にして直アクセスされても中身が出ないようにする（kbbs と同じ形）
+ * ------------------------------------------------------------------------ */
+$CHAT_LOG = __DIR__ . '/chat_visits.log.php';
+
+function chat_log_append(array $row) {
+    global $CHAT_LOG;
+    if (!file_exists($CHAT_LOG)) { @file_put_contents($CHAT_LOG, "<?php exit; ?>\n", LOCK_EX); }
+    @file_put_contents($CHAT_LOG, json_encode($row, JSON_UNESCAPED_UNICODE) . "\n", FILE_APPEND | LOCK_EX);
+}
+
+function chat_log_all() {
+    global $CHAT_LOG;
+    $out = array();
+    if (!file_exists($CHAT_LOG)) { return $out; }
+    $lines = @file($CHAT_LOG, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if (!$lines) { return $out; }
+    foreach ($lines as $ln) {
+        if (strpos($ln, '<?php') === 0) { continue; }
+        $r = json_decode($ln, true);
+        if (is_array($r) && !empty($r['ts'])) { $out[] = $r; }
+    }
+    return $out;
+}
+
+/** 巡回ロボットは「相談に来た人」ではないので数に混ぜない。 */
+function chat_is_bot() {
+    $ua = strtolower((string)($_SERVER['HTTP_USER_AGENT'] ?? ''));
+    if ($ua === '') { return true; }
+    return (bool)preg_match('/bot|crawler|spider|slurp|bingpreview|headless|python-requests|curl\/|wget|monitor|pingdom|uptime/i', $ua);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && !isset($_GET['admin']) && !isset($_GET['tts']) && !chat_is_bot()) {
+    $ref = substr(preg_replace('/[^0-9A-Za-z_.:\/-]/', '', (string)($_GET['ref'] ?? '')), 0, 80);
+    if ($ref === '') { $ref = '(直接)'; }
+    // 到達: このセッションで初めて見る流入元のときだけ残す
+    $seen = isset($_SESSION['chat_seen_ref']) && is_array($_SESSION['chat_seen_ref']) ? $_SESSION['chat_seen_ref'] : array();
+    if (!in_array($ref, $seen, true)) {
+        $seen[] = $ref;
+        $_SESSION['chat_seen_ref'] = array_slice($seen, -20);
+        chat_log_append(array(
+            'ts' => date('c'), 'type' => 'visit', 'ref' => $ref,
+            'user' => $logged_in ? $user : '',
+        ));
+    }
+    // ログイン: このセッションで1回だけ。誰がログインしたかを残す
+    if ($logged_in && empty($_SESSION['chat_login_logged'])) {
+        $_SESSION['chat_login_logged'] = 1;
+        chat_log_append(array(
+            'ts' => date('c'), 'type' => 'login', 'ref' => $ref, 'user' => $user,
+            'admin' => $is_admin ? 1 : 0,
+        ));
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // ---- 音声読み上げ(Audio8/kurage話者クローン)プロキシ: chat.php?tts=1 → audio/wav ----
     if (isset($_GET['tts'])) {
@@ -171,10 +235,79 @@ a.detail{color:var(--teal);font-weight:800;text-decoration:none;white-space:nowr
     $list = array_values(array_filter($users, function ($a) use ($user) {
         $u = $a['user'] ?? ''; return $u !== '' && $u !== '?' && $u !== $user;   // 管理者自身と不明は除外
     })); ?>
+<?php
+  /* 到達ログ（chat_visits.log.php）を集計する。
+     バックエンドの usage は「質問した人」しか出てこないので、
+     ログインしただけの人と、未ログインの到達はこちらでしか分からない。 */
+  $vrows   = chat_log_all();
+  $visits  = array_values(array_filter($vrows, function ($r) { return ($r['type'] ?? '') === 'visit'; }));
+  $logins  = array_values(array_filter($vrows, function ($r) { return ($r['type'] ?? '') === 'login'; }));
+  $qByUser = array();
+  foreach ($users as $a) { if (!empty($a['user'])) { $qByUser[$a['user']] = (int)($a['questions'] ?? 0); } }
+
+  $byUser = array();   // ログインした人ごと
+  foreach ($logins as $r) {
+      $u = (string)($r['user'] ?? ''); if ($u === '') { continue; }
+      if (!isset($byUser[$u])) { $byUser[$u] = array('user' => $u, 'first' => $r['ts'], 'last' => $r['ts'], 'n' => 0, 'refs' => array(), 'admin' => (int)($r['admin'] ?? 0)); }
+      $byUser[$u]['n']++;
+      $byUser[$u]['last'] = $r['ts'];
+      $rf = (string)($r['ref'] ?? ''); if ($rf !== '' && !in_array($rf, $byUser[$u]['refs'], true)) { $byUser[$u]['refs'][] = $rf; }
+  }
+  uasort($byUser, function ($a, $b) { return strcmp((string)$b['last'], (string)$a['last']); });
+
+  $byRef = array();    // 流入元ごと
+  foreach ($visits as $r) {
+      $rf = (string)($r['ref'] ?? '(直接)');
+      if (!isset($byRef[$rf])) { $byRef[$rf] = array('ref' => $rf, 'visits' => 0, 'logged' => 0); }
+      $byRef[$rf]['visits']++;
+      if (!empty($r['user'])) { $byRef[$rf]['logged']++; }
+  }
+  foreach ($logins as $r) {   // ログイン時の流入元も数える（到達が別セッションの場合に拾える）
+      $rf = (string)($r['ref'] ?? '(直接)');
+      if (!isset($byRef[$rf])) { $byRef[$rf] = array('ref' => $rf, 'visits' => 0, 'logged' => 0); }
+  }
+  uasort($byRef, function ($a, $b) { return $b['visits'] <=> $a['visits']; });
+  $askedCount = count(array_filter($qByUser, function ($n) { return $n > 0; }));
+?>
   <div class="card"><div class="stat">
+    <div><b><?php echo count($visits); ?></b><span>到達（未ログイン含む）</span></div>
+    <div><b><?php echo count($byUser); ?></b><span>ログインした人</span></div>
+    <div><b><?php echo $askedCount; ?></b><span>質問した人</span></div>
     <div><b><?php echo count($list); ?></b><span>一般ユーザー</span></div>
     <div><b><?php echo (int)($data['event_count'] ?? 0); ?></b><span>総イベント</span></div>
-  </div></div>
+  </div>
+  <p class="mut" style="font-size:12px;margin:8px 0 0">到達とログインは 2026-08-23 の記録開始以降のぶんです。質問した人はバックエンドの利用ログ（記録開始 2026-08-11）から数えています。</p>
+  </div>
+
+  <div class="card overflow">
+    <h3 style="margin:0 0 8px;font-size:15px">ログインした人（<?php echo count($byUser); ?>名）</h3>
+    <table><thead><tr><th>ユーザー（X）</th><th>質問</th><th>初回ログイン</th><th>最終</th><th>入口</th><th></th></tr></thead><tbody>
+    <?php if (!$byUser): ?><tr><td colspan="6" class="empty">まだログインした人がいません。</td></tr><?php endif; ?>
+    <?php foreach ($byUser as $b): $uu = $b['user']; ?>
+      <tr>
+        <td><a class="x" href="<?php echo $H($xurl($uu)); ?>" target="_blank" rel="noopener">𝕏 @<?php echo $H($uu); ?></a><?php if (!empty($b['admin'])): ?> <span class="pill">管理者</span><?php endif; ?></td>
+        <td><span class="n"><?php echo (int)($qByUser[$uu] ?? 0); ?></span></td>
+        <td class="mut" style="white-space:nowrap"><?php echo $H($fmt($b['first'])); ?></td>
+        <td class="mut" style="white-space:nowrap"><?php echo $H($fmt($b['last'])); ?></td>
+        <td class="mut" style="font-size:12px"><?php echo $H(implode('、', array_slice($b['refs'], 0, 3))); ?></td>
+        <td><a class="detail" href="?admin=1&user=<?php echo rawurlencode($uu); ?>">照会 →</a></td>
+      </tr>
+    <?php endforeach; ?>
+    </tbody></table>
+  </div>
+
+  <div class="card overflow">
+    <h3 style="margin:0 0 8px;font-size:15px">どのページから来たか（<?php echo count($byRef); ?>種）</h3>
+    <table><thead><tr><th>入口（ref）</th><th>到達</th><th>うちログイン済み</th></tr></thead><tbody>
+    <?php if (!$byRef): ?><tr><td colspan="3" class="empty">まだ到達の記録がありません。</td></tr><?php endif; ?>
+    <?php foreach ($byRef as $b): ?>
+      <tr><td><?php echo $H($b['ref']); ?></td>
+      <td><span class="n"><?php echo (int)$b['visits']; ?></span></td>
+      <td class="mut"><?php echo (int)$b['logged']; ?></td></tr>
+    <?php endforeach; ?>
+    </tbody></table>
+    <p class="mut" style="font-size:12px;margin:8px 0 0">💡 exbridge-ai-system-… は AIでできることの各ページ、exbridge-nagoya-system-development は AI導入LP からの到達です。</p>
+  </div>
   <div class="card overflow">
     <table><thead><tr><th>ユーザー（X）</th><th>問い合わせ</th><th>種別</th><th>最終利用</th><th>最新の質問</th><th></th></tr></thead><tbody>
     <?php if (!$list): ?><tr><td colspan="6" class="empty">まだ一般ユーザーの利用がありません。</td></tr><?php endif; ?>
