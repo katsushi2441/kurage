@@ -10,14 +10,6 @@ require_once __DIR__ . '/auth_common.php';
 if (!defined('KOPENKB_BACKEND')) { http_response_code(500); exit('config missing'); }
 date_default_timezone_set('Asia/Tokyo');
 
-if (isset($_GET['login']))  { header('Location: ' . url2ai_auth_login_url('/chat.php'));  exit; }
-if (isset($_GET['logout'])) { header('Location: ' . url2ai_auth_logout_url('/chat.php')); exit; }
-
-$auth = url2ai_auth_bootstrap();
-$logged_in = !empty($auth['logged_in']);
-$user = $logged_in ? trim((string)$auth['session_user']) : '';
-$is_admin = $logged_in && !empty($auth['is_admin']);  // 管理者(xb_bittensor)。音声＝管理者限定・回答はClaude
-
 /* ---- 到達とログインの記録 ------------------------------------------------
  * なぜ必要か（2026-08-23 実測）:
  *   利用記録はバックエンドの usage.jsonl だけで、そこには「質問したとき」しか
@@ -52,6 +44,12 @@ function chat_log_all() {
     return $out;
 }
 
+/** どのページから来たか。相談ボタンが付ける ?ref= を、記号を落として取り出す。 */
+function chat_ref() {
+    $ref = substr(preg_replace('/[^0-9A-Za-z_.:\/-]/', '', (string)($_GET['ref'] ?? '')), 0, 80);
+    return $ref !== '' ? $ref : '(直接)';
+}
+
 /** 巡回ロボットは「相談に来た人」ではないので数に混ぜない。 */
 function chat_is_bot() {
     $ua = strtolower((string)($_SERVER['HTTP_USER_AGENT'] ?? ''));
@@ -59,9 +57,22 @@ function chat_is_bot() {
     return (bool)preg_match('/bot|crawler|spider|slurp|bingpreview|headless|python-requests|curl\/|wget|monitor|pingdom|uptime/i', $ua);
 }
 
+
+if (isset($_GET['login']))  {
+    // ログインを始めた回数を残す。完了(type=login)との差が「やめた人」になる。
+    // ここはセッション開始前なので重複除去はできない。押した回数として数える。
+    if (!chat_is_bot()) { chat_log_append(array('ts' => date('c'), 'type' => 'login_start', 'ref' => chat_ref())); }
+    header('Location: ' . url2ai_auth_login_url('/chat.php'));  exit;
+}
+if (isset($_GET['logout'])) { header('Location: ' . url2ai_auth_logout_url('/chat.php')); exit; }
+
+$auth = url2ai_auth_bootstrap();
+$logged_in = !empty($auth['logged_in']);
+$user = $logged_in ? trim((string)$auth['session_user']) : '';
+$is_admin = $logged_in && !empty($auth['is_admin']);  // 管理者(xb_bittensor)。音声＝管理者限定・回答はClaude
+$ref = chat_ref();   // 相談ボタンが付けた入口。ログインリンクにも引き継ぐ
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && !isset($_GET['admin']) && !isset($_GET['tts']) && !chat_is_bot()) {
-    $ref = substr(preg_replace('/[^0-9A-Za-z_.:\/-]/', '', (string)($_GET['ref'] ?? '')), 0, 80);
-    if ($ref === '') { $ref = '(直接)'; }
     // 到達: このセッションで初めて見る流入元のときだけ残す
     $seen = isset($_SESSION['chat_seen_ref']) && is_array($_SESSION['chat_seen_ref']) ? $_SESSION['chat_seen_ref'] : array();
     if (!in_array($ref, $seen, true)) {
@@ -242,6 +253,7 @@ a.detail{color:var(--teal);font-weight:800;text-decoration:none;white-space:nowr
   $vrows   = chat_log_all();
   $visits  = array_values(array_filter($vrows, function ($r) { return ($r['type'] ?? '') === 'visit'; }));
   $logins  = array_values(array_filter($vrows, function ($r) { return ($r['type'] ?? '') === 'login'; }));
+  $starts  = array_values(array_filter($vrows, function ($r) { return ($r['type'] ?? '') === 'login_start'; }));
   $qByUser = array();
   foreach ($users as $a) { if (!empty($a['user'])) { $qByUser[$a['user']] = (int)($a['questions'] ?? 0); } }
 
@@ -258,25 +270,35 @@ a.detail{color:var(--teal);font-weight:800;text-decoration:none;white-space:nowr
   $byRef = array();    // 流入元ごと
   foreach ($visits as $r) {
       $rf = (string)($r['ref'] ?? '(直接)');
-      if (!isset($byRef[$rf])) { $byRef[$rf] = array('ref' => $rf, 'visits' => 0, 'logged' => 0); }
+      if (!isset($byRef[$rf])) { $byRef[$rf] = array('ref' => $rf, 'visits' => 0, 'logged' => 0, 'start' => 0, 'done' => 0); }
       $byRef[$rf]['visits']++;
       if (!empty($r['user'])) { $byRef[$rf]['logged']++; }
   }
   foreach ($logins as $r) {   // ログイン時の流入元も数える（到達が別セッションの場合に拾える）
       $rf = (string)($r['ref'] ?? '(直接)');
-      if (!isset($byRef[$rf])) { $byRef[$rf] = array('ref' => $rf, 'visits' => 0, 'logged' => 0); }
+      if (!isset($byRef[$rf])) { $byRef[$rf] = array('ref' => $rf, 'visits' => 0, 'logged' => 0, 'start' => 0, 'done' => 0); }
+      $byRef[$rf]['done']++;
+  }
+  foreach ($starts as $r) {
+      $rf = (string)($r['ref'] ?? '(直接)');
+      if (!isset($byRef[$rf])) { $byRef[$rf] = array('ref' => $rf, 'visits' => 0, 'logged' => 0, 'start' => 0, 'done' => 0); }
+      $byRef[$rf]['start']++;
   }
   uasort($byRef, function ($a, $b) { return $b['visits'] <=> $a['visits']; });
   $askedCount = count(array_filter($qByUser, function ($n) { return $n > 0; }));
 ?>
   <div class="card"><div class="stat">
     <div><b><?php echo count($visits); ?></b><span>到達（未ログイン含む）</span></div>
-    <div><b><?php echo count($byUser); ?></b><span>ログインした人</span></div>
+    <div><b><?php echo count($starts); ?></b><span>ログインを押した</span></div>
+    <div><b><?php echo count($logins); ?></b><span>ログイン完了</span></div>
+    <div><b><?php echo max(0, count($starts) - count($logins)); ?></b><span>途中でやめた</span></div>
+    <div><b><?php echo count($byUser); ?></b><span>ログインした人（実数）</span></div>
     <div><b><?php echo $askedCount; ?></b><span>質問した人</span></div>
     <div><b><?php echo count($list); ?></b><span>一般ユーザー</span></div>
     <div><b><?php echo (int)($data['event_count'] ?? 0); ?></b><span>総イベント</span></div>
   </div>
-  <p class="mut" style="font-size:12px;margin:8px 0 0">到達とログインは 2026-08-23 の記録開始以降のぶんです。質問した人はバックエンドの利用ログ（記録開始 2026-08-11）から数えています。</p>
+  <p class="mut" style="font-size:12px;margin:8px 0 0">到達・ログインは 2026-08-23 の記録開始以降のぶんです。質問した人はバックエンドの利用ログ（記録開始 2026-08-11）から数えています。<br>
+  「ログインを押した」はボタンを押した回数で、同じ人が押し直すと2回に数えます。「途中でやめた」は押した回数と完了の差なので、Xの認証画面で許可しなかった人・戻った人の目安です。</p>
   </div>
 
   <div class="card overflow">
@@ -298,12 +320,14 @@ a.detail{color:var(--teal);font-weight:800;text-decoration:none;white-space:nowr
 
   <div class="card overflow">
     <h3 style="margin:0 0 8px;font-size:15px">どのページから来たか（<?php echo count($byRef); ?>種）</h3>
-    <table><thead><tr><th>入口（ref）</th><th>到達</th><th>うちログイン済み</th></tr></thead><tbody>
-    <?php if (!$byRef): ?><tr><td colspan="3" class="empty">まだ到達の記録がありません。</td></tr><?php endif; ?>
-    <?php foreach ($byRef as $b): ?>
+    <table><thead><tr><th>入口（ref）</th><th>到達</th><th>ログイン押した</th><th>完了</th><th>やめた</th></tr></thead><tbody>
+    <?php if (!$byRef): ?><tr><td colspan="5" class="empty">まだ到達の記録がありません。</td></tr><?php endif; ?>
+    <?php foreach ($byRef as $b): $gv = max(0, (int)$b['start'] - (int)$b['done']); ?>
       <tr><td><?php echo $H($b['ref']); ?></td>
       <td><span class="n"><?php echo (int)$b['visits']; ?></span></td>
-      <td class="mut"><?php echo (int)$b['logged']; ?></td></tr>
+      <td><?php echo (int)$b['start']; ?></td>
+      <td><?php echo (int)$b['done']; ?></td>
+      <td class="mut"><?php echo $gv ?: '—'; ?></td></tr>
     <?php endforeach; ?>
     </tbody></table>
     <p class="mut" style="font-size:12px;margin:8px 0 0">💡 exbridge-ai-system-… は AIでできることの各ページ、exbridge-nagoya-system-development は AI導入LP からの到達です。</p>
@@ -442,7 +466,7 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
 <?php endif; ?>
     <a class="xbtn" style="background:transparent;color:var(--abyss-soft);border:1.5px solid var(--panel-line)" href="?logout">ログアウト</a>
 <?php else: ?>
-    <a class="xbtn" href="?login">𝕏 でログイン</a>
+    <a class="xbtn" href="?login&amp;ref=<?php echo rawurlencode($ref); ?>">𝕏 でログイン</a>
 <?php endif; ?>
   </div>
 </div></header>
@@ -455,7 +479,7 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
       <h1>AIで<em>業務システムを作りたい</em>人と、<br><em>Kurage代理店で稼ぎたい</em>人の相談窓口</h1>
       <p class="lead">Kurageの商品・料金・デモ・LP・代理店制度・AI技術記事を、AIが何でも案内します。
         「こんな業務を自動化したい」「この客に何を勧める？」——書くだけで、最適な答えと次の一歩が返ってきます。</p>
-      <a class="cta-lg" href="?login">𝕏 でログインして無料で使う</a>
+      <a class="cta-lg" href="?login&amp;ref=<?php echo rawurlencode($ref); ?>">𝕏 でログインして無料で使う</a>
       <p class="cta-note">Xアカウントでログインするだけ（無料）。どなたが使ったかは記録されます。</p>
     </div>
     <div class="hero-card">
@@ -510,7 +534,7 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
       <li>Kurageの代理店って、どうやって稼ぐの？手数料は？</li>
       <li>ローカルLLM（gemma / DeepSeek）の技術記事はある？</li>
     </ul></div>
-    <div class="center" style="margin-top:22px"><a class="cta-lg" href="?login">𝕏 でログインして無料で使う</a></div>
+    <div class="center" style="margin-top:22px"><a class="cta-lg" href="?login&amp;ref=<?php echo rawurlencode($ref); ?>">𝕏 でログインして無料で使う</a></div>
   </section>
 
   <section class="blk wrap">
@@ -569,7 +593,7 @@ async function send(){
   add('me',esc(q));const wait=add('ai','考え中…🪼');busy=true;btn.disabled=true;
   if(IS_ADMIN&&autoRead())playAck();  // 会話モード: まず相槌を即再生「お調べしますね」
   try{const r=await fetch('chat.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:q})});
-    if(r.status===401){wait.innerHTML='セッションが切れました。<a href="?login">再ログイン</a>してください。';busy=false;btn.disabled=false;return;}
+    if(r.status===401){wait.innerHTML='セッションが切れました。<a href="?login&amp;ref=<?php echo rawurlencode($ref); ?>">再ログイン</a>してください。';busy=false;btn.disabled=false;return;}
     const j=await r.json();const ans=j.answer||'（空）',speech=j.speech||'';wait.innerHTML=md(ans);if(window.gtag)gtag('event','chat_ask');
     if(IS_ADMIN){addSpeaker(wait,ans,speech);if(autoRead())speak(speech||ans,null);}}  // 音声は要約のみ
   catch(e){wait.innerHTML='通信エラー: '+esc(String(e));}
