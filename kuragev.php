@@ -969,12 +969,12 @@ $detail_body_text = job_body_text($detail_job);
     .sec-collapse[open]>summary::after{content:"▲ 閉じる"}
     .sec-collapse .seo-body-text,.sec-collapse .tweet-body,.sec-collapse .scene-list,.sec-collapse .keyword-chips{padding:0 14px 14px}
     /* FB等モバイル流入向け: 動画直下の大ボタン(平均滞在2秒・PV/s=1.00への対策 2026-08-25) */
-    .video-under-cta{display:flex;gap:10px;margin:12px 0}
-    .vu-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;min-height:48px;
+    .video-under-cta{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}
+    .vu-btn{flex:1 1 150px;min-width:0;display:flex;align-items:center;justify-content:center;gap:7px;min-height:48px;
       padding:12px 10px;border-radius:14px;font-weight:900;font-size:14.5px;line-height:1.3;
       text-decoration:none;text-align:center;border:2px solid #007f96;color:#007f96;background:#fff}
     .vu-btn.primary{background:#007f96;color:#fff}
-    @media(max-width:420px){.vu-btn{font-size:13.5px;padding:12px 6px}}
+    @media(max-width:480px){.video-under-cta{flex-direction:column}.vu-btn{flex:1 1 auto;width:100%}}
     .svc-cta-mini{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:linear-gradient(135deg,#eaf7f9,#f4fbfd);border:1px solid #bfe0e6;border-radius:14px;padding:12px 16px;margin:14px 0}
     .svc-cta-mini b{font-size:14px;color:#12313a}
     .svc-cta-mini a{background:#007f96;color:#fff;border-radius:999px;padding:7px 14px;text-decoration:none;font-weight:800;font-size:13px;white-space:nowrap}
@@ -987,7 +987,12 @@ $detail_body_text = job_body_text($detail_job);
     // 動画直下CTA。元記事(無ければ元動画/元投稿)と関連サービスへ、モバイルで押せる大きさのボタンを置く。
     $under_article = related_article_url($detail_job);
     $under_label = 'この動画の元記事';
-    if ($under_article === '') { $under_article = $detail_source_url; $under_label = job_source_button_label($detail_job); }
+    if ($under_article === '') {
+        $under_article = $detail_source_url;
+        // 元がYouTube/Xなら媒体名、ブログ・記事URLなら「この動画の元記事」のままにする
+        $src_label = job_source_button_label($detail_job);
+        if (strpos($src_label, 'YouTube') !== false || strpos($src_label, 'X') !== false) { $under_label = $src_label; }
+    }
     ?>
     <div class="video-under-cta">
       <?php if ($under_article !== ''): ?>
