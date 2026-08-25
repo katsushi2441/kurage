@@ -968,6 +968,13 @@ $detail_body_text = job_body_text($detail_job);
     .sec-collapse>summary::after{content:"▼ 表示";float:right;font-size:12px;color:#007f96;font-weight:800}
     .sec-collapse[open]>summary::after{content:"▲ 閉じる"}
     .sec-collapse .seo-body-text,.sec-collapse .tweet-body,.sec-collapse .scene-list,.sec-collapse .keyword-chips{padding:0 14px 14px}
+    /* FB等モバイル流入向け: 動画直下の大ボタン(平均滞在2秒・PV/s=1.00への対策 2026-08-25) */
+    .video-under-cta{display:flex;gap:10px;margin:12px 0}
+    .vu-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;min-height:48px;
+      padding:12px 10px;border-radius:14px;font-weight:900;font-size:14.5px;line-height:1.3;
+      text-decoration:none;text-align:center;border:2px solid #007f96;color:#007f96;background:#fff}
+    .vu-btn.primary{background:#007f96;color:#fff}
+    @media(max-width:420px){.vu-btn{font-size:13.5px;padding:12px 6px}}
     .svc-cta-mini{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:linear-gradient(135deg,#eaf7f9,#f4fbfd);border:1px solid #bfe0e6;border-radius:14px;padding:12px 16px;margin:14px 0}
     .svc-cta-mini b{font-size:14px;color:#12313a}
     .svc-cta-mini a{background:#007f96;color:#fff;border-radius:999px;padding:7px 14px;text-decoration:none;font-weight:800;font-size:13px;white-space:nowrap}
@@ -975,6 +982,21 @@ $detail_body_text = job_body_text($detail_job);
     .svc-inline{display:block;margin:12px 0;padding:11px 14px;background:#f4fbfd;border:1px dashed #bfe0e6;border-radius:12px;text-decoration:none;color:#12313a;font-weight:700;font-size:13.5px;line-height:1.6}
     .svc-inline b{color:#007f96}
     </style>
+
+    <?php
+    // 動画直下CTA。元記事(無ければ元動画/元投稿)と関連サービスへ、モバイルで押せる大きさのボタンを置く。
+    $under_article = related_article_url($detail_job);
+    $under_label = 'この動画の元記事';
+    if ($under_article === '') { $under_article = $detail_source_url; $under_label = job_source_button_label($detail_job); }
+    ?>
+    <div class="video-under-cta">
+      <?php if ($under_article !== ''): ?>
+      <a class="vu-btn primary" href="<?php echo h($under_article); ?>" target="_blank" rel="noopener"
+         onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'video-under-article'})">📄 <?php echo h($under_label); ?></a>
+      <?php endif; ?>
+      <a class="vu-btn" href="https://kurage.exbridge.jp/gyomu-system-ichiran.php?ref=kuragev-video"
+         onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'video-under-service'})">🪼 関連サービスを見る</a>
+    </div>
 
     <div class="svc-cta-mini">
       🪼 <b>Kurageは、AIで“業務システム”も作ります。</b>
