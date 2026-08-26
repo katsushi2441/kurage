@@ -60,8 +60,13 @@ function chat_is_bot() {
 
 if (isset($_GET['login']))  {
     // ログインを始めた回数を残す。完了(type=login)との差が「やめた人」になる。
-    // ここはセッション開始前なので重複除去はできない。押した回数として数える。
-    if (!chat_is_bot()) { chat_log_append(array('ts' => date('c'), 'type' => 'login_start', 'ref' => chat_ref())); }
+    // js=1 はページ上のJSがクリック時に付ける印。素のUAを名乗るクローラーは
+    // hrefを直接踏むのでjs=1が付かず、計上されない(2026-08-26: /ai-system/巡回
+    // クローラーがlogin_startを1日149件まで膨らませた対策)。
+    header('X-Robots-Tag: noindex, nofollow');
+    if (!chat_is_bot() && (($_GET['js'] ?? '') === '1')) {
+        chat_log_append(array('ts' => date('c'), 'type' => 'login_start', 'ref' => chat_ref()));
+    }
     header('Location: ' . url2ai_auth_login_url('/chat.php'));  exit;
 }
 if (isset($_GET['logout'])) { header('Location: ' . url2ai_auth_logout_url('/chat.php')); exit; }
@@ -466,7 +471,7 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
 <?php endif; ?>
     <a class="xbtn" style="background:transparent;color:var(--abyss-soft);border:1.5px solid var(--panel-line)" href="?logout">ログアウト</a>
 <?php else: ?>
-    <a class="xbtn" href="?login&amp;ref=<?php echo rawurlencode($ref); ?>">𝕏 でログイン</a>
+    <a class="xbtn" rel="nofollow" href="?login&amp;ref=<?php echo rawurlencode($ref); ?>">𝕏 でログイン</a>
 <?php endif; ?>
   </div>
 </div></header>
@@ -479,7 +484,7 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
       <h1>AIで<em>業務システムを作りたい</em>人と、<br><em>Kurage代理店で稼ぎたい</em>人の相談窓口</h1>
       <p class="lead">Kurageの商品・料金・デモ・LP・代理店制度・AI技術記事を、AIが何でも案内します。
         「こんな業務を自動化したい」「この客に何を勧める？」——書くだけで、最適な答えと次の一歩が返ってきます。</p>
-      <a class="cta-lg" href="?login&amp;ref=<?php echo rawurlencode($ref); ?>">𝕏 でログインして無料で使う</a>
+      <a class="cta-lg" rel="nofollow" href="?login&amp;ref=<?php echo rawurlencode($ref); ?>">𝕏 でログインして無料で使う</a>
       <p class="cta-note">Xアカウントでログインするだけ（無料）。どなたが使ったかは記録されます。</p>
     </div>
     <div class="hero-card">
@@ -534,7 +539,7 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
       <li>Kurageの代理店って、どうやって稼ぐの？手数料は？</li>
       <li>ローカルLLM（gemma / DeepSeek）の技術記事はある？</li>
     </ul></div>
-    <div class="center" style="margin-top:22px"><a class="cta-lg" href="?login&amp;ref=<?php echo rawurlencode($ref); ?>">𝕏 でログインして無料で使う</a></div>
+    <div class="center" style="margin-top:22px"><a class="cta-lg" rel="nofollow" href="?login&amp;ref=<?php echo rawurlencode($ref); ?>">𝕏 でログインして無料で使う</a></div>
   </section>
 
   <section class="blk wrap">
@@ -646,6 +651,7 @@ function playAck(){if(!ACKS.length)return;try{const a=ACKS[Math.floor(Math.rando
   updateAuto();if(!SR){const m=document.getElementById('micBtn');if(m)m.style.display='none';}})();
 </script>
 <?php endif; ?>
+<script>document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('a[href*="?login"]').forEach(function(a){a.addEventListener('click',function(){try{var u=new URL(a.href,location.href);u.searchParams.set('js','1');a.href=u.toString();}catch(e){}});});});</script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-BP0650KDFR"></script>
 <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-BP0650KDFR');<?php if ($logged_in && !$is_admin): ?>gtag('event','chat_login');<?php endif; ?></script>
 <script>(function(){var s=document.createElement('script');s.src='https://kurage.exbridge.jp/simpletrack.php?url='+encodeURIComponent(location.href)+'&ref='+encodeURIComponent(document.referrer);document.head.appendChild(s)})();</script>
