@@ -875,6 +875,9 @@ body.list-page .promo-scroll-pane .affiliate-disclosure{margin-top:10px!importan
 .narration{font-size:14px;color:#222;line-height:1.5;margin-bottom:4px;}
 .image-prompt{font-size:11px;color:#999;font-style:italic;}
 .detail-url-box{background:#f7f7f7;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#555;word-break:break-all;}
+.detail-essay-box{margin-top:10px;padding:11px 14px;border:1px solid #d8e6e4;border-left:3px solid #c98a1e;border-radius:10px;background:#fffdf7;font-size:13.5px}
+.detail-essay-box .lbl{display:block;font-size:11.5px;color:#7c8a93;margin-bottom:2px}
+.detail-essay-box a{font-weight:700;color:#0a726b;overflow-wrap:anywhere}
 .k2e-card{display:flex;align-items:center;gap:14px;margin:16px 0;padding:16px 20px;background:linear-gradient(135deg,#071228,#0d4a55);border-radius:14px;color:#eaf6fb;text-decoration:none;font-size:13.5px;line-height:1.75;box-shadow:0 6px 20px rgba(13,74,85,.25);transition:transform .15s, box-shadow .15s;}
 .k2e-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(13,74,85,.35);}
 .k2e-card .k2e-kurage{height:64px;width:auto;flex:0 0 auto;filter:drop-shadow(0 0 10px rgba(79,227,242,.55));}
@@ -950,6 +953,23 @@ $detail_body_text = job_body_text($detail_job);
     <div class="detail-url-box">
       <?php echo h(job_source_label($detail_job)); ?>
       <a href="<?php echo h($detail_source_url); ?>" target="_blank" rel="noopener"><?php echo h($detail_source_url); ?></a>
+    </div>
+    <?php endif; ?>
+    <?php
+      /* この動画について書いた考察があればリンクする。対応表は
+         kmontage/scripts/essay_from_video.py が essay_links.json として置く
+         （キーはこのページのジョブID）。無くても表示は壊さない。 */
+      $essay_link = null;
+      $elf = __DIR__ . '/essay_links.json';
+      if (is_readable($elf)) {
+          $emap = json_decode((string)file_get_contents($elf), true);
+          if (is_array($emap) && isset($emap[$detail_id]['url'])) { $essay_link = $emap[$detail_id]; }
+      }
+    ?>
+    <?php if ($essay_link): ?>
+    <div class="detail-essay-box">
+      <span class="lbl">この動画について書いた考察</span>
+      <a href="<?php echo h($essay_link['url']); ?>"><?php echo h($essay_link['title']); ?> →</a>
     </div>
     <?php endif; ?>
   </div>

@@ -11,6 +11,26 @@ ROOT = Path(__file__).resolve().parent
 SCRIPT = ROOT / "scripts" / "watch-kurage-shorts-upload.mjs"
 
 
+# 認証切れの署名。上流スクリプトは youtubeAuth を立てないことがあるので、
+# ここで出力から拾う。立てておかないと、次に止まったとき復旧する側が
+# スタックトレースを掘ることになる(2026-08-31に実際に遠回りした)。
+AUTH_ERROR_MARKERS = ("invalid_grant", "RefreshError", "Token has been expired or revoked")
+
+YOUTUBE_REAUTH_COMMAND = (
+    "cd /home/kojima/work/airadio-scripted-mv && "
+    "python3 -u tools/youtube/youtube_auth_paste.py "
+    "--client storage/youtube/oauth_client.json --token storage/youtube/token.json "
+    "# 出たURLをユーザーに開いてもらい、飛び先のlocalhost URLを --resume-url に渡す"
+)
+
+
+def _auth_required(parsed: dict[str, Any], stdout: str, stderr: str) -> bool:
+    if bool((parsed.get("youtubeAuth") or {}).get("required")):
+        return True
+    blob = f"{stdout}\n{stderr}\n{json.dumps(parsed, ensure_ascii=False)}"
+    return any(marker in blob for marker in AUTH_ERROR_MARKERS)
+
+
 def _parse_json_output(stdout: str) -> dict[str, Any]:
     text = stdout.strip()
     for index, char in enumerate(text):
@@ -70,8 +90,11 @@ def run_kurage_shorts_upload_job(force: bool = False, **kwargs: Any) -> dict[str
         "source": str(kwargs.get("source") or "rqdb4ai"),
         "youtube_url": parsed.get("youtubeUrl") or "",
         "reason": parsed.get("reason") or "",
-        "auth_required": bool((parsed.get("youtubeAuth") or {}).get("required")),
-        "recovery_command": (parsed.get("youtubeAuth") or {}).get("recoveryCommand") or "",
+        "auth_required": _auth_required(parsed, proc.stdout, proc.stderr),
+        "recovery_command": (
+            (parsed.get("youtubeAuth") or {}).get("recoveryCommand")
+            or (YOUTUBE_REAUTH_COMMAND if _auth_required(parsed, proc.stdout, proc.stderr) else "")
+        ),
         "result": parsed,
     }
     if proc.stderr.strip():
