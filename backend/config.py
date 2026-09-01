@@ -19,7 +19,9 @@ NVM_NODE = os.environ.get("NVM_NODE", "/home/kojima/.nvm/versions/node/v22.22.3/
 HYPERFRAMES_VERSION = "0.4.44"
 
 # 商圏分析(kshoken)のCM。kfreqai CMの前に入る（本編→商圏CM→kfreqai CM→チャンネル登録）
-SHOKEN_CM_ENABLED = os.environ.get("KURAGE_SHOKEN_CM_ENABLED", "1").lower() not in {"0", "false", "no", "off"}
+# 2026-09-02 既定を無効化: PVの実写カットがHailuo無料枠(商用利用不可)のため、
+# ライセンス上CM連鎖に入れられない。商用可の素材で作り直すまで有効化しない。
+SHOKEN_CM_ENABLED = os.environ.get("KURAGE_SHOKEN_CM_ENABLED", "0").lower() not in {"0", "false", "no", "off"}
 SHOKEN_CM_FILE = Path(os.environ.get(
     "KURAGE_SHOKEN_CM_FILE",
     str(ROOT / "assets" / "commercials" / "kshoken-pv-30s.mp4"),
