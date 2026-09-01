@@ -12,6 +12,7 @@ from config import (
     NVM_NODE, HYPERFRAMES_VERSION, ROOT,
     COMMERCIAL_OUTRO_ENABLED, COMMERCIAL_OUTRO_FILE,
     CHANNEL_OUTRO_ENABLED, CHANNEL_OUTRO_FILE,
+    SHOKEN_CM_ENABLED, SHOKEN_CM_FILE,
 )
 from tts_gen import generate_scene_narration_audio
 
@@ -1322,19 +1323,42 @@ def generate_thumbnail(video_path: Path, output_path: Path, seek: float = 3.0, t
     return output_path
 
 
+def _media_duration(path: Path) -> float:
+    try:
+        r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                            "-of", "csv=p=0", str(path)], capture_output=True, text=True, timeout=60)
+        return float((r.stdout or "0").strip() or 0)
+    except Exception:
+        return 0.0
+
+
 def append_commercial_outro(video_path: Path) -> Path:
-    """Append the canonical outros: Kurage FreqAI Trade commercial, then the channel outro."""
+    """Append the canonical outros: kshoken CM, Kurage FreqAI Trade commercial, then the channel outro.
+
+    YouTubeショートの条件は「縦(9:16)かつ3分以内」。連結後もこの関数が縦へ正規化するので
+    比率は保たれるが、尺は超えうる。**180秒を超えそうな場合は商圏CMだけを抜く**
+    （kfreqai CMとチャンネル登録は従来どおり必ず付ける）。
+    """
     outros: list[Path] = []
-    for enabled, outro_file in (
-        (COMMERCIAL_OUTRO_ENABLED, COMMERCIAL_OUTRO_FILE),
-        (CHANNEL_OUTRO_ENABLED, CHANNEL_OUTRO_FILE),
-    ):
+    candidates = [
+        (SHOKEN_CM_ENABLED, SHOKEN_CM_FILE, "shoken"),
+        (COMMERCIAL_OUTRO_ENABLED, COMMERCIAL_OUTRO_FILE, "kfreqai"),
+        (CHANNEL_OUTRO_ENABLED, CHANNEL_OUTRO_FILE, "channel"),
+    ]
+    for enabled, outro_file, _name in candidates:
         if not enabled:
             continue
         if not outro_file.is_file():
             print(f"  [commercial] skipped; asset not found: {outro_file}", flush=True)
             continue
         outros.append(outro_file)
+
+    # ショートの3分上限ガード（余裕2秒）。超えるなら商圏CMを落とす。
+    if outros:
+        total = _media_duration(video_path) + sum(_media_duration(o) for o in outros)
+        if total > 178 and SHOKEN_CM_FILE in outros:
+            outros = [o for o in outros if o != SHOKEN_CM_FILE]
+            print(f"  [commercial] shoken CM dropped to stay under Shorts 3min (total was {total:.1f}s)", flush=True)
     if not outros:
         return video_path
 
