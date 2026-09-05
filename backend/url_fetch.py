@@ -12,8 +12,38 @@ HEADERS = {
 }
 
 
+# 出典名は台本のナレーションにそのまま乗る。ドメインの先頭ラベルを機械的に使うと、
+# ホスト名がアカウント名の場合に個人名として読み上げられる
+# （katsushi2441.github.io → 「Katsushi2441さん」）。自社の媒体は正式名で固定する。
+SOURCE_NAMES = {
+    "katsushi2441.github.io": "AI OSS技術解説",
+    "kurage.exbridge.jp": "Kurage",
+    "kappstore.exbridge.jp": "Kurage App Store",
+    "exbridge.jp": "エクスブリッジ",
+    "proto.exbridge.jp": "エクスブリッジ",
+    "xb-bittensor.hatenablog.com": "AI OSS技術解説",
+    "bittensorman.blogspot.com": "AI OSS技術解説",
+    "xb4g.com": "エクスブリッジ",
+}
+
+
 def url_to_source(url: str) -> str:
-    domain = urlparse(url).netloc.replace("www.", "")
+    domain = urlparse(url).netloc.replace("www.", "").lower()
+    if domain in SOURCE_NAMES:
+        return SOURCE_NAMES[domain]
+    # ホスト名がアカウント名になる媒体は、その名前を出典にしない
+    # （個人名として読み上げられるため）。媒体名の側を使う。
+    for suffix, label in (
+        (".github.io", "GitHub Pages"),
+        (".hatenablog.com", "はてなブログ"),
+        (".hatenadiary.jp", "はてなブログ"),
+        (".blogspot.com", "Blogger"),
+        (".note.com", "note"),
+        (".substack.com", "Substack"),
+        (".medium.com", "Medium"),
+    ):
+        if domain.endswith(suffix):
+            return label
     return domain.split(".")[0].capitalize()
 
 
