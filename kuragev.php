@@ -1696,6 +1696,7 @@ $amazon_cta_url = '/go.php?' . http_build_query(array(
         <a class="item" href="https://kurage.exbridge.jp/vibe-oss.html?ref=kuragev" data-cv="vibe-oss"><b>🧩 Vibe OSSカスタマイズ</b><span>完成済みOSSを、バイブコーディングで日本語化・自社仕様へ変更して導入。</span></a>
         <a class="item" href="https://kurage.exbridge.jp/vibe-prototype.html" data-cv="vibe-prototype"><b>⚡ バイブプロトタイプ制作</b><span>AIで“動くシステム”を最短1営業日で制作。ソースはMITで納品。</span></a>
         <a class="item" href="https://kappstore.exbridge.jp/" data-cv="kappstore"><b>🛍️ Kurage App Store</b><span>できあがった業務システムを購入。ソース同梱・MITで改変自由。</span></a>
+        <a class="item" href="https://exbridge.jp/leaflet.html?ref=kuragev-leaflet" data-cv="leaflet"><b>📄 会社案内（PDF・印刷可）</b><span>作っている会社の案内。できること・価格・実績を1枚に。お困りごとシートつき。</span></a>
       </div>
       <div class="lane"><b>🤝 紹介して稼ぐ</b>
         <a class="item" href="https://kurage.exbridge.jp/reseller.html" data-cv="reseller"><b>🤝 販売代理店になる</b><span>登録無料・在庫なし。紹介した案件の成果報酬が受け取れます。</span></a>
