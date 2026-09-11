@@ -393,6 +393,18 @@ header .ico img{width:100%;height:100%;object-fit:cover;object-position:50% 12%}
 header strong{font-size:15px;font-weight:900;display:block;line-height:1.15}
 header span.sub{font-size:11px;color:var(--abyss-soft);font-weight:700}
 header .right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.linebtn{display:inline-flex;align-items:center;gap:8px;background:#06C755;color:#fff;font-weight:900;
+  text-decoration:none;border-radius:999px;padding:14px 30px;font-size:15.5px;box-shadow:0 10px 26px rgba(6,199,85,.3)}
+.linebtn.sm{padding:9px 16px;font-size:12.5px;box-shadow:none}
+.or{display:flex;align-items:center;gap:12px;margin:18px 0 12px;color:var(--abyss-soft);font-size:13px;font-weight:700}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--panel-line)}
+.linecard{margin-top:14px;border:1.5px solid #06C755;background:#f4fdf7;border-radius:18px;padding:18px 20px;
+  display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.linecard .tx{flex:1;min-width:220px}
+.linecard h3{margin:0 0 5px;font-size:16px;color:#0b7d3e}
+.linecard p{margin:0 0 12px;font-size:13.5px;color:var(--abyss-soft);line-height:1.75}
+.linecard img{width:88px;height:88px;flex:none;border:1px solid var(--panel-line);border-radius:10px;background:#fff}
+@media(max-width:560px){.linecard img{display:none}}
 .xbtn{border-radius:999px;padding:9px 16px;font-weight:900;font-size:12.5px;background:#111;color:#fff;display:inline-flex;align-items:center;gap:7px}
 .xbtn.teal{background:linear-gradient(135deg,var(--teal),var(--teal-deep))}
 .uinfo{font-size:12px;color:var(--abyss-soft);font-weight:700}
@@ -471,6 +483,7 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
 <?php endif; ?>
     <a class="xbtn" style="background:transparent;color:var(--abyss-soft);border:1.5px solid var(--panel-line)" href="?logout">ログアウト</a>
 <?php else: ?>
+    <a class="linebtn sm" href="https://line.me/R/ti/p/%40271hokhu" target="_blank" rel="noopener">💬 LINEで相談</a>
     <a class="xbtn" rel="nofollow" href="?login&amp;ref=<?php echo rawurlencode($ref); ?>">𝕏 でログイン</a>
 <?php endif; ?>
   </div>
@@ -486,6 +499,15 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
         「こんな業務を自動化したい」「この客に何を勧める？」——書くだけで、最適な答えと次の一歩が返ってきます。</p>
       <a class="cta-lg" rel="nofollow" href="?login&amp;ref=<?php echo rawurlencode($ref); ?>">𝕏 でログインして無料で使う</a>
       <p class="cta-note">Xアカウントでログインするだけ（無料）。どなたが使ったかは記録されます。</p>
+      <div class="linecard">
+        <div class="tx">
+          <h3>💬 Xアカウントが無い方は、LINEでどうぞ</h3>
+          <p><b>ログイン不要</b>。友だち追加して、そのままトークに書いてください。AIではなく<b>担当者（代表）が直接お答えします</b>。</p>
+          <a class="linebtn" href="https://line.me/R/ti/p/%40271hokhu" target="_blank" rel="noopener"
+             onclick="window.gtag&&gtag('event','product_click',{slot:'chat-line-hero',source:location.pathname})">LINEで相談する →</a>
+        </div>
+        <img src="https://exbridge.jp/images/line-qr.png" alt="LINE友だち追加のQRコード" width="88" height="88" loading="lazy">
+      </div>
     </div>
     <div class="hero-card">
       <img src="kurage-ecosystem-avatar-600.webp" alt="Kurage">
@@ -524,7 +546,7 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
     <h2>使い方はかんたん</h2>
     <p class="sub">Xでログインして、聞くだけ</p>
     <div class="steps">
-      <div class="step"><b>Xでログイン</b><p>右上（または下のボタン）の「𝕏 でログイン」からXアカウントで入るだけ。無料です。</p></div>
+      <div class="step"><b>Xでログイン</b><p>右上（または下のボタン）の「𝕏 でログイン」からXアカウントで入るだけ。無料です。<b>Xをお持ちでなければ、LINEで直接ご相談いただけます。</b></p></div>
       <div class="step"><b>困りごと・目的を書く</b><p>「サロンの予約管理を探してる客がいる」「AIで請求書を自動化したい」など、自然な言葉でOK。</p></div>
       <div class="step"><b>答えと次の一歩が返る</b><p>最適なKurage商品・LP・デモ・価格・（代理店なら）紹介手数料まで、まとめて返ってきます。</p></div>
     </div>
@@ -540,6 +562,10 @@ main.chat{max-width:820px;margin:0 auto;padding:16px 18px 96px}
       <li>ローカルLLM（gemma / DeepSeek）の技術記事はある？</li>
     </ul></div>
     <div class="center" style="margin-top:22px"><a class="cta-lg" rel="nofollow" href="?login&amp;ref=<?php echo rawurlencode($ref); ?>">𝕏 でログインして無料で使う</a></div>
+    <div class="center"><div class="or" style="max-width:420px;margin-left:auto;margin-right:auto">または</div>
+      <a class="linebtn" href="https://line.me/R/ti/p/%40271hokhu" target="_blank" rel="noopener"
+         onclick="window.gtag&&gtag('event','product_click',{slot:'chat-line-bottom',source:location.pathname})">💬 ログイン不要・LINEで相談する</a>
+      <p class="cta-note" style="margin-top:9px">LINE公式アカウント「エクスブリッジ」（@271hokhu）。担当者が直接お答えします。</p></div>
   </section>
 
   <section class="blk wrap">
