@@ -26,6 +26,7 @@ from kurage_avatar_overlay import (  # noqa: E402
     avatar_frames,
     available_avatar_frames,
     build_hyperframes_vtuber_overlay,
+    mascot_video_path,
 )
 
 AVATAR_FRAMES = avatar_frames()
@@ -42,9 +43,10 @@ def _should_show_avatar(vtuber_mode: bool) -> bool:
     return bool(vtuber_mode or AVATAR_OVERLAY_DEFAULT)
 
 
-def _build_vtuber_overlay(total_dur: float, title: str) -> tuple[str, str, str]:
-    """HTML/CSS/GSAP snippets for the branded Kurage VTuber explainer layer."""
-    return build_hyperframes_vtuber_overlay(total_dur, title)
+def _build_vtuber_overlay(total_dur: float, title: str, avatar_video: str | None = None) -> tuple[str, str, str]:
+    """HTML/CSS/GSAP snippets for the branded Kurage VTuber explainer layer.
+    avatar_video を渡すと PNG 口パクの代わりにマスコット動画（KURAGE_AVATAR_MODE=mascot）をカードに入れる。"""
+    return build_hyperframes_vtuber_overlay(total_dur, title, mascot_video=avatar_video)
 
 
 def _build_stickman_overlay(scene_index: int) -> str:
@@ -211,7 +213,7 @@ def compute_scene_timing(scenes: list[dict], total_dur: float,
 
 def build_html(script: dict, image_paths: list[Path], total_dur: float,
                narration_duration: float = 0.0, vtuber_mode: bool = False,
-               scene_video_indexes: set[int] | None = None) -> str:
+               scene_video_indexes: set[int] | None = None, avatar_video: str | None = None) -> str:
     """Build HyperFrames index.html for a short drama video (576x1024 vertical)."""
     scenes = script.get("scenes") or []
     raw_title = script.get("title") or "Kurage Video"
@@ -259,7 +261,7 @@ def build_html(script: dict, image_paths: list[Path], total_dur: float,
     vtuber_js = ""
     body_class = ' class="vtuber-enabled"' if vtuber_mode else ""
     if vtuber_mode:
-        vtuber_html, vtuber_css, vtuber_js = _build_vtuber_overlay(total_dur, raw_title)
+        vtuber_html, vtuber_css, vtuber_js = _build_vtuber_overlay(total_dur, raw_title, avatar_video)
 
     # GSAP animation: cross-fade between scenes
     gsap_scenes = []
@@ -736,7 +738,7 @@ def _cm_headline(chunks: list[dict], fallback: str) -> tuple[str, str]:
 def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
                   narration_duration: float = 0.0, vtuber_mode: bool = False,
                   scene_video_indexes: set[int] | None = None,
-                  edl: dict | None = None) -> str:
+                  edl: dict | None = None, avatar_video: str | None = None) -> str:
     """テロップ・システムv2のHyperFrames index.htmlを生成する。
 
     デザインはテンプレートA〜D(docs/telop-v2デザイン案)に固定。EDL(telop_gen)は
@@ -900,7 +902,7 @@ def build_html_v2(script: dict, image_paths: list[Path], total_dur: float,
         body_classes.append("telop-white-studio-cm")
     body_class = f' class="{" ".join(body_classes)}"' if body_classes else ""
     if vtuber_mode:
-        vtuber_html, vtuber_css, vtuber_js = _build_vtuber_overlay(total_dur, raw_title)
+        vtuber_html, vtuber_css, vtuber_js = _build_vtuber_overlay(total_dur, raw_title, avatar_video)
 
     audio_tag = ""
     if narration_duration > 0:
@@ -1040,9 +1042,15 @@ def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path], vtub
             shutil.copy(src_video, assets_dir / f"scene_{i:02d}.mp4")
             scene_video_indexes.add(i)
 
+    avatar_video: str | None = None
     if show_avatar:
+        mascot = mascot_video_path()   # KURAGE_AVATAR_MODE=mascot のときだけ返る
         avatar_paths = _avatar_asset_paths()
-        if len(avatar_paths) != len(AVATAR_FRAMES):
+        if mascot is not None:
+            shutil.copy(mascot, assets_dir / "avatar_mascot.mp4")
+            avatar_video = "avatar_mascot.mp4"
+            print(f"  [video] Kurage mascot video avatar: {mascot.name}", flush=True)
+        elif len(avatar_paths) != len(AVATAR_FRAMES):
             print("  [video] Kurage avatar overlay requested but avatar PNGs are missing; rendering without avatar", flush=True)
             show_avatar = False
         else:
@@ -1065,10 +1073,11 @@ def create_hf_project(job_dir: Path, script: dict, image_paths: list[Path], vtub
     if edl:
         html_content = build_html_v2(script, image_paths, total_dur, narration_duration,
                                      vtuber_mode=show_avatar, scene_video_indexes=scene_video_indexes,
-                                     edl=edl)
+                                     edl=edl, avatar_video=avatar_video)
     else:
         html_content = build_html(script, image_paths, total_dur, narration_duration,
-                                  vtuber_mode=show_avatar, scene_video_indexes=scene_video_indexes)
+                                  vtuber_mode=show_avatar, scene_video_indexes=scene_video_indexes,
+                                  avatar_video=avatar_video)
     (project_dir / "index.html").write_text(html_content, encoding="utf-8")
 
     # Copy hyperframes.json template
