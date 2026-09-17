@@ -680,6 +680,28 @@ $header_amazon_url = '/go.php?' . http_build_query(array(
     'cat' => $detail_job ? 'books' : 'video',
     'from' => $header_amazon_from,
 ));
+
+/* ── 埋め込み用の最小ページ (?id=JOB_ID&embed=1) ──────────────
+   他サイト（xb4g の議員発言ログ等）の iframe に、この動画の再生窓だけを出す。
+   ヘッダー・一覧・計測タグは載せない。歌詞や説明はリンク先（通常の詳細ページ）で読む。 */
+if ($detail_job && isset($_GET['embed']) && (string)$_GET['embed'] === '1') {
+    $embed_title = job_display_title($detail_job);
+    $embed_full  = $BASE_URL . '/' . $THIS_FILE . '?id=' . urlencode($detail_id);
+    header('Content-Type: text/html; charset=UTF-8');
+    echo '<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">'
+       . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+       . '<meta name="robots" content="noindex">'
+       . '<title>' . h($embed_title) . ' | ' . h($SITE_NAME) . '</title>'
+       . '<style>html,body{margin:0;height:100%;background:#000;font-family:"Noto Sans JP",sans-serif}'
+       . '.w{position:relative;width:100%;height:100%}'
+       . 'video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}'
+       . '.lk{position:absolute;right:10px;top:8px;z-index:2;background:rgba(255,255,255,.92);color:#007f96;font-size:12px;font-weight:800;'
+       . 'padding:6px 10px;border-radius:999px;text-decoration:none}</style></head><body><div class="w">'
+       . '<video src="' . h($page_video) . '" poster="' . h($page_image) . '" controls playsinline preload="metadata"></video>'
+       . '<a class="lk" href="' . h($embed_full) . '" target="_top" rel="noopener">歌詞つきページで見る</a>'
+       . '</div></body></html>';
+    exit;
+}
 ?><!DOCTYPE html>
 <html lang="ja">
 <head>
