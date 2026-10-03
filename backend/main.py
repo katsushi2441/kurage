@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from config import JOBS_DIR, PORT, ERNIE_URL, NVM_NODE, HYPERFRAMES_VERSION, OLLAMA_URL, OLLAMA_MODEL, WAN_API, WAN_TEST_MODE
@@ -675,9 +675,45 @@ def thumbnail(job_id: str):
     )
 
 
+# /jobs?limit=0 は約3,100件のJSONをHDDから全部読む（約2.6秒・9.7MB）。kuragev.php は一覧・検索ページの
+# たびにこれを呼ぶので、巡回が検索ページを続けて叩くとワーカーが全部これで埋まり、/status も返らなくなって
+# kuragev の全ページが空になった（2026-10-03 に3回）。全件の結果を60秒だけ使い回し、同時の呼び出しは
+# ロックで1回の読み込みにまとめる。
+import threading as _jl_threading
+import time as _jl_time
+_JOBS_CACHE: dict = {}
+_JOBS_LOCK = _jl_threading.Lock()
+_JOBS_TTL = 60
+
+
 @app.get("/jobs")
 def list_jobs(limit: int = 20, source: str | None = None):
     """List jobs. ?source=horizon filters by source. limit<=0 returns all."""
+    key = source or ""
+    hit = _JOBS_CACHE.get(key)
+    if not hit or _jl_time.time() - hit[0] > _JOBS_TTL:
+        with _JOBS_LOCK:
+            hit = _JOBS_CACHE.get(key)
+            if not hit or _jl_time.time() - hit[0] > _JOBS_TTL:
+                hit = (_jl_time.time(), _list_jobs_all(source))
+                _JOBS_CACHE[key] = hit
+    jobs = hit[1]
+    if limit and limit > 0:
+        jobs = jobs[:limit]
+        return {"ok": True, "jobs": jobs, "count": len(jobs)}
+    # 全件（9.7MB）は JSON への変換も毎回だと重いので、変換済みのバイト列も使い回す
+    body = _JOBS_BODY.get(key)
+    if not body or body[0] != hit[0]:
+        import json as _jl_json
+        body = (hit[0], _jl_json.dumps({"ok": True, "jobs": jobs, "count": len(jobs)}, ensure_ascii=False).encode("utf-8"))
+        _JOBS_BODY[key] = body
+    return Response(content=body[1], media_type="application/json")
+
+
+_JOBS_BODY: dict = {}
+
+
+def _list_jobs_all(source: str | None = None) -> list:
     JOBS_DIR.mkdir(parents=True, exist_ok=True)
     files = list(JOBS_DIR.glob("*.json"))
     jobs = []
@@ -733,9 +769,7 @@ def list_jobs(limit: int = 20, source: str | None = None):
         except Exception:
             pass
     jobs.sort(key=lambda j: j.get("created_at") or "", reverse=True)
-    if limit and limit > 0:
-        jobs = jobs[:limit]
-    return {"ok": True, "jobs": jobs, "count": len(jobs)}
+    return jobs
 
 
 if __name__ == "__main__":
