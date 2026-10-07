@@ -13,7 +13,17 @@ $BASE_URL   = 'https://kurage.exbridge.jp';
 $THIS_FILE  = 'kuragev.php';
 $ADMIN      = 'xb_bittensor';
 
-$auth         = url2ai_auth_bootstrap();
+// Cookie を1つも持たない訪問者（初めての人・巡回）はログイン中のはずがないので、セッションを始めない（2026-10-07）。
+// 検索結果ページ（?q=…）を1回ごとに別の訪問者として回る巡回が1日2万件以上あり、そのたびに空のセッション
+// ファイルができて heteml のファイル数の上限（100万）に達した。ログイン・ログアウト・管理者の操作（POST）と、
+// セッションか永続ログインの Cookie を持つ人は、これまでどおり url2ai_auth_bootstrap() を通す。
+$has_auth_cookie = !empty($_COOKIE[URL2AI_AUTH_SESSION_NAME]) || !empty($_COOKIE[URL2AI_AUTH_PERSIST_COOKIE]);
+if ($has_auth_cookie || isset($_GET['login']) || isset($_GET['logout']) || ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    $auth = url2ai_auth_bootstrap();
+} else {
+    $auth = array('logged_in' => false, 'session_user' => '', 'is_admin' => false,
+                  'login_url' => url2ai_auth_login_url(), 'logout_url' => url2ai_auth_logout_url());
+}
 $logged_in    = $auth['logged_in'];
 $session_user = $auth['session_user'];
 $is_admin     = $auth['is_admin'];
@@ -710,7 +720,9 @@ if ($detail_job && isset($_GET['embed']) && (string)$_GET['embed'] === '1') {
 <title><?php echo h($page_title); ?></title>
 <meta name="description" content="<?php echo h($page_desc); ?>">
 <meta name="keywords" content="<?php echo h($detail_job ? implode(',', job_seo_keywords($detail_job)) : 'AI動画生成,ショート動画,縦型動画,動画翻訳,自動生成,Kurage,クラゲ,AI'); ?>">
-<meta name="robots" content="index, follow">
+<?php /* キーワード検索の結果（?q=）は検索エンジンに載せない（2026-10-07）。本物の検索流入は動画ページ（?id=）に来る。
+           検索結果ページは語の組み合わせで無数にでき、巡回の的になっていた。リンクはたどってよい（follow）。 */ ?>
+<meta name="robots" content="<?php echo (!$detail_job && trim((string)($_GET['q'] ?? '')) !== '') ? 'noindex, follow' : 'index, follow'; ?>">
 <link rel="canonical" href="<?php echo h($page_url); ?>">
 <meta property="og:type" content="website">
 <meta property="og:title" content="<?php echo h($page_title); ?>">
