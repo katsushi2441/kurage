@@ -939,6 +939,7 @@ body.list-page .promo-scroll-pane .affiliate-disclosure{margin-top:10px!importan
 .reel-side-btn span{font-size:9px;color:rgba(255,255,255,.65);}
 </style>
 <link rel="stylesheet" href="assets/kurage-avatar.css?v=20260704a">
+<script src="https://kurage.exbridge.jp/partner-bar.js" defer></script>
 </head>
 <body class="<?php echo $detail_job ? 'detail-page' : 'list-page'; ?>">
 
