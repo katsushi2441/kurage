@@ -1742,6 +1742,21 @@ $amazon_cta_url = '/go.php?' . http_build_query(array(
   </div>
 </section>
 <script>(function(){try{var s=document.querySelector('section.kvsvc');if(s)s.addEventListener('click',function(e){var a=e.target.closest('a');if(a&&window.gtag)gtag('event','product_click',{link_url:a.href,item:a.getAttribute('data-cv'),source:location.pathname});});}catch(e){}})();</script>
+<!-- 「エクスブリッジについて」の欄（正本 kurage_web/exbridge-about.html の写し・文言は正本で直す） -->
+<section class="exb-about" style="max-width:1080px;margin:32px auto 0;padding:18px 16px 8px;border-top:1px solid #d6dde3;font-size:13.5px;line-height:1.75;color:#33414d;background:transparent;box-sizing:border-box;text-align:left">
+  <h2 style="font-size:15px;line-height:1.5;margin:0 0 6px;color:#1f2d38;font-weight:700">エクスブリッジについて</h2>
+  <p style="margin:0 0 8px">このページは、名古屋のシステム開発会社・株式会社エクスブリッジが運営しています。AIを使って中小企業の業務システムを作り、保守契約・月額のシステム利用料・要件定義なしで使える買い切りの業務システムを <a href="https://kappstore.exbridge.jp/#ref=exb-about-kuragev">Kurage App Store</a> で販売しています。</p>
+  <dl style="display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:0 0 8px">
+    <dt style="font-weight:700">会社名</dt><dd style="margin:0">株式会社エクスブリッジ（EXBRIDGE, Inc.）</dd>
+    <dt style="font-weight:700">所在地</dt><dd style="margin:0">愛知県名古屋市瑞穂区内浜町34-9 305</dd>
+    <dt style="font-weight:700">設立</dt><dd style="margin:0">2004年4月</dd>
+    <dt style="font-weight:700">資本金</dt><dd style="margin:0">1億250万円</dd>
+    <dt style="font-weight:700">代表取締役</dt><dd style="margin:0">小嶋 篤</dd>
+    <dt style="font-weight:700">法人番号</dt><dd style="margin:0">4180001056508</dd>
+    <dt style="font-weight:700">事業</dt><dd style="margin:0">AIを使った業務システムの開発、Kurage App Store の運営、AI-IT顧問</dd>
+  </dl>
+  <p style="margin:0"><a href="https://exbridge.jp/profile.html#ref=exb-about-kuragev">会社概要</a>　<a href="https://exbridge.jp/vibeblog/2026-11-03-exbridge-yameta-3tsu-hoshu-getsugaku-youken.html#ref=exb-about-kuragev">エクスブリッジがやめた3つ</a>　<a href="https://exbridge.jp/ai-it-komon.html#ref=exb-about-kuragev">AI-IT顧問</a>　<a href="https://exbridge.jp/contact.php#ref=exb-about-kuragev">お問い合わせ</a></p>
+</section>
 <footer class="affiliate-disclosure" style="max-width:1120px;margin:28px auto 18px;padding:16px;color:#647884;font-size:12px;line-height:1.7;text-align:center;">
   <div style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;border:1px solid #f2d39a;background:linear-gradient(135deg,#fffaf0,#fff);border-radius:999px;padding:9px 12px;box-shadow:0 10px 24px rgba(146,95,0,.08);">
     <span style="font-weight:900;color:#9a5b00;">Amazon Associate Partner</span>
