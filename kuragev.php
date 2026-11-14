@@ -1054,6 +1054,20 @@ $detail_body_text = job_body_text($detail_job);
       <a class="vu-btn primary" href="<?php echo h($under_article); ?>" target="_blank" rel="noopener"
          onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'video-under-article'})">📄 <?php echo h($under_label); ?></a>
       <?php endif; ?>
+      <?php
+      // 動画ごとの関連リンク（kuragev_related.json：{"<job_id>": [{"label":…,"url":…}]}）。
+      // 同じ検索語を複数のページが取り合うとき、その語の本命のページへ寄せるために使う（2026-11-14 CRM → /ai-system/c/crm/）
+      $rel_file = __DIR__ . '/kuragev_related.json';
+      $rel_links = [];
+      if (is_file($rel_file)) {
+          $rel_all = json_decode((string)file_get_contents($rel_file), true);
+          $rel_links = is_array($rel_all) && isset($rel_all[$detail_id]) && is_array($rel_all[$detail_id]) ? $rel_all[$detail_id] : [];
+      }
+      foreach ($rel_links as $rl):
+          if (empty($rl['url']) || empty($rl['label']) || !preg_match('#^https://#', (string)$rl['url'])) { continue; } ?>
+      <a class="vu-btn primary" href="<?php echo h($rl['url']); ?>"
+         onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'video-under-related'})">🔗 <?php echo h($rl['label']); ?></a>
+      <?php endforeach; ?>
       <a class="vu-btn" href="https://kurage.exbridge.jp/gyomu-system-ichiran.php?ref=kuragev-video"
          onclick="window.gtag&&gtag('event','product_click',{link_url:this.href,source:location.pathname,slot:'video-under-service'})">🪼 関連サービスを見る</a>
     </div>
