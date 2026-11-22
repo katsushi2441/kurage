@@ -125,11 +125,16 @@ def telop_image(s: str) -> Image.Image:
     parts = parse_marks(s)
     txt = plain(s)
     size = 96
-    while size > 70 and text_w(font(SANS, size), txt) > W - 90:
+    while size > 62 and text_w(font(SANS, size), txt) > W - 90:
         size -= 4
     lines = [parts]
-    if text_w(font(SANS, size), txt) > W - 90:   # 2行に分ける（真ん中に近い区切りで）
-        cut = len(txt) // 2
+    if text_w(font(SANS, size), txt) > W - 90:   # 2行に分ける（【】の切れ目を優先し、無ければ真ん中に近いところで）
+        size = 88
+        bounds, acc = [], 0
+        for seg, _ in parts[:-1]:
+            acc += len(seg); bounds.append(acc)
+        near = [b for b in bounds if abs(b - len(txt) / 2) <= len(txt) * 0.3]
+        cut = min(near, key=lambda b: abs(b - len(txt) / 2)) if near else len(txt) // 2
         acc, a, b = 0, [], []
         for seg, hl in parts:
             if acc + len(seg) <= cut:
@@ -234,14 +239,56 @@ def make_audio(n: int, voice_durs: list[float], scene_durs: list[float], out_dir
     return out
 
 
+IMAGE_EXT = {".png", ".jpg", ".jpeg", ".webp"}
+CARD_BAND = (540, 1190)   # 画面のカードを置く高さの範囲（見出しの下〜テロップの上）
+
+
+def compose_card(src: Path, marks: list, out: Path) -> Path:
+    """ブログの画面などの画像を、ぼかした背景の上のカードにする。marks=[[x,y,w,h],…]（元画像の座標）に黄色いマーカー。"""
+    im = Image.open(src).convert("RGB")
+    if marks:
+        ov = Image.new("RGBA", im.size, (0, 0, 0, 0))
+        d = ImageDraw.Draw(ov)
+        for x, y, w, h in marks:
+            d.rectangle((x, y, x + w, y + h), fill=(255, 225, 0, 95), outline=(240, 40, 40, 255), width=6)
+        im = Image.alpha_composite(im.convert("RGBA"), ov).convert("RGB")
+    # 背景: 同じ画像を画面いっぱいに広げて強くぼかし、暗くする
+    sc = max(W / im.width, H / im.height)
+    bg = im.resize((int(im.width * sc) + 1, int(im.height * sc) + 1)).crop((0, 0, W, H)).filter(ImageFilter.GaussianBlur(28))
+    bg = Image.blend(bg, Image.new("RGB", (W, H), (8, 12, 24)), 0.62)
+    # カード: 幅 980 まで・高さは帯に収める
+    band_h = CARD_BAND[1] - CARD_BAND[0]
+    k = min(980 / im.width, band_h / im.height)
+    card = im.resize((int(im.width * k), int(im.height * k)), Image.LANCZOS)
+    mask = Image.new("L", card.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, card.width - 1, card.height - 1), 22, fill=255)
+    cx, cy = (W - card.width) // 2, CARD_BAND[0] + (band_h - card.height) // 2
+    sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(sh).rounded_rectangle((cx + 10, cy + 16, cx + card.width + 10, cy + card.height + 16), 24, fill=(0, 0, 0, 170))
+    bg = Image.alpha_composite(bg.convert("RGBA"), sh.filter(ImageFilter.GaussianBlur(14)))
+    ImageDraw.Draw(bg).rounded_rectangle((cx - 6, cy - 6, cx + card.width + 6, cy + card.height + 6), 26, fill=(255, 228, 40, 255))
+    bg.paste(card, (cx, cy), mask)
+    bg.convert("RGB").save(out)
+    return out
+
+
 def make_background(scenes: list[dict], scene_durs: list[float], out_dir: Path) -> Path:
     segs = []
     for i, sc in enumerate(scenes):
         src = WORK / sc["bg"]
         if not src.exists():
-            raise SystemExit(f"背景の動画がありません: {src}")
+            raise SystemExit(f"背景がありません: {src}")
         n = round(scene_durs[i] * FPS)
         seg = out_dir / f"bg_{i:02d}.mp4"
+        if src.suffix.lower() in IMAGE_EXT:
+            card = compose_card(src, sc.get("bg_marks") or [], out_dir / f"card_{i:02d}.png")
+            # ゆっくり寄る（静止画に見せない）
+            vf = (f"zoompan=z='min(1+0.0011*on,1.09)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={n}:s={W}x{H}:fps={FPS},"
+                  "format=yuv420p")
+            run(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-i", str(card), "-vf", vf, "-frames:v", str(n),
+                 "-c:v", "libx264", "-preset", "veryfast", "-crf", "16", str(seg)])
+            segs.append(seg)
+            continue
         # 縦に合わせて切り出し、ゆっくり寄りながら少し左右に揺らす（静止画のように見せない）
         vf = (f"scale={W + 120}:{H + 214}:force_original_aspect_ratio=increase,"
               f"crop={W}:{H}:x='(in_w-{W})/2+40*sin(t*0.6)':y='(in_h-{H})/2-30*t/{max(1.0, scene_durs[i]):.2f}',"
@@ -253,6 +300,52 @@ def make_background(scenes: list[dict], scene_durs: list[float], out_dir: Path) 
     lst.write_text("".join(f"file '{p.name}'\n" for p in segs))
     out = out_dir / "background.mp4"
     run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(out)])
+    return out
+
+
+SFX_DIR = KURAGE / "kosatsu" / "sfx"
+
+
+def make_sfx() -> tuple[Path, Path]:
+    """大見出しの「ドン」と、テロップの「シュッ」。ffmpeg で合成（素材の権利の心配が無い）。"""
+    SFX_DIR.mkdir(parents=True, exist_ok=True)
+    impact, whoosh = SFX_DIR / "impact.wav", SFX_DIR / "whoosh.wav"
+    if not impact.exists():
+        run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i",
+             "aevalsrc='0.95*exp(-5*t)*sin(2*PI*(48+70*exp(-9*t))*t)+0.25*exp(-30*t)*sin(2*PI*900*t)':s=44100:d=0.9",
+             "-af", "afade=t=out:st=0.6:d=0.3,aformat=channel_layouts=stereo", str(impact)])
+    if not whoosh.exists():
+        run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "anoisesrc=d=0.32:c=pink:a=0.7:r=44100",
+             "-af", "highpass=f=900,lowpass=f=7000,afade=t=in:d=0.12,afade=t=out:st=0.14:d=0.18,aformat=channel_layouts=stereo",
+             str(whoosh)])
+    return impact, whoosh
+
+
+def mix_audio(narration: Path, total: float, head_times: list[float], telop_times: list[float],
+              bgm: Path | None, bgm_volume: float, out_dir: Path) -> Path:
+    impact, whoosh = make_sfx()
+    ins = ["-i", str(narration)]
+    parts, n_in = [], 1
+    labels = ["[0:a]"]
+    if bgm and bgm.exists():
+        ins += ["-stream_loop", "-1", "-i", str(bgm)]
+        parts.append(f"[{n_in}:a]atrim=0:{total:.3f},volume={bgm_volume},afade=t=in:d=1.2,"
+                     f"afade=t=out:st={max(0.0, total - 2.0):.3f}:d=2,aformat=channel_layouts=stereo:sample_rates=44100[bgm]")
+        labels.append("[bgm]"); n_in += 1
+    for path, times, vol, tag in [(impact, head_times, 0.55, "im"), (whoosh, telop_times, 0.28, "wh")]:
+        if not times:
+            continue
+        ins += ["-i", str(path)]
+        parts.append(f"[{n_in}:a]asplit={len(times)}" + "".join(f"[{tag}{j}]" for j in range(len(times))))
+        for j, t in enumerate(times):
+            ms = max(0, int(t * 1000))
+            parts.append(f"[{tag}{j}]adelay={ms}|{ms},volume={vol}[{tag}d{j}]")
+            labels.append(f"[{tag}d{j}]")
+        n_in += 1
+    parts.append("".join(labels) + f"amix=inputs={len(labels)}:normalize=0:duration=first,loudnorm=I=-15:TP=-1.5:LRA=11[out]")
+    out = out_dir / "mix.wav"
+    run(["ffmpeg", "-y", "-loglevel", "error", *ins, "-filter_complex", ";".join(parts), "-map", "[out]",
+         "-ar", "44100", "-ac", "2", str(out)])
     return out
 
 
@@ -283,6 +376,9 @@ def render(spec: dict, out_dir: Path, cache: bool = True) -> tuple[Path, Path]:
             b = t0 + span * acc / sum(lens)
             tel.append((a, b if acc < sum(lens) else starts[i] + scene_durs[i], telop_image(t)))
     base = static_layer()
+    bgm = (WORK / spec["bgm"]) if spec.get("bgm") else None
+    audio = mix_audio(audio, total, [st + 0.02 for st in starts], [a for a, _, _ in tel], bgm,
+                      float(spec.get("bgm_volume", 0.16)), out_dir)
 
     out = out_dir / "short.mp4"
     nframes = round(total * FPS)
