@@ -383,7 +383,7 @@ def render(spec: dict, out_dir: Path, cache: bool = True) -> tuple[Path, Path]:
     out = out_dir / "short.mp4"
     nframes = round(total * FPS)
     dec = subprocess.Popen(["ffmpeg", "-loglevel", "error", "-i", str(bg), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
-                           stdout=subprocess.PIPE)
+                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)  # 途中で止めたときの Broken pipe を出さない
     mx, my, mw, mh = MASCOT_BOX
     enc = subprocess.Popen([
         "ffmpeg", "-y", "-loglevel", "error",
