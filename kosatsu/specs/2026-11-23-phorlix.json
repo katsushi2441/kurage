@@ -1,0 +1,153 @@
+{
+  "slug": "2026-11-23-phorlix",
+  "title": "【衝撃】精神科医が作ったMacアプリが全米1位｜DICOMビューア PHORLIX と開発者 猪股弘明さん",
+  "blog_url": "https://exbridge.jp/vibeblog/2026-11-23-phorlix-dicom-viewer-mac.html",
+  "summary": "現役の精神科医が自分で開発した、Macで CT・MRI を見る DICOM ビューア PHORLIX が、米国 App Store の医療カテゴリー有料1位に。宣伝なしで世界に広がり、開発者は物理を学び顕微鏡の開発を経て精神科医になった猪股弘明さん。こんなすごい人がいる、を1分で紹介するショート。",
+  "keywords": [
+    "PHORLIX",
+    "DICOMビューア",
+    "DICOM ビューア Mac",
+    "HorliX",
+    "医療画像",
+    "CT",
+    "MRI",
+    "個人開発"
+  ],
+  "bgm": "kpvgen/outputs/acestep_queue/kosatsu-tension-bgm-01.mp3",
+  "bgm_volume": 0.17,
+  "scenes": [
+    {
+      "bg": "kpvgen/outputs/h3_queue/h3-kosatsu-phorlix-scan-8s.mp4",
+      "bg_start": 0,
+      "kicker": "こんなすごい人がいる",
+      "headline": "精神科医が全米1位",
+      "narration": "現役の精神科医が自分で作ったMacのアプリが、アメリカのApp Storeで1位になりました。",
+      "reading": "現役の、せいしんかいが、自分で作った、マックのアプリが、アメリカの、アップストアで、1位になりました。",
+      "telops": [
+        "現役の【精神科医】が作った",
+        "米国App Store【有料1位】"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-23-phorlix/toha.png",
+      "bg_marks": [
+        [
+          14,
+          275,
+          1032,
+          60
+        ],
+        [
+          14,
+          365,
+          1032,
+          115
+        ]
+      ],
+      "kicker": "PHORLIXとは",
+      "headline": "CT・MRIをMacで",
+      "narration": "アプリの名前はPHORLIX。CTやMRIの医療画像を、Macで見るためのビューアです。",
+      "reading": "アプリの名前は、フォーリックス。シーティーや、エムアールアイの、医療画像を、マックで見るための、ビューアです。",
+      "telops": [
+        "【CT・MRI】の医療画像を",
+        "【Mac】で見るビューア"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-23-phorlix/sekai.png",
+      "bg_marks": [
+        [
+          14,
+          420,
+          1032,
+          60
+        ],
+        [
+          14,
+          505,
+          1032,
+          65
+        ]
+      ],
+      "kicker": "宣伝ゼロ",
+      "headline": "口コミで世界へ",
+      "narration": "宣伝はほとんどしていないのに、メキシコ、イスラエル、フィリピンと世界で上位に。そして11月17日、アメリカで有料1位です。",
+      "reading": "宣伝は、ほとんど、していないのに、メキシコ、イスラエル、フィリピンと、世界で上位に。そして、じゅういちがつ、じゅうななにち、アメリカで、ゆうりょう、いちいです。",
+      "telops": [
+        "宣伝は【ほぼゼロ】",
+        "世界の【App Store】で上位"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-23-phorlix/hito.png",
+      "bg_marks": [
+        [
+          14,
+          100,
+          1032,
+          365
+        ],
+        [
+          14,
+          525,
+          1032,
+          180
+        ]
+      ],
+      "kicker": "開発者の経歴",
+      "headline": "物理から精神科医へ",
+      "narration": "開発者の猪股弘明さんは、物理を学び、顕微鏡の開発を経て、精神科医になった人。今も病院で働きながら、電子カルテまで自分で作っています。",
+      "reading": "開発者の、イノマタ、ヒロアキさんは、物理を学び、けんびきょうの開発を経て、せいしんかいになった人。今も病院で働きながら、電子カルテまで、自分で作っています。",
+      "telops": [
+        "物理→顕微鏡→【精神科医】",
+        "電子カルテまで【自分で開発】"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-23-phorlix/nagare.png",
+      "bg_marks": [
+        [
+          14,
+          205,
+          1032,
+          190
+        ]
+      ],
+      "kicker": "Macの医療画像の系譜",
+      "headline": "OsiriXの流れ",
+      "narration": "Macで医師に愛されたOsiriX、Horosの流れを受け継ぎ、自作のHorliXの後継として生まれたのがPHORLIXです。",
+      "reading": "マックで、医師に愛された、オザイリックス、ホロスの流れを受け継ぎ、自作の、ホーリックスの、あとつぎとして、生まれたのが、フォーリックスです。",
+      "telops": [
+        "OsiriX→Horos→【HorliX】",
+        "その後継が【PHORLIX】"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-23-phorlix/ai.png",
+      "bg_marks": [
+        [
+          14,
+          190,
+          1032,
+          185
+        ],
+        [
+          14,
+          745,
+          1032,
+          120
+        ]
+      ],
+      "kicker": "Kurageの考察",
+      "headline": "一人で世界1位",
+      "narration": "現場を一番よく知る人が、自分で道具を作り、世界1位になる。こんなすごい人がいるんです。続きはエクスブリッジのブログで。",
+      "reading": "現場を、一番よく知る人が、自分で道具を作り、せかい、いちいに、なる。こんなすごい人が、いるんです。続きは、エクスブリッジのブログで。",
+      "telops": [
+        "現場を知る人が【自分で作る】",
+        "こんな【すごい人】がいる",
+        "続きは【エクスブリッジのブログ】で"
+      ]
+    }
+  ],
+  "kurage_job_id": "e35d80b566c925b3"
+}
