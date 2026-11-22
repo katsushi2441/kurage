@@ -412,11 +412,23 @@ def render(spec: dict, out_dir: Path, cache: bool = True) -> tuple[Path, Path]:
         if thumb_frame is None and t >= 1.2:
             thumb_frame = frame.copy()
         enc.stdin.write(frame.tobytes())
-    enc.stdin.close(); enc.wait(); dec.wait()
+    enc.stdin.close(); enc.wait()
+    # 背景が nframes より長いと、デコーダーは読まれない出力で止まったままになる（11/22 君の名は。で20分固まった）。
+    # 読み終えたら先に出口を閉じて止める。
+    dec.stdout.close()
+    if dec.poll() is None:
+        dec.terminate()
+        try:
+            dec.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            dec.kill(); dec.wait()
     if enc.returncode != 0:
         raise SystemExit("書き出しに失敗しました")
     thumb = out_dir / "thumbnail.jpg"
-    (thumb_frame or frame).convert("RGB").save(thumb, quality=90)
+    # Kurage は ffmpeg 側で重ねるので、サムネイルは完成した動画から切り出す（Python のフレームには Kurage が居ない）
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", "1.5", "-i", str(out), "-frames:v", "1", "-q:v", "2", str(thumb)])
+    if r.returncode != 0 or not thumb.exists():
+        (thumb_frame or frame).convert("RGB").save(thumb, quality=90)
     print("書き出し", out, f"{total:.1f}秒")
     return out, thumb
 
