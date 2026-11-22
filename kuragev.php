@@ -793,7 +793,7 @@ echo json_encode($jsonld, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNES
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-serif;font-size:14px;}
-body.list-page{height:100vh;height:100dvh;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,3fr) minmax(120px,1fr) auto;}
+body.list-page{height:100vh;height:100dvh;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto auto;}
 /* 段をはっきり決める（2026-11-22）。partner-bar.js が会社のヘッダー #kurage-site-head を body の先頭に、販売代理店の帯 #kurage-partner-bar を最後に差し込むので、
    決めないと段が1つずつずれて、スマホで動画一覧が150pxしか無く、宣伝の欄が558pxを取っていた（ユーザー指摘「動画一覧がほとんど見えない」） */
 body.list-page > #kurage-site-head{grid-row:1;}
@@ -805,9 +805,17 @@ body.list-page .header{position:relative;top:auto;}
 .list-scroll-pane,.promo-scroll-pane{min-width:0;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
 .list-scroll-pane{scrollbar-gutter:stable;background:#fff;}
 .promo-scroll-pane{border-top:1px solid #cfe3e7;background:linear-gradient(180deg,#f5fbfc,#fff);box-shadow:0 -12px 28px rgba(30,84,96,.12);scrollbar-gutter:stable;}
+/* お知らせの欄は引き出し（2026-11-22 ユーザー指示「フッターがでかすぎて動画一覧が表示されてない。全部読めなくていい。ひっぱって引き延ばせば」）。
+   ふだんは取っ手だけ（46px）。上に引っぱると伸び、タップで6割まで開く */
+body.list-page .promo-scroll-pane{height:var(--promo-h,46px);overflow:hidden;transition:height .22s ease;}
+body.list-page .promo-scroll-pane.dragging{transition:none;}
+body.list-page .promo-scroll-pane.open{overflow-y:auto;}
+.promo-handle{position:sticky;top:0;z-index:3;height:46px;display:flex;align-items:center;justify-content:center;gap:10px;background:#eef8fa;border-bottom:1px solid #d3e8ec;cursor:ns-resize;touch-action:none;user-select:none;-webkit-user-select:none;font:700 12.5px/1.3 -apple-system,'Helvetica Neue',sans-serif;color:#0a726b;}
+.promo-handle .grip{width:38px;height:5px;border-radius:3px;background:#9cc9d0;flex:none;}
+.promo-handle .lbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 body.list-page .promo-scroll-pane .kvsvc{margin:0 auto;padding-top:12px;}
 body.list-page .promo-scroll-pane .affiliate-disclosure{margin-top:10px!important;}
-@media (max-height:700px){body.list-page{grid-template-rows:auto auto minmax(0,3fr) minmax(110px,1fr) auto;}}
+
 @media (max-width:640px){
   body.list-page .header{min-width:0;padding:.65rem .7rem;gap:6px;}
   body.list-page .brand{min-width:0;gap:.45rem;}
@@ -962,7 +970,7 @@ body.list-page .promo-scroll-pane .affiliate-disclosure{margin-top:10px!importan
   <div class="brand">
     <span class="kurage-avatar-stage kurage-avatar-mini" role="img" aria-label="Kurage avatar"><img class="kurage-avatar-still" src="images/kurage_avatar_face.webp" alt=""></span>
     <a class="brand-logo" href="kuragev.php">
-      <span>Kurageプロジェクト</span>
+      <span>Kurage</span>
       <span class="brand-sub">AI Short Video</span>
     </a>
   </div>
@@ -1727,6 +1735,28 @@ $amazon_cta_url = '/go.php?' . http_build_query(array(
 ));
 ?>
 <aside class="<?php echo $detail_job ? 'promo-flow' : 'promo-scroll-pane'; ?>" id="promo-scroll-pane" aria-label="Kurageからのお知らせ">
+<?php if (!$detail_job): ?>
+<div class="promo-handle" id="promo-handle" role="button" tabindex="0" aria-expanded="false" aria-controls="promo-scroll-pane"><span class="grip"></span><span class="lbl">Kurageからのお知らせ（上に引っぱると開きます）</span></div>
+<script>
+(function(){
+  var pane=document.getElementById('promo-scroll-pane'), hd=document.getElementById('promo-handle'); if(!pane||!hd) return;
+  var MIN=46, lbl=hd.querySelector('.lbl');
+  function max(){ return Math.round(window.innerHeight*0.85); }
+  function set(h,open){ h=Math.max(MIN,Math.min(max(),h)); pane.style.setProperty('--promo-h',h+'px');
+    pane.classList.toggle('open',open); hd.setAttribute('aria-expanded',open?'true':'false');
+    lbl.textContent=open?'閉じる（下に引っぱっても閉じます）':'Kurageからのお知らせ（上に引っぱると開きます）'; if(!open) pane.scrollTop=0; }
+  function toggle(){ var open=!pane.classList.contains('open'); set(open?Math.round(window.innerHeight*0.6):MIN,open); }
+  var sy=0, sh=0, moved=0, down=false;
+  hd.addEventListener('pointerdown',function(e){ down=true; moved=0; sy=e.clientY; sh=pane.getBoundingClientRect().height; pane.classList.add('dragging'); try{hd.setPointerCapture(e.pointerId);}catch(x){} });
+  hd.addEventListener('pointermove',function(e){ if(!down) return; var d=sy-e.clientY; moved=Math.max(moved,Math.abs(d)); if(moved>4) set(sh+d,sh+d>MIN+40); });
+  function up(){ if(!down) return; down=false; pane.classList.remove('dragging');
+    if(moved<=4){ toggle(); return; }
+    var h=pane.getBoundingClientRect().height; if(h<MIN+60) set(MIN,false); else set(h,true); }
+  hd.addEventListener('pointerup',up); hd.addEventListener('pointercancel',up);
+  hd.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
+})();
+</script>
+<?php endif; ?>
 <!-- Kurageサービス導線: 4ページ2レーン+相談 -->
 <section aria-label="Kurageのサービス" class="kvsvc">
   <style>
