@@ -793,14 +793,21 @@ echo json_encode($jsonld, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT | JSON_UNES
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#fff;color:#222;font-family:-apple-system,'Helvetica Neue',sans-serif;font-size:14px;}
-body.list-page{height:100vh;height:100dvh;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,3fr) minmax(150px,1fr);}
+body.list-page{height:100vh;height:100dvh;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,3fr) minmax(120px,1fr) auto;}
+/* 段をはっきり決める（2026-11-22）。partner-bar.js が会社のヘッダー #kurage-site-head を body の先頭に、販売代理店の帯 #kurage-partner-bar を最後に差し込むので、
+   決めないと段が1つずつずれて、スマホで動画一覧が150pxしか無く、宣伝の欄が558pxを取っていた（ユーザー指摘「動画一覧がほとんど見えない」） */
+body.list-page > #kurage-site-head{grid-row:1;}
+body.list-page > .header{grid-row:2;}
+body.list-page > .list-scroll-pane{grid-row:3;}
+body.list-page > .promo-scroll-pane{grid-row:4;}
+body.list-page > #kurage-partner-bar{grid-row:5;}
 body.list-page .header{position:relative;top:auto;}
 .list-scroll-pane,.promo-scroll-pane{min-width:0;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
 .list-scroll-pane{scrollbar-gutter:stable;background:#fff;}
 .promo-scroll-pane{border-top:1px solid #cfe3e7;background:linear-gradient(180deg,#f5fbfc,#fff);box-shadow:0 -12px 28px rgba(30,84,96,.12);scrollbar-gutter:stable;}
 body.list-page .promo-scroll-pane .kvsvc{margin:0 auto;padding-top:12px;}
 body.list-page .promo-scroll-pane .affiliate-disclosure{margin-top:10px!important;}
-@media (max-height:700px){body.list-page{grid-template-rows:auto minmax(0,3fr) minmax(140px,1fr);}}
+@media (max-height:700px){body.list-page{grid-template-rows:auto auto minmax(0,3fr) minmax(110px,1fr) auto;}}
 @media (max-width:640px){
   body.list-page .header{min-width:0;padding:.65rem .7rem;gap:6px;}
   body.list-page .brand{min-width:0;gap:.45rem;}
@@ -810,6 +817,13 @@ body.list-page .promo-scroll-pane .affiliate-disclosure{margin-top:10px!importan
   body.list-page .header-right{min-width:0;gap:4px;}
   body.list-page .amazon-mini{width:28px;height:28px;font-size:16px;}
   body.list-page .gen-link,body.list-page .reel-btn{padding:4px 6px;font-size:11px;}
+}
+/* 幅400px以下: ヘッダーの右のボタンで画面が横にはみ出した（360で+14px・320で+36px。2026-11-22）。Amazon の小ボタンを隠し、題を詰める */
+@media (max-width:400px){
+  body.list-page .amazon-mini{display:none;}
+  body.list-page .brand{flex:1 1 auto;min-width:0;}
+  body.list-page .brand-logo{font-size:.82rem;overflow:hidden;text-overflow:ellipsis;}
+  body.list-page .header-right{flex:none;}
 }
 
 /* ── ヘッダー ── */
