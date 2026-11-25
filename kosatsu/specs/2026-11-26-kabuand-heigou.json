@@ -1,0 +1,76 @@
+{
+  "slug": "2026-11-26-kabuand-heigou",
+  "title": "【考察】カブアンドの株式併合｜12月22日に10株が1株に。発行価格は3円から80〜110円へ",
+  "blog_url": "https://exbridge.jp/vibeblog/2026-11-26-kabuand-kabushiki-heigou-hakko-kakaku.html",
+  "summary": "カブアンドの株式併合と発行価格の推移を目論見書から整理した考察ショート。",
+  "keywords": [
+    "カブアンド",
+    "カブアンド 株式併合",
+    "カブアンド 株価",
+    "発行価格",
+    "考察"
+  ],
+  "bgm": "kpvgen/outputs/acestep_queue/kosatsu-tension-bgm-01.mp3",
+  "bgm_volume": 0.17,
+  "scenes": [
+    {
+      "bg": "kpvgen/outputs/h3_queue/h3-kosatsu-kabuand-crowd-8s.mp4",
+      "kicker": "12月22日",
+      "headline": "株式併合",
+      "narration": "カブアンドは12月22日に、10株を1株にまとめます。",
+      "reading": "カブアンドは、じゅうにがつにじゅうににちに、じゅっかぶを、いっかぶにまとめます。",
+      "telops": [
+        "【12月22日】",
+        "【10株】が【1株】に"
+      ],
+      "bg_start": 0
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-26-kabuand-heigou/heigou.png",
+      "kicker": "株が減る？",
+      "headline": "価値は変わらない",
+      "narration": "株の数は10分の1になりますが、1株の値段が10倍になるので、持っている株の価値は変わりません。",
+      "reading": "株の数は、じゅうぶんのいちになりますが、いっかぶの値段が、じゅうばいになるので、持っている株の価値は、変わりません。",
+      "telops": [
+        "株の数は【10分の1】",
+        "1株の値段は【10倍】",
+        "価値は【変わらない】"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-26-kabuand-heigou/miman.png",
+      "kicker": "10株未満",
+      "headline": "株主として残れる",
+      "narration": "10株未満の約972名も、株主として残れるよう、別に案内される予定です。",
+      "reading": "じゅっかぶ未満の、やく、きゅうひゃくななじゅうにめいも、株主として残れるよう、別に案内される予定です。",
+      "telops": [
+        "10株未満は【約972名】",
+        "株主として【残れる】よう案内"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-26-kabuand-heigou/table.png",
+      "kicker": "発行価格の推移",
+      "headline": "3円から110円へ",
+      "narration": "発行価格は、3円、6円、8円と上がり、第5期は併合後の数え方で80円から110円の予定です。",
+      "reading": "発行価格は、さんえん、ろくえん、はちえんと上がり、だいごきは、併合後の数え方で、はちじゅうえんから、ひゃくじゅうえんの予定です。",
+      "telops": [
+        "【3円】【6円】【8円】",
+        "第5期は【80〜110円】の予定"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-26-kabuand-heigou/jojo.png",
+      "kicker": "上場したら",
+      "headline": "市場価格は保証なし",
+      "narration": "ただ、上場したときの市場価格が、発行価格を上回る保証はありません。続きは、エクスブリッジのブログで。",
+      "reading": "ただ、上場したときの市場価格が、発行価格を上回る保証は、ありません。続きは、エクスブリッジのブログで。",
+      "telops": [
+        "市場価格が発行価格を",
+        "上回る【保証はない】",
+        "続きは【エクスブリッジのブログ】で"
+      ]
+    }
+  ],
+  "kurage_job_id": "c09825508d13d56b"
+}

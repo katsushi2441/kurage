@@ -1,0 +1,77 @@
+{
+  "slug": "2026-11-26-kabuand-kessan",
+  "title": "【考察】カブアンドは赤字？決算を目論見書で読む｜第3期中間は営業黒字4.1億円",
+  "blog_url": "https://exbridge.jp/vibeblog/2026-11-26-kabuand-akaji-kessan.html",
+  "summary": "カブアンドの決算の推移を目論見書から読んだ考察ショート。第2期は13.5億円の赤字、第3期中間は営業黒字。",
+  "keywords": [
+    "カブアンド",
+    "カブアンド 赤字",
+    "カブアンド 決算",
+    "目論見書",
+    "考察"
+  ],
+  "bgm": "kpvgen/outputs/acestep_queue/kosatsu-tension-bgm-01.mp3",
+  "bgm_volume": 0.17,
+  "scenes": [
+    {
+      "bg": "kpvgen/outputs/h3_queue/h3-kosatsu-kabuand-crowd-8s.mp4",
+      "kicker": "カブアンドの決算",
+      "headline": "赤字21億円は古い",
+      "narration": "カブアンドは赤字、とよく言われます。でも、その21億円の赤字は、第1期の数字です。",
+      "reading": "カブアンドは赤字、とよく言われます。でも、その、にじゅういちおくえんの赤字は、だいいっきの数字です。",
+      "telops": [
+        "カブアンドは【赤字】？",
+        "21億円は【第1期】の数字"
+      ],
+      "bg_start": 0
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-26-kabuand-kessan/table.png",
+      "kicker": "第2期",
+      "headline": "売上は80億円に",
+      "narration": "第2期の売上は80億円に増えましたが、13.5億円の赤字でした。",
+      "reading": "だいにきの売上は、はちじゅうおくえんに増えましたが、じゅうさんてんごおくえんの赤字でした。",
+      "telops": [
+        "第2期の売上は【80億円】",
+        "でも【13.5億円】の赤字"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-26-kabuand-kessan/akaji.png",
+      "kicker": "赤字の理由",
+      "headline": "広告で利用者を集めた",
+      "narration": "赤字の理由は、システムの費用と、利用者を集めるための広告やキャンペーンの費用でした。",
+      "reading": "赤字の理由は、システムの費用と、利用者を集めるための、広告や、キャンペーンの費用でした。",
+      "telops": [
+        "赤字の理由は",
+        "【システム費用】と",
+        "【広告・キャンペーン】"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-26-kabuand-kessan/kuroji.png",
+      "kicker": "第3期中間",
+      "headline": "営業黒字4.1億円",
+      "narration": "そして第3期の中間期。売上51.7億円に対して、営業利益は4.1億円。黒字に転じました。",
+      "reading": "そして、だいさんきの中間期。売上、ごじゅういちてんななおくえんに対して、営業利益は、よんてんいちおくえん。黒字に転じました。",
+      "telops": [
+        "第3期中間の売上は【51.7億円】",
+        "営業利益【4.1億円】",
+        "【黒字】に転じた"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-26-kabuand-kessan/chui.png",
+      "kicker": "まだ半年分",
+      "headline": "通期は未定",
+      "narration": "ただ、黒字は半年分です。通期で黒字になるかは、まだ分かりません。続きは、エクスブリッジのブログで。",
+      "reading": "ただ、黒字は、はんとしぶんです。通期で黒字になるかは、まだ分かりません。続きは、エクスブリッジのブログで。",
+      "telops": [
+        "黒字は【半年分】",
+        "通期は【まだ分からない】",
+        "続きは【エクスブリッジのブログ】で"
+      ]
+    }
+  ],
+  "kurage_job_id": "05cf0e7e2d682c7c"
+}
