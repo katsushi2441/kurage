@@ -1,0 +1,87 @@
+{
+  "slug": "2026-11-28-appsheet-filament",
+  "title": "【考察】AppSheetの料金が気になる会社へ｜Laravel Filament と MCP で、AIが作る業務アプリ（構想）",
+  "blog_url": "https://exbridge.jp/vibeblog/2026-11-28-appsheet-laravel-filament-mcp.html",
+  "summary": "AppSheetやkintoneは人数で料金が増え、データは外のクラウド。MITのLaravelとFilamentで業務アプリの土台を作り、MCPでAIがつながると、AIに頼むだけで表ができ、登録し、集計できる。まだ構想の段階の考察ショート。",
+  "keywords": [
+    "AppSheet",
+    "Laravel",
+    "Filament",
+    "MCP",
+    "業務アプリ",
+    "考察"
+  ],
+  "bgm": "kpvgen/outputs/acestep_queue/kosatsu-tension-bgm-01.mp3",
+  "bgm_volume": 0.17,
+  "scenes": [
+    {
+      "bg": "kpvgen/outputs/h3_queue/h3-kosatsu-ai-kiban-office-8s.mp4",
+      "kicker": "AppSheetの料金",
+      "headline": "人数で増える料金",
+      "narration": "AppSheetやkintoneは便利です。でも、使う人数に応じて料金がかかり、データは外のクラウドに置きます。",
+      "reading": "アップシートや、キントーンは便利です。でも、使う人数に応じて、料金がかかり、データは、外のクラウドに置きます。",
+      "telops": [
+        "使う人数で【料金が増える】",
+        "データは【外のクラウド】"
+      ],
+      "bg_start": 0
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-28-appsheet-filament/s1.png",
+      "kicker": "構想",
+      "headline": "AIに頼むだけ",
+      "narration": "そこで考えたのが、AIに頼むと業務アプリができる形です。表を作って、と頼めば、一覧と入力フォームが自動でできます。",
+      "reading": "そこで考えたのが、エーアイに頼むと、業務アプリができる形です。表を作って、と頼めば、一覧と入力フォームが、自動でできます。",
+      "telops": [
+        "「表を作って」で【業務アプリ】",
+        "メールから【登録】・【集計】も"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-28-appsheet-filament/s2.png",
+      "kicker": "人が使う画面",
+      "headline": "一覧と入力",
+      "narration": "人はブラウザで、一覧・入力・ダッシュボードを使います。AIが登録した行は、AIが入れたと分かるようにします。",
+      "reading": "人はブラウザで、一覧、入力、ダッシュボードを使います。エーアイが登録した行は、エーアイが入れたと、分かるようにします。",
+      "telops": [
+        "一覧・入力・【ダッシュボード】",
+        "AIが入れた行は【分かる】"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-28-appsheet-filament/s3.png",
+      "kicker": "しくみ",
+      "headline": "MITの部品で",
+      "narration": "土台は、PHPのララベルと、画面を作るフィラメント。どちらもMITライセンスです。AIはMCPという共通のつなぎ方で操作します。",
+      "reading": "土台は、ピーエイチピーのララベルと、画面を作るフィラメント。どちらも、エムアイティーライセンスです。エーアイは、エムシーピーという、共通のつなぎ方で、操作します。",
+      "telops": [
+        "Laravel＋Filament【MIT】",
+        "AIは【MCP】でつなぐ"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-28-appsheet-filament/s4.png",
+      "kicker": "違い",
+      "headline": "AIを選ばない",
+      "narration": "人数で料金が増えず、データは手元に残り、クロード、チャットGPT、コパイロット、どのAIからでも使えます。",
+      "reading": "人数で、料金が増えず、データは手元に残り、クロード、チャットジーピーティー、コパイロット、どのエーアイからでも、使えます。",
+      "telops": [
+        "人数で【料金が増えない】",
+        "どのAIからでも【使える】"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-28-appsheet-filament/s5.png",
+      "kicker": "正直に",
+      "headline": "まだ構想です",
+      "narration": "画面はまだイメージの段階です。専用のスマホアプリや自由な分析は弱いと割り切ります。続きは、エクスブリッジのブログで。",
+      "reading": "画面は、まだイメージの段階です。専用のスマホアプリや、自由な分析は、弱いと割り切ります。続きは、エクスブリッジのブログで。",
+      "telops": [
+        "画面は【まだイメージ】",
+        "弱いところは【割り切る】",
+        "続きは【エクスブリッジのブログ】で"
+      ]
+    }
+  ],
+  "kurage_job_id": "bffc67d3ea1d04c6"
+}
