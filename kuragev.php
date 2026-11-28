@@ -670,17 +670,14 @@ if ($detail_job) {
         }
     }
 }
-// kurl2earn 告知カード(2026-07-27)。この動画ページ自体がkurage.exbridge.jpの
-// URLなので「このページを紹介すれば対象」という文脈で載せる。詳細/一覧の2箇所共通。
+// 告知カード。2026-07-27 は kurl2earn（URL2Earn）の告知だった。
+// 2026-11-28 ユーザー指示で AIシステム基盤×AI-IT顧問契約の提案に差し替え（関数名と置き場所2か所はそのまま）。価格は書かない
 function kurl2earn_card_html($detail = false) {
-    $lead = $detail
-        ? 'この動画ページのURLをXやブログで紹介すると'
-        : 'Kurageの動画やサイトのURLをXやブログで紹介すると';
-    return '<a class="k2e-card" href="https://kurl2earn.exbridge.jp/kurl2earn.html?ref=kuragev">'
-         . '<img class="k2e-kurage" src="images/kurage_avatar.webp" alt="Kurage" loading="lazy">'
-         . '<span class="k2e-tx"><b>Kurage URL2Earn</b> — '
-         . h($lead) . '、<b>10,000 URLAI</b> トークンをKurageさんがお届け（1人1回・先着制）。'
-         . '<span class="k2e-cta">受け取り方を見る →</span></span></a>';
+    return '<a class="k2e-card" href="https://exbridge.jp/pdf/ai-system-kiban.pdf#ref=kuragev-kiban" target="_blank" rel="noopener">'
+         . '<img class="k2e-kurage" src="https://exbridge.jp/pdf/ai-system-kiban.png" alt="AIシステム基盤の資料（A4・1枚）" loading="lazy" style="height:72px;border-radius:4px;background:#fff;filter:none">'
+         . '<span class="k2e-tx"><b>AIシステム基盤</b> — Copilot・Gemini・ChatGPT を入れただけでは、業務は自動化されません。'
+         . 'この動画も、AIが業務システムを操作して作っています。同じ土台を、<b>AI-IT顧問契約</b>で御社の業務に合わせて作ります。'
+         . '<span class="k2e-cta">資料（A4・1枚）を見る →</span></span></a>';
 }
 $header_amazon_kw = trim((string)($detail_job['title'] ?? '動画編集 撮影機材 YouTube 本'));
 $header_amazon_from = '/' . $THIS_FILE . ($detail_id ? ('?id=' . $detail_id) : '');
