@@ -1,0 +1,87 @@
+{
+  "slug": "2026-11-28-ai-bi",
+  "title": "【考察】BIツールは要る？｜Metabaseの代わりに、AIが集計して Laravel Filament で見せる BI（構想）",
+  "blog_url": "https://exbridge.jp/vibeblog/2026-11-28-bi-tool-ai-laravel-filament.html",
+  "summary": "Metabaseの一番の売りは画面の操作で集計できること。その役目をAIに任せ、Laravel Filament が保存・表示・共有を受け持つ。数字の定義集とSQLの表示で数字をそろえる、MCP対応のBIの構想を話す考察ショート。",
+  "keywords": [
+    "BIツール",
+    "Metabase",
+    "Laravel",
+    "Filament",
+    "MCP",
+    "考察"
+  ],
+  "bgm": "kpvgen/outputs/acestep_queue/kosatsu-tension-bgm-01.mp3",
+  "bgm_volume": 0.17,
+  "scenes": [
+    {
+      "bg": "kpvgen/outputs/h3_queue/h3-kosatsu-ai-kiban-office-8s.mp4",
+      "kicker": "BIツール",
+      "headline": "BIは要る？",
+      "narration": "売上や受注の数字を見るために、BIツールを入れたい。でも、本当に要るのでしょうか。",
+      "reading": "売上や受注の数字を見るために、ビーアイツールを入れたい。でも、本当に要るのでしょうか。",
+      "telops": [
+        "数字を見たいから【BIツール】？",
+        "本当に【要る】？"
+      ],
+      "bg_start": 0
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-28-ai-bi/s1.png",
+      "kicker": "一番の売りは",
+      "headline": "AIに任せる",
+      "narration": "メタベースの一番の売りは、SQLを書けなくても集計できること。その役目は、今はAIに任せられます。",
+      "reading": "メタベースの一番の売りは、エスキューエルを書けなくても、集計できること。その役目は、今は、エーアイに任せられます。",
+      "telops": [
+        "画面で集計できる＝【一番の売り】",
+        "その役目は【AIに任せる】"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-28-ai-bi/s2.png",
+      "kicker": "人が見る画面",
+      "headline": "ダッシュボード",
+      "narration": "AIが作った集計は保存して、フィラメントのダッシュボードに並べます。毎朝見る数字は、開くだけで見られます。",
+      "reading": "エーアイが作った集計は保存して、フィラメントの、ダッシュボードに並べます。毎朝見る数字は、開くだけで見られます。",
+      "telops": [
+        "集計を【保存】して",
+        "ダッシュボードに【並べる】"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-28-ai-bi/s3.png",
+      "kicker": "安全のために",
+      "headline": "SQLを見せる",
+      "narration": "結果には、使ったSQLと条件を必ず付けます。データベースは読むだけ。人が確かめてから、確認済みにします。",
+      "reading": "結果には、使った、エスキューエルと条件を、必ず付けます。データベースは、読むだけ。人が確かめてから、確認済みにします。",
+      "telops": [
+        "使った【SQLと条件】を見せる",
+        "データベースは【読むだけ】"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-28-ai-bi/s4.png",
+      "kicker": "一番大事なのは",
+      "headline": "数字の定義",
+      "narration": "売上は税込か税別か。受注はキャンセルを除くか。数え方を定義集にまとめ、AIは集計の前に必ず読みます。",
+      "reading": "売上は、税込か税別か。受注は、キャンセルを除くか。数え方を、定義集にまとめ、エーアイは、集計の前に必ず読みます。",
+      "telops": [
+        "数え方を【定義集】に",
+        "AIは【必ず読む】"
+      ]
+    },
+    {
+      "bg": "kurage/kosatsu/assets/2026-11-28-ai-bi/s5.png",
+      "kicker": "まとめ",
+      "headline": "BIは業務の中に",
+      "narration": "BIは別の製品ではなく、業務システムの中に持たせればいい。まだ構想です。続きは、エクスブリッジのブログで。",
+      "reading": "ビーアイは、別の製品ではなく、業務システムの中に持たせればいい。まだ構想です。続きは、エクスブリッジのブログで。",
+      "telops": [
+        "BIは【業務システムの中】に",
+        "画面は【まだイメージ】",
+        "続きは【エクスブリッジのブログ】で"
+      ]
+    }
+  ],
+  "kurage_job_id": "a9b8411f8494c9f9"
+}
